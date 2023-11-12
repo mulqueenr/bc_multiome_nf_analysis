@@ -336,6 +336,7 @@ bcl2fastq \
 Generate libraries csv file specifying fastq locations for cellranger-arc. Note that preliminary batch of data is different format because the core split data rather than supplied bcl files.
 
 ```bash
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 cd ${proj_dir}/sequencing_data
 
 #preliminary batch

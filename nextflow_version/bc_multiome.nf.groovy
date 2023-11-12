@@ -24,15 +24,15 @@ log.info """
 // BCL TO FASTQ PIPELINE 
 process CELLRANGER_ARC { 
 	//Generate Undetermined Fastq Files from BCL Files.
-	//conda "/volumes/USR2/Ryan/miniconda3/envs/r4.2"
+	//Based on https://github.com/nf-core/modules/tree/master/modules/nf-core/cellranger/count
 	cpus 10
-	publishDir "${params.outdir}/cellranger_out", mode: 'copy'
+	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
 
 
 	input:
 		path sample
 	output:
-		tuple path("*html"),
+		tuple val(sample), path("**/outs/**"), emit: outs
 	script:
 		"""
 		cellranger-arc count --id=${sample.simpleName} \\
