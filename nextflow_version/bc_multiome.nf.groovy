@@ -25,14 +25,12 @@ log.info """
 process CELLRANGER_ARC { 
 	//Generate Undetermined Fastq Files from BCL Files.
 	//Based on https://github.com/nf-core/modules/tree/master/modules/nf-core/cellranger/count
-	cpus 10
 	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
-
 
 	input:
 		path sample
 	output:
-		tuple val(sample), path("**/outs/**"), emit: outs
+		tuple val("${sample.simpleName}"), path("**/outs/**")
 	script:
 		"""
 		cellranger-arc count --id=${sample.simpleName} \\
@@ -43,11 +41,36 @@ process CELLRANGER_ARC {
 		"""
 }
 
-//PERFORM SCRUBLET ON RAW RNA COUNTS
-//process SCRUBLET_RNA {}
+/* //Data correction.
+process SCRUBLET_RNA {
+	//Perform scrublet on raw RNA count.
+	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
 
-//process SOUPX_RNA {}
 
+	input:
+		path val(sample),path(cellranger_output)
+	script:
+		"""
+		scrublet_per_sample.py ${cellranger_output}
+		"""
+
+}
+
+process SOUPX_RNA {
+	//Perform soupX on raw RNA counts.
+
+	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
+
+
+	input:
+		path val(sample),path(cellranger_output)
+	script:
+		"""
+		soupx_per_sample.py ${sample} ${cellranger_output}
+		"""
+}
+
+*/
 //process SEURAT_GENERATION {}
 
 //process MERGE_SAMPLES_CALLPEAKS {}
@@ -80,18 +103,15 @@ process CELLRANGER_ARC {
 //CELL TYPE ANALYSIS
 
 
-
-
-
 workflow {
 	/* SETTING UP VARIABLES */
 		def fasta_ref = Channel.value(params.ref)
-		def samples = Channel.fromPath( "${params.sample_dir}/*.csv" )
+		def sample = Channel.fromPath( "${params.sample_dir}/NAT_11.csv" )
 
 	/* CELLRANGER PIPELINE */
-		cellranger_output=CELLRANGER_ARC(samples) \
-		| SCRUBLET_RNA \
-		| SOUPX_RNA
+		cellranger_output=CELLRANGER_ARC(sample) //\
+		//| SCRUBLET_RNA \
+		//| SOUPX_RNA
 
 
 
