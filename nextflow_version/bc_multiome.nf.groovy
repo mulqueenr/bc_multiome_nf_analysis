@@ -43,6 +43,45 @@ process CELLRANGER_ARC {
 		"""
 }
 
+//PERFORM SCRUBLET ON RAW RNA COUNTS
+//process SCRUBLET_RNA {}
+
+//process SOUPX_RNA {}
+
+//process SEURAT_GENERATION {}
+
+//process MERGE_SAMPLES_CALLPEAKS {}
+
+//process DIM_REDUCTION_PER_SAMPLE {}
+
+//process CISTOPIC_PER_SAMPLE {}
+
+//process PUBLIC_DATA_LABEL_TRANSFER {}
+
+//process MERGE_SEURAT_OBJECT {}
+
+//process MERGED_CLUSTER {}
+
+//process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
+
+//process MERGED_CHROMVAR {}
+
+//process MERGED_GENE_ACTIVITY {}
+
+// CNV CALLING
+//process INFERCNV_RNA_PER_SAMPLE {}
+
+//process CASPER_RNA_PER_SAMPLE {}
+
+//process COPYKAT_RNA_PER_SAMPLE {}
+
+//process COPYSCAT_ATAC_PER_SAMPLE
+
+//CELL TYPE ANALYSIS
+
+
+
+
 
 workflow {
 	/* SETTING UP VARIABLES */
@@ -50,7 +89,9 @@ workflow {
 		def samples = Channel.fromPath( "${params.sample_dir}/*.csv" )
 
 	/* CELLRANGER PIPELINE */
-		CELLRANGER_ARC(samples)
+		cellranger_output=CELLRANGER_ARC(samples) \
+		| SCRUBLET_RNA \
+		| SOUPX_RNA
 
 
 
