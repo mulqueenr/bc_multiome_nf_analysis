@@ -8,7 +8,7 @@ import sys
 import pandas as pd
 np.random.seed(0)
 x=sys.argv[1]
-input_dir=x
+input_dir=x+"/outs"
 outname=x.split("/")[-1]
 
 #Load the raw counts matrix as a scipy sparse matrix with cells as rows and genes as columns.

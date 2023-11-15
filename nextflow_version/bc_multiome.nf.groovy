@@ -8,7 +8,6 @@ params.outdir = "${params.proj_dir}/nf_analysis"
 params.sample_dir="${params.proj_dir}/sequencing_data"
 params.ref = "${params.proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0"
 params.src_dir="${params.proj_dir}/src"
-task.cpus=20
 
 log.info """
 
@@ -27,8 +26,6 @@ log.info """
 //Data correction.
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
-	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
-
 
 	input:
 		path sample_dir
@@ -44,21 +41,29 @@ process SCRUBLET_RNA {
 process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
 
-	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
-
-
 	input:
 		path sample_dir
 	output:
 		path(sample_dir)
 	script:
 		"""
-		python ${params.src_dir}/soupx_per_sample.py ${sample} ${cellranger_output}
+		Rscript ${params.src_dir}/soupx_per_sample.R ${sample_dir.simpleName} ${sample_dir}
 		"""
 }
 
-*/
-//process SEURAT_GENERATION {}
+
+process SEURAT_GENERATION {
+	//Perform soupX on raw RNA counts.
+
+	input:
+		path sample_dir
+	output:
+		path("${sample_dir.simpleName}.SeuratObject.rds")
+	script:
+		"""
+		Rscript ${params.src_dir}/initialize_seurat.R ${sample_dir.simpleName} ${sample_dir}
+		"""
+}
 
 //process MERGE_SAMPLES_CALLPEAKS {}
 
@@ -97,7 +102,8 @@ workflow {
 
 	/* CELLRANGER PIPELINE */
 		SCRUBLET_RNA(sample_dir) \
-		//| SOUPX_RNA
+		| SOUPX_RNA \
+		| SEURAT_GENERATION
 
 
 

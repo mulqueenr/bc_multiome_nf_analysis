@@ -1,7 +1,7 @@
 library(SoupX)
 args = commandArgs(trailingOnly=TRUE)
 outname=args[1]
-wd=args[2]
+wd=paste0(args[2],"/","outs")
 
 sc = load10X(wd)
 sc = autoEstCont(sc,tfidfMin=1) #1 is default
