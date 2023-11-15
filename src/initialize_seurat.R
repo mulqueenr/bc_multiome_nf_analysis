@@ -7,9 +7,11 @@ set.seed(1234)
 library(stringr)
 library(ggplot2)
 args = commandArgs(trailingOnly=TRUE)
+nf_dir=getwd()
 
 outname=args[1]
 wd=paste0("./",args[2],"/","outs")
+outdir=args[3]
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
@@ -60,5 +62,7 @@ plt<-VlnPlot(
   ncol = 4,
   pt.size = 0
 )
-ggsave(plt,file=paste0(wd,"/",outname,".qc.pdf"))
+
+setwd(nf_dir)#save to working directory for nextflow
+ggsave(plt,file=paste0(outdir,"/",outname,".qc.pdf"))
 saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))
