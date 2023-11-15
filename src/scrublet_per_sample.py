@@ -24,6 +24,6 @@ doublet_scores, predicted_doublets = scrub.scrub_doublets(min_counts=2,
                                                           n_prin_comps=30)
 
 df = pd.DataFrame({'cellid':cellIDs, 'doublet_scores':doublet_scores,'predicted_doublets':predicted_doublets})
-df.to_csv(outname+'.scrublet.tsv', index=False, sep="\t")
+df.to_csv(input_dir +"/"+ outname+'.scrublet.tsv', index=False, sep="\t")
 print("Done with sample: "+outname)
 print("Saved output to: "+outname+'.scrublet.tsv')

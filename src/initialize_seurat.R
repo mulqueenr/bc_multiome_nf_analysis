@@ -6,16 +6,17 @@ library(GenomeInfoDb)
 set.seed(1234)
 library(stringr)
 library(ggplot2)
+args = commandArgs(trailingOnly=TRUE)
 
 outname=args[1]
-wd=args[2]
+wd=paste0("./",args[2],"/","outs")
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
 ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pattern="chrMT", replacement="chrM")
 seqlevels(annotation) <- ucsc.levels #standard seq level change threw error, using a string replace instead
 
-setwd(paste0(wd,"/","outs"))
+setwd(wd)
 counts <- Read10X_h5("filtered_feature_bc_matrix.h5") #count data
 fragpath <- "atac_fragments.tsv.gz" #atac fragments
 metadata_cellranger<-read.csv("per_barcode_metrics.csv") #metadata
@@ -60,4 +61,4 @@ plt<-VlnPlot(
   pt.size = 0
 )
 ggsave(plt,file=paste0(wd,"/",outname,".qc.pdf"))
-saveRDS(dat,file=paste0(wd,"/",outname,".SeuratObject.rds"))
+saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))
