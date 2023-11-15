@@ -5,8 +5,10 @@ nextflow.enable.dsl=2
 // Script parameters
 params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
-params.ref = "${params.proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0"
 params.sample_dir="${params.proj_dir}/sequencing_data"
+params.ref = "${params.proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0"
+params.src_dir="${params.proj_dir}/src"
+task.cpus=20
 
 log.info """
 
@@ -21,37 +23,20 @@ log.info """
 
 """.stripIndent()
 
-// BCL TO FASTQ PIPELINE 
-process CELLRANGER_ARC { 
-	//Generate Undetermined Fastq Files from BCL Files.
-	//Based on https://github.com/nf-core/modules/tree/master/modules/nf-core/cellranger/count
-	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
 
-	input:
-		path sample
-	output:
-		tuple val("${sample.simpleName}"), path("**/outs/**")
-	script:
-		"""
-		cellranger-arc count --id=${sample.simpleName} \\
-		--reference=${params.ref} \\
-		--libraries=${sample} \\
-		--localcores=${task.cpus} \\
-		--localmem=90
-		"""
-}
-
-/* //Data correction.
+//Data correction.
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
 	publishDir "${params.outdir}/cellranger_out/", mode: 'copy', overwrite: true
 
 
 	input:
-		path val(sample),path(cellranger_output)
+		path sample_dir
+	output:
+		path(sample_dir)
 	script:
 		"""
-		scrublet_per_sample.py ${cellranger_output}
+		python ${params.src_dir}/scrublet_per_sample.py ${sample_dir}
 		"""
 
 }
@@ -63,10 +48,12 @@ process SOUPX_RNA {
 
 
 	input:
-		path val(sample),path(cellranger_output)
+		path sample_dir
+	output:
+		path(sample_dir)
 	script:
 		"""
-		soupx_per_sample.py ${sample} ${cellranger_output}
+		python ${params.src_dir}/soupx_per_sample.py ${sample} ${cellranger_output}
 		"""
 }
 
@@ -106,11 +93,10 @@ process SOUPX_RNA {
 workflow {
 	/* SETTING UP VARIABLES */
 		def fasta_ref = Channel.value(params.ref)
-		def sample = Channel.fromPath( "${params.sample_dir}/NAT_11.csv" )
+		def sample_dir = Channel.fromPath( "${params.sample_dir}/*/" )
 
 	/* CELLRANGER PIPELINE */
-		cellranger_output=CELLRANGER_ARC(sample) //\
-		//| SCRUBLET_RNA \
+		SCRUBLET_RNA(sample_dir) \
 		//| SOUPX_RNA
 
 
