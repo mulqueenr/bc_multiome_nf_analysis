@@ -10,6 +10,7 @@ library(universalmotif)
 library(GenomicRanges)
 library(patchwork)
 register(SerialParam()) #using single core mode
+args = commandArgs(trailingOnly=TRUE)
 
 
 dat=readRDS(arg[1])

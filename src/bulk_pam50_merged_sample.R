@@ -1,13 +1,6 @@
-
-"""
-
 ######################
-For Bulk
+#Genefu
 ######################
-
-"""
-
-```R genefu
 library(Signac)
 library(Seurat)
 set.seed(1234)
@@ -26,8 +19,7 @@ dat<-readRDS(args[1])
 #do.mapping TRUE if the mapping through Entrez Gene ids must be performed
 #'   (in case of ambiguities, the most variant probe is kept for each gene), FALSE otherwise.
 
-#CDCA1 KNTC2 ORC6L use different names in our data
-#NUF2, NDC80, ORC6 resp.
+#CDCA1 KNTC2 ORC6L use different names in our data they are NUF2, NDC80, ORC6 resp.
 pam50_genes<-c('ACTR3B', 'ANLN', 'BAG1', 'BCL2', 'BIRC5', 'BLVRA', 
   'CCNB1', 'CCNE1', 'CDC20', 'CDC6', 'NUF2', 'CDH3', 'CENPF', 'CEP55', 
   'CXXC5', 'EGFR', 'ERBB2', 'ESR1', 'EXO1', 'FGFR4', 'FOXA1', 'FOXC1', 
@@ -36,7 +28,7 @@ pam50_genes<-c('ACTR3B', 'ANLN', 'BAG1', 'BCL2', 'BIRC5', 'BLVRA',
   'ORC6', 'PGR', 'PHGDH', 'PTTG1', 'RRM2', 'SFRP1', 'SLC39A6', 'TMEM45B', 
   'TYMS', 'UBE2C', 'UBE2T')
 
-sample_names<-paste(unlist(lapply(strsplit(colnames(dat[["RNA"]]@counts),"_"),"[",c(1))),
+sample_names<-colnames(dat[["RNA"]]@counts),"_"),"[",c(1))),
   unlist(lapply(strsplit(colnames(dat[["RNA"]]@counts),"_"),"[",c(2))),sep="_") #this might not be needed anymore
 
 counts<-as.data.frame(t(dat[["RNA"]]@counts)) 
@@ -64,9 +56,9 @@ saveRDS(dat,file="phase2.QC.filt.SeuratObject.rds")
 #tried just epithelial, tried both old method (intrinsic cluster) and updated method (molecular subtyping). maybe play around with normalizing first?
 #limit to epithelial? or maybe read up on proper normalization? our HER2+ isn't being labelled as such
 
-```
-
-```R ssbc
+######################
+#sspbc
+######################
 library(Signac)
 library(Seurat)
 set.seed(1234)

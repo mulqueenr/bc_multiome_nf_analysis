@@ -117,7 +117,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 		path("${obj_in}")
 	script:
 	"""
-	${params.src_dir}/seurat_dim_reduction_per_sample.R \\
+	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
 	${params.ref}
@@ -134,7 +134,7 @@ process CISTOPIC_PER_SAMPLE {
 		tuple path("${obj_in}"),path("*.CisTopicObject.rds")
 	script:
 	"""
-	${params.src_dir}/seurat_cistopic_per_sample.R \\
+	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots
 	"""
@@ -151,7 +151,7 @@ process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {}
 
 	script:
 	"""
-	${params.src_dir}/seurat_public_data_label_transfer.R \\
+	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
 	${obj_in} \\
 	${params.outdir}/plots
 	"""
@@ -163,7 +163,21 @@ process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {}
 //////////////////////////////////////////////////////
 //process MERGE_SEURAT_OBJECT {}
 
-//process MERGED_CLUSTER {}
+process MERGED_CLUSTER {
+	//Run LIGER on merged seurat object.
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+
+	input:
+		path(merged_in)
+	output:
+		tuple path("${merged_in}"),path("*.genecounts.rds")
+
+	script:
+	"""
+	Rscript ${params.src_dir}/merged_cluster_liger.R \\
+	${merged_in}
+	"""
+}
 
 //process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
 
@@ -178,7 +192,7 @@ process MERGED_CHROMVAR {
 
 	script:
 	"""
-	${params.src_dir}/seurat_public_data_label_transfer.R \\
+	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
 	${merged_in}
 	"""
 }
@@ -194,7 +208,7 @@ process MERGED_GENE_ACTIVITY {
 
 	script:
 	"""
-	${params.src_dir}/seurat_public_data_label_transfer.R \\
+	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
 	${merged_in}
 	"""
 }
@@ -202,13 +216,71 @@ process MERGED_GENE_ACTIVITY {
   //////////////////////////////////
  ///	CNV Calling Per Sample	///
 //////////////////////////////////
-//process INFERCNV_RNA_PER_SAMPLE {}
+process INFERCNV_RNA_PER_SAMPLE {
+	//Run InferCNV per sample.
 
-//process CASPER_RNA_PER_SAMPLE {}
+	input:
+		path(merged_in)
+	output:
+		path("${merged_in}")
+	script:
+	"""
+	mkdir -p ${params.outdir}/cnv
+	Rscript ${params.src_dir}/infercnv_per_sample.R \\
+	${merged_in} \\
+	${params.outdir}/cnv
+	"""
+}
 
-//process COPYKAT_RNA_PER_SAMPLE {}
+process CASPER_RNA_PER_SAMPLE {
+	//Run CASPER per sample.
 
-//process COPYSCAT_ATAC_PER_SAMPLE {}
+	input:
+		path(merged_in)
+	output:
+		path("${merged_in}")
+	script:
+	"""
+	Rscript ${params.src_dir}/casper_per_sample.R \\
+	${merged_in} \\
+	${ref} \\
+	${params.sample_dir} \\
+	${params.outdir}/cnv
+	"""
+}
+
+process COPYKAT_RNA_PER_SAMPLE {
+	//Run CopyKAT per sample.
+
+	input:
+		path(merged_in)
+	output:
+		path("${merged_in}")
+	script:
+	"""
+	Rscript ${params.src_dir}/copykat_per_sample.R \\
+	${merged_in} \\
+	${params.outdir}/cnv
+	"""
+}
+
+process COPYSCAT_ATAC_PER_SAMPLE {}
+	//Run CopyscAT per sample.
+
+	input:
+		path(merged_in)
+	output:
+		path("${merged_in}")
+	script:
+	"""
+	Rscript ${params.src_dir}/copykat_per_sample.R \\
+	${merged_in} \\
+	${params.outdir}/cnv \\
+	${ref} \\
+	${params.sample_dir}
+
+	"""
+}
 
   //////////////////////////////
  ///	Cell Type Analysis	/////
@@ -237,6 +309,7 @@ workflow {
 
 	/* Merge Seurat Objects for analysis */
 	/* Epithelial Cell CNV Analysis */
+
 
 }
 
