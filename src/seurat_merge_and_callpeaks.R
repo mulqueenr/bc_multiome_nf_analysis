@@ -7,16 +7,18 @@ set.seed(1234)
 library(stringr)
 library(ggplot2)
 library(RColorBrewer)
+args = commandArgs(trailingOnly=TRUE)
 
 #args[1]=list of seurat files
-seurat_obj_list=strsplit(args[0]," ")
+seurat_obj_list=unlist(strsplit(args[1]," "))
 
 # set up sample loop to load the RNA and ATAC data, save to seurat object
 merge_seurat<-function(x){
   #read in data
-  outname=strsplit(x,"[.]")[1]
+  outname=strsplit(x,"[.]")[[1]][1]
   dat<-readRDS(x)
   dat$sample<-outname #set up sample metadata
+  print(paste("Finished sample:",outname))
   return(dat)}
 
 out<-lapply(seurat_obj_list,merge_seurat)

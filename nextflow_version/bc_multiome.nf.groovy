@@ -8,7 +8,7 @@ nextflow.enable.dsl=2
 params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
 params.sample_dir="${params.proj_dir}/cellranger_data"
-params.ref = "${params.proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0"
+params.ref = "${params.proj_dir}/ref"
 params.src_dir="${params.proj_dir}/src"
 params.force_rewrite="false"
 
@@ -103,7 +103,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 	script:
 		"""
 		Rscript ${params.src_dir}/seurat_merge_and_callpeaks.R \\
-		${seurat_objects}
+		"${seurat_objects}"
 		"""
 }
 
@@ -118,9 +118,9 @@ process DIM_REDUCTION_PER_SAMPLE {
 	script:
 	"""
 	${params.src_dir}/seurat_dim_reduction_per_sample.R \\
-	${combined_peaks} \\
 	${obj_in} \\
-	${params.outdir}/plots 
+	${params.outdir}/plots \\
+	${params.ref}
 	"""
 }
 
@@ -140,8 +140,22 @@ process CISTOPIC_PER_SAMPLE {
 	"""
 }
 
-//process PUBLIC_DATA_LABEL_TRANSFER {}
-//${params.src_dir}/seurat_public_data_label_transfer.R
+process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {}
+	//Run single-cell label trasfer using available RNA data
+    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+
+	input:
+		tuple path(obj_in), path(cistopic_in)
+	output:
+		path("${obj_in}")
+
+	script:
+	"""
+	${params.src_dir}/seurat_public_data_label_transfer.R \\
+	${obj_in} \\
+	${params.outdir}/plots
+	"""
+}
 
 
   //////////////////////////////////////////////////////
@@ -153,9 +167,37 @@ process CISTOPIC_PER_SAMPLE {
 
 //process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
 
-//process MERGED_CHROMVAR {}
+process MERGED_CHROMVAR {	
+	//Run chromVAR on merged seurat object.
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
-//process MERGED_GENE_ACTIVITY {}
+	input:
+		path(merged_in)
+	output:
+		path("${merged_in}")
+
+	script:
+	"""
+	${params.src_dir}/seurat_public_data_label_transfer.R \\
+	${merged_in}
+	"""
+}
+
+process MERGED_GENE_ACTIVITY {
+	//Run Signac Gene activity function on seurat object.
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+
+	input:
+		path(merged_in)
+	output:
+		tuple path("${merged_in}"), path("*.GeneActivity.rds")
+
+	script:
+	"""
+	${params.src_dir}/seurat_public_data_label_transfer.R \\
+	${merged_in}
+	"""
+}
 
   //////////////////////////////////
  ///	CNV Calling Per Sample	///
@@ -166,32 +208,35 @@ process CISTOPIC_PER_SAMPLE {
 
 //process COPYKAT_RNA_PER_SAMPLE {}
 
-//process COPYSCAT_ATAC_PER_SAMPLE
+//process COPYSCAT_ATAC_PER_SAMPLE {}
 
   //////////////////////////////
- ///	Cell Type Analysis	///
+ ///	Cell Type Analysis	/////
 //////////////////////////////
 
 
 workflow {
 	/* SETTING UP VARIABLES */
-		def fasta_ref = Channel.value(params.ref)
-		sample_dir = Channel
-     	.fromPath("${params.sample_dir}/*/" , type: 'dir')
-     	.map { [it.name, it ] }
+		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
 
 	/* Data correction */
-		sample_seurat_objects=SCRUBLET_RNA(sample_dir) \
+		sample_seurat_objects=
+		SCRUBLET_RNA(sample_dir) \
 		| SOUPX_RNA \
 		| SEURAT_GENERATION
 		
 	/* Seurat Sample Processing */
 		merged_seurat_object =
-		collect(sample_seurat_objects) \
+		sample_seurat_objects \
+		| collect \
 		| MERGE_SAMPLES_CALLPEAKS
 
 		DIM_REDUCTION_PER_SAMPLE(sample_seurat_objects,merged_seurat_object) \
-		| CISTOPIC_PER_SAMPLE
+		| CISTOPIC_PER_SAMPLE \
+		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE
+
+	/* Merge Seurat Objects for analysis */
+	/* Epithelial Cell CNV Analysis */
 
 }
 

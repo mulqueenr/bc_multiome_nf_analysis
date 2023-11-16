@@ -7,6 +7,7 @@ set.seed(1234)
 library(stringr)
 library(ggplot2)
 library(RColorBrewer)
+args = commandArgs(trailingOnly=TRUE)
 
 peaks=readRDS(file=arg[1])
 dat=readRDS(arg[2])
