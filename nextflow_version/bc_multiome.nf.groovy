@@ -164,22 +164,20 @@ process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {}
 //process MERGE_SEURAT_OBJECT {}
 
 process MERGED_CLUSTER {
-	//Run LIGER on merged seurat object.
+	//Run merge seurat objects again and run LIGER on merged seurat object.
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
-		path(merged_in)
+		path(seurat_objects)
 	output:
 		tuple path("${merged_in}"),path("*.genecounts.rds")
 
 	script:
 	"""
 	Rscript ${params.src_dir}/merged_cluster_liger.R \\
-	${merged_in}
+	"${seurat_objects}"
 	"""
 }
-
-//process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
 
 process MERGED_CHROMVAR {	
 	//Run chromVAR on merged seurat object.
@@ -212,6 +210,8 @@ process MERGED_GENE_ACTIVITY {
 	${merged_in}
 	"""
 }
+
+//process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
 
   //////////////////////////////////
  ///	CNV Calling Per Sample	///
@@ -287,6 +287,10 @@ process COPYSCAT_ATAC_PER_SAMPLE {}
 //////////////////////////////
 
 
+
+
+//WIP Notes: Might be better to just use macs3 to call atac peaks on a concatenated ATAC bam file than use signac. (MERGE_SAMPLES_CALLPEAKS is real slow)
+
 workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
@@ -303,12 +307,23 @@ workflow {
 		| collect \
 		| MERGE_SAMPLES_CALLPEAKS
 
+	/* Data Processing */
+		merged_seurat_object =
 		DIM_REDUCTION_PER_SAMPLE(sample_seurat_objects,merged_seurat_object) \
 		| CISTOPIC_PER_SAMPLE \
-		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE
-
-	/* Merge Seurat Objects for analysis */
-	/* Epithelial Cell CNV Analysis */
+		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE \
+		| collect \
+		| MERGED_CLUSTER \
+		| MERGED_CHROMVAR \
+		| MERGED_GENE_ACTIVITY
+		
+	/* CNV Calling Block */
+		merged_seurat_object =
+		merged_seurat_object \
+		| INFERCNV_RNA_PER_SAMPLE \
+		| CASPER_RNA_PER_SAMPLE \
+		| COPYKAT_RNA_PER_SAMPLE \
+		| COPYSCAT_ATAC_PER_SAMPLE
 
 
 }
