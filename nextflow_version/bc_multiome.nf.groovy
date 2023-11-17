@@ -140,7 +140,7 @@ process CISTOPIC_PER_SAMPLE {
 	"""
 }
 
-process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {}
+process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {
 	//Run single-cell label trasfer using available RNA data
     publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
@@ -161,7 +161,6 @@ process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {}
   //////////////////////////////////////////////////////
  ///	Sample Integration and Merged Processing	///
 //////////////////////////////////////////////////////
-//process MERGE_SEURAT_OBJECT {}
 
 process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
@@ -213,6 +212,9 @@ process MERGED_GENE_ACTIVITY {
 
 //process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
 
+//process MOLECULAR_CHARACTERIZATION {}
+
+//process NMF_METAPROGRAMS {}
   //////////////////////////////////
  ///	CNV Calling Per Sample	///
 //////////////////////////////////
@@ -226,6 +228,7 @@ process INFERCNV_RNA_PER_SAMPLE {
 	script:
 	"""
 	mkdir -p ${params.outdir}/cnv
+
 	Rscript ${params.src_dir}/infercnv_per_sample.R \\
 	${merged_in} \\
 	${params.outdir}/cnv
@@ -264,7 +267,8 @@ process COPYKAT_RNA_PER_SAMPLE {
 	"""
 }
 
-process COPYSCAT_ATAC_PER_SAMPLE {}
+/*
+process COPYSCAT_ATAC_PER_SAMPLE {
 	//Run CopyscAT per sample.
 
 	input:
@@ -281,7 +285,7 @@ process COPYSCAT_ATAC_PER_SAMPLE {}
 
 	"""
 }
-
+*/
   //////////////////////////////
  ///	Cell Type Analysis	/////
 //////////////////////////////
@@ -290,7 +294,7 @@ process COPYSCAT_ATAC_PER_SAMPLE {}
 
 
 //WIP Notes: Might be better to just use macs3 to call atac peaks on a concatenated ATAC bam file than use signac. (MERGE_SAMPLES_CALLPEAKS is real slow)
-
+//WIP Notes: Can make all CNV calling parallelized using mclapply
 workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
@@ -323,7 +327,7 @@ workflow {
 		| INFERCNV_RNA_PER_SAMPLE \
 		| CASPER_RNA_PER_SAMPLE \
 		| COPYKAT_RNA_PER_SAMPLE \
-		| COPYSCAT_ATAC_PER_SAMPLE
+		// COPYSCAT_ATAC_PER_SAMPLE
 
 
 }

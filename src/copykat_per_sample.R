@@ -1,9 +1,11 @@
 library(Signac)
 library(Seurat)
 library(copykat)
+library(parallel)
+
 args = commandArgs(trailingOnly=TRUE)
-dat=readRDS(arg[1])
-outdir=arg[2]
+dat=readRDS(args[1])
+outdir=args[2]
 
 copykat_per_sample<-function(dat=dat,outname=x){
   outdir_sample=paste0(outdir,"/",outname,"/copykat")
@@ -29,6 +31,6 @@ copykat_per_sample<-function(dat=dat,outname=x){
   saveRDS(copykat_out,paste0(outdir_sample,"/",outname,".copykat.RDS"))
 }
 
-lapply(unique(dat$sample),function(x) copykat_per_sample(dat=dat,outname=x))
+mclapply(unique(dat$sample),function(x) copykat_per_sample(dat=dat,outname=x),mc.cores=10)
 
 #to set CNV discrete changes, as per correspondence suggetions with Ruli Gao, 1.5x SD threshold, 1.5 absolute distance, or use +/-0.25 as cutoff

@@ -13,8 +13,8 @@ register(SerialParam()) #using single core mode
 args = commandArgs(trailingOnly=TRUE)
 
 
-dat=readRDS(arg[1])
-outname<-strsplit(arg[1],"[.]")[1]
+dat=readRDS(args[1])
+outname<-strsplit(args[1],"[.]")[1]
 
 DefaultAssay(dat)<-"ATAC"
 

@@ -9,10 +9,10 @@ library(ggplot2)
 library(RColorBrewer)
 args = commandArgs(trailingOnly=TRUE)
 
-peaks=readRDS(file=arg[1])
-dat=readRDS(arg[2])
-outname<-strsplit(arg[2],"[.]")[1]
-outdir=arg[3]
+peaks=readRDS(file=args[1])
+dat=readRDS(arsg[2])
+outname<-strsplit(args[2],"[.]")[1]
+outdir=args[3]
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
@@ -104,4 +104,4 @@ plt<-(p1 | p2)/(p3 | p4)
 ggsave(plt,file=paste0(outdir,"/",outname,".umap.pdf"))
 table(dat$predicted_doublets)
 
-saveRDS(dat,file=arg[2])
+saveRDS(dat,file=args[2])

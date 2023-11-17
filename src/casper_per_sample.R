@@ -6,12 +6,13 @@ library(GenomeInfoDb)
 set.seed(1234)
 library(stringr)
 library(CaSpER) 
+library(parallel)
 args = commandArgs(trailingOnly=TRUE)
 
-dat=readRDS(arg[1])
-ref_dir=arg[2]
-cellranger_in=arg[3]
-outdir=arg[4]
+dat=readRDS(args[1])
+ref_dir=args[2]
+cellranger_in=args[3]
+outdir=args[4]
 
 BAFExtract_location<-paste0(ref_dir,"/BAFExtract/bin/BAFExtract")
 hg38_list_location<-paste0(ref_dir,"/BAFExtract/hg38.list") #downloaded from https://github.com/akdess/BAFExtract
@@ -103,5 +104,5 @@ casper_per_sample<-function(dat=dat,outname=x){
   saveRDS(rna.matrix, paste0(outdir_sample,"/casper.finalgenemat.rds"))
 }
 
-lapply(unique(dat$sample),function(x) casper_per_sample(dat=dat,outname=x))
+mclapply(unique(dat$sample),function(x) casper_per_sample(dat=dat,outname=x),mc.cores=10)
 

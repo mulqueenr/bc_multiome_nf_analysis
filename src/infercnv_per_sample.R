@@ -11,6 +11,7 @@ library(infercnv)
 library(ComplexHeatmap)
 library(circlize)
 library(patchwork)
+library(parallel)
 args = commandArgs(trailingOnly=TRUE)
 
 dat=readRDS(arg[1])
@@ -69,4 +70,4 @@ infercnv_per_sample<-function(dat,outname){
   saveRDS(infercnv_obj,paste0(outdir_sample,"/",outname,".inferCNV.Rds"))
 }
 
-lapply(unique(dat$sample),function(x) infercnv_per_sample(dat=dat,outname=x))
+mclapply(unique(dat$sample),function(x) infercnv_per_sample(dat=dat,outname=x),mc.cores=10)
