@@ -295,19 +295,19 @@ workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
 
-	/* Data correction */
+	/* DATA CORRECTION */
 		sample_seurat_objects=
 		SCRUBLET_RNA(sample_dir) \
 		| SOUPX_RNA \
 		| SEURAT_GENERATION
 		
-	/* Seurat Sample Processing */
+	/* COMBINED PEAK CALLING */
 		merged_seurat_object =
 		sample_seurat_objects \
 		| collect \
 		| MERGE_SAMPLES_CALLPEAKS
 
-	/* Data Processing */
+	/* DATA PROCESSING */
 		merged_seurat_object =
 		DIM_REDUCTION_PER_SAMPLE(sample_seurat_objects,merged_seurat_object) \
 		| CISTOPIC_PER_SAMPLE \
@@ -317,7 +317,7 @@ workflow {
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
 		
-	/* CNV Calling Block */
+	/* CNV CALLING */
 		merged_seurat_object =
 		merged_seurat_object \
 		| INFERCNV_RNA_PER_SAMPLE \
