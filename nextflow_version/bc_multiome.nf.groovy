@@ -3,7 +3,7 @@
 nextflow.enable.dsl=2
 
   //////////////////////////////
- ///	Script Parameters	///
+ ///	Script Parameters	///////
 //////////////////////////////
 params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
@@ -55,7 +55,7 @@ process SOUPX_RNA {
 	input:
 		tuple val(sample_name), path(sample_dir)
 	output:
-		tuple val(sample_name), path(sample_dir)
+		path(sample_dir)
 
 	script:
 		"""
@@ -72,55 +72,47 @@ process SOUPX_RNA {
   //////////////////////////////////////
  ///	Seurat Sample Processing	///
 //////////////////////////////////////
-process SEURAT_GENERATION {
-	//Initialize Seurat Object per sample.
-    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-
-	input:
-		tuple val(sample_name), path(sample_dir)
-	output:
-		path("${sample_dir.simpleName}.SeuratObject.rds")
-
-	script:
-		"""
-		mkdir -p ${params.outdir}/plots
-		Rscript ${params.src_dir}/initialize_seurat.R \\
-		${sample_name} \\
-		${sample_dir} \\
-		${params.outdir}/plots
-		"""
-}
 
 process MERGE_SAMPLES_CALLPEAKS {
+	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
-    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
-		path(seurat_objects)
+		path(sample_dir)
 	output:
-		tuple path("merged.SeuratObject.rds"), path("combined.peakset.rds")
-
+		tuple path(sample_dir),path("merged*bed")
 	script:
 		"""
-		Rscript ${params.src_dir}/seurat_merge_and_callpeaks.R \\
-		"${seurat_objects}"
+		#merge all ATAC bam files
+		samples_arr=(${sample_dir})
+		for i in "\${samples_arr[@]}"; do echo \${i}"/outs/atac_possorted_bam.bam"; done > fofn.txt
+		samtools cat -@ 10 -b fofn.txt | samtools sort -@ 10 - > out.bam
+
+		#run macs2 to call atac peaks
+		/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2 \\
+		callpeak -f BAMPE \\
+		-t out.bam \\
+		-g hs \\
+		-n merged \\
+		-q 0.01
 		"""
+
 }
 
 process DIM_REDUCTION_PER_SAMPLE {
+	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 
 	input:
-		path(obj_in)
-		tuple path(merged_object), path(combined_peaks)
+		tuple path(sample_dir), path(combined_peaks)
 	output:
-		path("${obj_in}")
+		path("*SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
-	${obj_in} \\
+	${combined_peaks} \\
+	${sample_dir} \\
 	${params.outdir}/plots \\
-	${params.ref}
 	"""
 }
 
@@ -291,29 +283,21 @@ process COPYSCAT_ATAC_PER_SAMPLE {
 //////////////////////////////
 
 
-
-
-//WIP Notes: Might be better to just use macs3 to call atac peaks on a concatenated ATAC bam file than use signac. (MERGE_SAMPLES_CALLPEAKS is real slow)
-//WIP Notes: Can make all CNV calling parallelized using mclapply
 workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
 
-	/* DATA CORRECTION */
-		sample_seurat_objects=
+	// DATA CORRECTION
+		for_generating_seurat_objects=
 		SCRUBLET_RNA(sample_dir) \
 		| SOUPX_RNA \
-		| SEURAT_GENERATION
-		
-	/* COMBINED PEAK CALLING */
-		merged_seurat_object =
-		sample_seurat_objects \
 		| collect \
 		| MERGE_SAMPLES_CALLPEAKS
 
-	/* DATA PROCESSING */
+	// DATA PROCESSING 
 		merged_seurat_object =
-		DIM_REDUCTION_PER_SAMPLE(sample_seurat_objects,merged_seurat_object) \
+		for_generating_seurat_objects \
+		| DIM_REDUCTION_PER_SAMPLE \
 		| CISTOPIC_PER_SAMPLE \
 		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE \
 		| collect \
@@ -321,14 +305,13 @@ workflow {
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
 		
-	/* CNV CALLING */
+	// CNV CALLING 
 		merged_seurat_object =
 		merged_seurat_object \
 		| INFERCNV_RNA_PER_SAMPLE \
 		| CASPER_RNA_PER_SAMPLE \
-		| COPYKAT_RNA_PER_SAMPLE \
+		| COPYKAT_RNA_PER_SAMPLE 
 		// COPYSCAT_ATAC_PER_SAMPLE
-
 
 }
 
