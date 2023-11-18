@@ -67,10 +67,10 @@ single_sample_cistopic_generation<-function(x,outdir){
   print(plt1)
   #print(plt2)
   dev.off()
-  saveRDS(atac_sub,paste0(outdir,"/",outname,".SeuratObject.rds"))
+  saveRDS(atac_sub,paste0(outname,".SeuratObject.rds"))
   }
 
 
-single_sample_cistopic_generation(x=obj_in,outdir)
+single_sample_cistopic_generation(x=obj_in,outdir=outdir)
 
 

@@ -76,17 +76,18 @@ process SOUPX_RNA {
 process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
+	cpus 30
 
 	input:
 		path(sample_dir)
 	output:
-		tuple path(sample_dir),path("merged*bed")
+		path("merged_500bp.bed")
 	script:
 		"""
 		#merge all ATAC bam files
 		samples_arr=(${sample_dir})
 		for i in "\${samples_arr[@]}"; do echo \${i}"/outs/atac_possorted_bam.bam"; done > fofn.txt
-		samtools cat -@ 10 -b fofn.txt | samtools sort -@ 10 - > out.bam
+		samtools cat -@ ${task.cpus} -b fofn.txt | samtools sort -@ ${task.cpus} - > out.bam
 
 		#run macs2 to call atac peaks
 		/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2 \\
@@ -95,6 +96,10 @@ process MERGE_SAMPLES_CALLPEAKS {
 		-g hs \\
 		-n merged \\
 		-q 0.01
+
+		#take summits and then expand to 250bp in either direction
+		awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > merged_500bp.bed
+		#bed will be filtered to only main chroms and no negative values.
 		"""
 
 }
@@ -104,7 +109,8 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 
 	input:
-		tuple path(sample_dir), path(combined_peaks)
+		tuple val(sample_name), path(sample_dir)
+		path(combined_peaks)
 	output:
 		path("*SeuratObject.rds")
 	script:
@@ -145,7 +151,8 @@ process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {
 	"""
 	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
 	${obj_in} \\
-	${params.outdir}/plots
+	${params.outdir}/plots \\
+	${params.ref}
 	"""
 }
 
@@ -288,7 +295,7 @@ workflow {
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
 
 	// DATA CORRECTION
-		for_generating_seurat_objects=
+		merged_peaks=
 		SCRUBLET_RNA(sample_dir) \
 		| SOUPX_RNA \
 		| collect \
@@ -296,8 +303,7 @@ workflow {
 
 	// DATA PROCESSING 
 		merged_seurat_object =
-		for_generating_seurat_objects \
-		| DIM_REDUCTION_PER_SAMPLE \
+		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
 		| CISTOPIC_PER_SAMPLE \
 		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE \
 		| collect \
