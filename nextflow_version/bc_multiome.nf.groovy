@@ -118,7 +118,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
 	${combined_peaks} \\
 	${sample_dir} \\
-	${params.outdir}/plots \\
+	${params.outdir}/plots 
 	"""
 }
 
@@ -289,7 +289,7 @@ process COPYSCAT_ATAC_PER_SAMPLE {
  ///	Cell Type Analysis	/////
 //////////////////////////////
 
-
+//Add TITAN https://github.com/JuliusCampbell/TITAN/blob/master/vignettes/TITAN_vignette.md
 workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
