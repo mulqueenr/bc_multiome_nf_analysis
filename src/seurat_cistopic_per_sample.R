@@ -18,7 +18,7 @@ outdir=args[2]
 
 
 single_sample_cistopic_generation<-function(x,outdir){
-  outname<-strsplit(x,"[.]")[1]
+  outname<-strsplit(x,"[.]")[[1]][1]
   atac_sub<-readRDS(x)
 
   cistopic_counts_frmt<-atac_sub@assays$peaks@counts

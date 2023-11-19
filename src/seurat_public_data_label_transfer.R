@@ -14,9 +14,6 @@ obj_in=args[1]
 outdir=args[2]
 ref_dir=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/ref
 
-swarbrick<-readRDS(paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds"))#swarbrick types
-embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds"))#EMBO cell types
-hbca<-readRDS(paste0(ref_dir,"/hbca/hbca.rds")) #HBCA cell types
 
 single_sample_label_transfer<-function(x,ref_obj,ref_prefix){
   outname=strsplit(x,"[.]")[[1]][1]
@@ -43,7 +40,7 @@ single_sample_label_transfer<-function(x,ref_obj,ref_prefix){
   colnames(predictions)<-paste0(ref_prefix,"_",colnames(predictions))
 
   dat<-AddMetaData(dat,metadata=predictions)
-  saveRDS(dat,file=file_in)
+  saveRDS(dat,file=x)
   plt1<-FeaturePlot(dat,features=colnames(predictions),pt.size=0.1,order=T,col=c("white","red"))
   plt2<-DimPlot(dat,group.by=paste0(ref_prefix,'_predicted.id'),pt.size=0.5)
   plt3<-DimPlot(dat,group.by='sample',pt.size=0.5)
@@ -52,7 +49,15 @@ single_sample_label_transfer<-function(x,ref_obj,ref_prefix){
   ggsave(plt,file=out_plot,width=20,height=30,limitsize=F)
   }
 
+swarbrick<-readRDS(paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds"))#swarbrick types
 single_sample_label_transfer(obj_in,swarbrick,"swarbrick")
+rm(swarbrick)
+
+embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds"))#EMBO cell types
 single_sample_label_transfer(obj_in,embo_er,"EMBO")
+rm(embo_er)
+
+hbca<-readRDS(paste0(ref_dir,"/hbca/hbca.rds")) #HBCA cell types
 single_sample_label_transfer(obj_in,hbca,"HBCA")
+
 
