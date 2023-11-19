@@ -26,7 +26,7 @@ single_sample_cistopic_generation<-function(x,outdir){
   sub_cistopic<-cisTopic::createcisTopicObject(cistopic_counts_frmt)
   print("made cistopic object")
   sub_cistopic_models<-cisTopic::runWarpLDAModels(sub_cistopic,
-    topic=c(10:30),
+    topic=seq(from=10, to=30, by=5),
     nCores=1,
     addModels=FALSE)
 
