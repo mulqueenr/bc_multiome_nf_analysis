@@ -12,7 +12,7 @@ library(patchwork)
 args = commandArgs(trailingOnly=TRUE)
 obj_in=args[1]
 outdir=args[2]
-ref_dir=args[3]
+ref_dir=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/ref
 
 swarbrick<-readRDS(paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds"))#swarbrick types
 embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds"))#EMBO cell types

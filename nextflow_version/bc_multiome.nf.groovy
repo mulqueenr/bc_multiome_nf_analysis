@@ -107,7 +107,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 process DIM_REDUCTION_PER_SAMPLE {
 	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
-
+	cpus 5
 	input:
 		tuple val(sample_name), path(sample_dir)
 		path(combined_peaks)
@@ -125,7 +125,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
     publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-
+   	cpus 5
 	input:
 		path(obj_in)
 	output:
