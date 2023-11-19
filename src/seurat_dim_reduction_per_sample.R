@@ -155,4 +155,5 @@ plt<-(p1 | p2)/(p3 | p4)
 ggsave(plt,file=paste0(outdir,"/",outname,".umap.pdf"))
 table(dat$predicted_doublets)
 
-saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))
+
+saveRDS(dat,file=paste0(nf_dir,"/",outname,".SeuratObject.rds"))

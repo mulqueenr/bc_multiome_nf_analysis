@@ -138,12 +138,30 @@ process CISTOPIC_PER_SAMPLE {
 	"""
 }
 
+
+process TITAN_PER_SAMPLE {
+	//Run TITAN on sample RNA data
+    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+
+	input:
+		tuple path(obj_in),path(cistopic_obj)
+	output:
+		tuple path("${obj_in}"),path("*.TITANObject.rds")
+	script:
+	"""
+	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
+	${obj_in} \\
+	${params.outdir}/plots
+	"""
+}
+
+
 process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {
 	//Run single-cell label trasfer using available RNA data
     publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
-		tuple path(obj_in), path(cistopic_in)
+		tuple path(obj_in), path(titan_in)
 	output:
 		path("${obj_in}")
 
@@ -289,7 +307,6 @@ process COPYSCAT_ATAC_PER_SAMPLE {
  ///	Cell Type Analysis	/////
 //////////////////////////////
 
-//Add TITAN https://github.com/JuliusCampbell/TITAN/blob/master/vignettes/TITAN_vignette.md
 workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
@@ -305,6 +322,7 @@ workflow {
 		merged_seurat_object =
 		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
 		| CISTOPIC_PER_SAMPLE \
+		| TITAN_PER_SAMPLE \
 		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE \
 		| collect \
 		| MERGED_CLUSTER \
