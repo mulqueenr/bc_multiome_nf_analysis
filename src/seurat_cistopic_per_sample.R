@@ -2,24 +2,29 @@ library(Signac)
 library(Seurat)
 library(SeuratWrappers)
 library(cisTopic)
-library(patchwork)
 set.seed(1234)
 library(org.Hs.eg.db)
 library(TxDb.Hsapiens.UCSC.hg38.knownGene)
 library(AUCell)
 library(rtracklayer)
-library(parallel)
-library(RColorBrewer)
 library(ggplot2)
 
 args = commandArgs(trailingOnly=TRUE)
 obj_in=args[1]
 outdir=args[2]
+obj_out=args[3]
 
 
-single_sample_cistopic_generation<-function(x,outdir){
+#filter to cells with ATAC features > 1000
+#for samples with not enough ATAC data, skip
+single_sample_cistopic_generation<-function(x,outdir,obj_out){
   outname<-strsplit(x,"[.]")[[1]][1]
   atac_sub<-readRDS(x)
+  #skip cistopic if cell count too low
+  if(sum(atac_sub$nCount_ATAC>1000)<500){
+      saveRDS(atac_sub,paste0(outname,".SeuratObject.rds"))
+  }else{
+  atac_sub<-subset(atac_sub,nCount_ATAC>1000)
 
   cistopic_counts_frmt<-atac_sub@assays$peaks@counts
   row.names(cistopic_counts_frmt)<-sub("-", ":", row.names(cistopic_counts_frmt))
@@ -36,7 +41,6 @@ single_sample_cistopic_generation<-function(x,outdir){
   sub_cistopic_models<- selectModel(sub_cistopic_models, type='derivative')
   dev.off()
   
-  saveRDS(sub_cistopic_models,file=paste0(outname,".CisTopicObject.rds"))
   print("finshed running cistopic")
 
   #Add cell embeddings into seurat
@@ -67,10 +71,12 @@ single_sample_cistopic_generation<-function(x,outdir){
   print(plt1)
   #print(plt2)
   dev.off()
+  saveRDS(sub_cistopic_models,file=paste0(obj_out,"/",outname,".CisTopicObject.rds"))
   saveRDS(atac_sub,paste0(outname,".SeuratObject.rds"))
+  }
   }
 
 
-single_sample_cistopic_generation(x=obj_in,outdir=outdir)
+single_sample_cistopic_generation(x=obj_in,outdir=outdir,obj_out=obj_out)
 
 

@@ -11,6 +11,7 @@ params.sample_dir="${params.proj_dir}/cellranger_data"
 params.ref = "${params.proj_dir}/ref"
 params.src_dir="${params.proj_dir}/src"
 params.force_rewrite="false"
+params.merged_bed="merged_500bp.bed"
 
 log.info """
 
@@ -76,7 +77,7 @@ process SOUPX_RNA {
 process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
-	cpus 30
+	cpus 20
 
 	input:
 		path(sample_dir)
@@ -104,10 +105,25 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 }
 
+
+process SUPPLIED_MERGED_PEAKS {
+		//Copy supplied bed file.
+		input:
+			path(merged_bed)
+		output:
+			path("${merged_bed.simpleName}.nf.bed")
+		script:
+		"""
+		cp -f ${merged_bed} ${merged_bed.simpleName}.nf.bed
+		"""
+
+}
+
 process DIM_REDUCTION_PER_SAMPLE {
 	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
-	cpus 5
+	//Note at this stage the seurat object is unfiltered.
+
 	input:
 		tuple val(sample_name), path(sample_dir)
 		path(combined_peaks)
@@ -124,34 +140,34 @@ process DIM_REDUCTION_PER_SAMPLE {
 
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
-    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-   	cpus 5
+   	cpus 3
 	input:
 		path(obj_in)
 	output:
-		tuple path("${obj_in}"),path("*.CisTopicObject.rds")
+		path("${obj_in}")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
 	${obj_in} \\
-	${params.outdir}/plots
+	${params.outdir}/plots \\
+	${params.outdir}/seurat_objects
 	"""
 }
 
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
-    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-
+	cpus 3
 	input:
-		tuple path(obj_in),path(cistopic_obj)
+		path(obj_in)
 	output:
-		tuple path("${obj_in}"),path("*.TITANObject.rds")
+		path("${obj_in}")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
 	${obj_in} \\
-	${params.outdir}/plots
+	${params.outdir}/plots \\
+	${params.outdir}/seurat_objects
 	"""
 }
 
@@ -161,7 +177,7 @@ process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {
     publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
-		tuple path(obj_in), path(titan_in)
+		path(obj_in)
 	output:
 		path("${obj_in}")
 
@@ -312,17 +328,34 @@ workflow {
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
 
 	// DATA CORRECTION
-		merged_peaks=
+		merged_peaks_input=
 		SCRUBLET_RNA(sample_dir) \
-		| SOUPX_RNA \
-		| collect \
-		| MERGE_SAMPLES_CALLPEAKS
+		| SOUPX_RNA 
+		
+		if ( params.merged_bed ) {
+			//Merged bed file supplied
+			merged_peaks = 
+			Channel.fromPath("${params.merged_bed}") \
+			| SUPPLIED_MERGED_PEAKS \
+			| toList
+
+  	} else {
+  		//Make merged bed file of peaks
+	  	merged_peaks = 
+	  	merged_peaks_input \
+	  	| collect \
+	    | MERGE_SAMPLES_CALLPEAKS(merged_peaks_input)
+  	}
+
 
 	// DATA PROCESSING 
+		sample_dir | view 
+		merged_peaks | view 
+
 		merged_seurat_object =
 		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
-		| CISTOPIC_PER_SAMPLE \
-		| TITAN_PER_SAMPLE \
+		//| CISTOPIC_PER_SAMPLE \
+		//| TITAN_PER_SAMPLE \
 		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE \
 		| collect \
 		| MERGED_CLUSTER \
@@ -339,3 +372,11 @@ workflow {
 
 }
 
+/*
+
+nextflow bc_multiome.nf.groovy \
+-with-dag bc_multiome.flowchart.png \
+-with-report bc_multiome.report.html \
+--merge_bed merged_500bp.bed
+
+*/

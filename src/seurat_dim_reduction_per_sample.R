@@ -28,9 +28,8 @@ annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
 ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pattern="chrMT", replacement="chrM")
 seqlevels(annotation) <- ucsc.levels #standard seq level change threw error, using a string replace instead
 
-setwd(wd)
 counts <- Read10X_h5(paste0(wd,"/filtered_feature_bc_matrix.h5")) #count data
-fragpath <- "atac_fragments.tsv.gz" #atac fragments
+fragpath <- paste0(wd,"/atac_fragments.tsv.gz") #atac fragments
 metadata_cellranger<-read.csv(paste0(wd,"/per_barcode_metrics.csv")) #metadata
 row.names(metadata_cellranger)<-metadata_cellranger$barcode
 soupx_output<-readRDS(paste0(wd,"/soupx_corrected_counts.rds")) #load SoupX contamination corrected output
@@ -156,4 +155,4 @@ ggsave(plt,file=paste0(outdir,"/",outname,".umap.pdf"))
 table(dat$predicted_doublets)
 
 
-saveRDS(dat,file=paste0(nf_dir,"/",outname,".SeuratObject.rds"))
+saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))
