@@ -9,6 +9,7 @@ library(rliger)
 library(SeuratWrappers)
 library(parallel)
 library(GenomicRanges)
+library(patchwork)
 args = commandArgs(trailingOnly=TRUE)
 
 #args[1]=merged seurat file
@@ -155,12 +156,27 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
 }
 
 
+#plot label transfer predictions over integration
+plot_predictions<-function(dat=dat_in,ref_prefix){
+  out_plot<-paste0(outdir,"/",ref_prefix,".predictions.umap.pdf")
+  feat_predictions=colnames(predictions)
+  feat_predictions=feat_predictions[!endsWith(feat_predictions,c("id"))]
+  feat_predictions=feat_predictions[!endsWith(feat_predictions,c("max"))]
+
+  plt1<-FeaturePlot(dat,features=feat_predictions,pt.size=0.1,order=T,col=c("white","red"))
+  plt2<-DimPlot(dat,group.by=paste0(ref_prefix,'_predicted.id'),pt.size=0.5)
+  plt3<-DimPlot(dat,group.by='sample',pt.size=0.5)
+
+  plt<-(plt2|plt3)/plt1
+  ggsave(plt,file=out_plot,width=20,height=30,limitsize=F)
+}
+
 #doing feature setting following signac gene activity calculation
 #filter to protein coding
 #subset to which protein coding gene is longest that has the same name
 #extend 2kb upstream for promoter inclusion
 feat=dat@assays$peaks@annotation[dat@assays$peaks@annotation$gene_biotype=="protein_coding",]
-feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=10) #collapse to longest transcripts
+feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=20) #collapse to longest transcripts
 feat<-unlist(as(feat, "GRangesList"))
 feat<-setNames(feat,feat$gene_name)#set row names as gene names
 feat<-feat[feat@ranges@width<500000,]#filter extra long transcripts
@@ -185,4 +201,5 @@ k=30
 dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k)
 
 saveRDS(dat_in,file="merged.SeuratObject.rds")
+lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x)
 

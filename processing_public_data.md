@@ -178,6 +178,7 @@ library(stringr)
 library(ggplot2)
 library(plyr)
 library(patchwork)
+library(org.Hs.eg.db)
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 setwd(paste0(proj_dir,"/ref/hbca/"))
 

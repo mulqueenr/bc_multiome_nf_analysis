@@ -84,7 +84,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 	input:
 		path(sample_dir)
 	output:
-		path("merged_500bp.bed")
+		path("mergedpeaks_500bp.bed")
 	script:
 		"""
 		#merge all ATAC bam files
@@ -101,15 +101,17 @@ process MERGE_SAMPLES_CALLPEAKS {
 		-q 0.01
 
 		#take summits and then expand to 250bp in either direction
-		awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > merged_500bp.bed
+		awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
 		#bed will be filtered to only main chroms and no negative values.
+		#merge peaks that overlap
+		bedtools merge -i merged_500bp.bed > mergedpeaks_500bp.bed
 		"""
 
 }
 
 
 process SUPPLIED_MERGED_PEAKS {
-		//Copy supplied bed file.
+		//Copy supplied bed file. If one is given to the --merged_peaks argument on initialization of pipeline.
 		input:
 			path(merged_bed)
 		output:
@@ -187,7 +189,6 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	"""
 	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
 	"${seurat_objects}" \\
-	${params.outdir}/plots \\
 	${params.ref}
 	"""
 }
@@ -200,7 +201,8 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-
+  cpus 20
+  
 	input:
 		path(merged_in)
 	output:
@@ -209,7 +211,8 @@ process MERGED_CLUSTER {
 	script:
 	"""
 	Rscript ${params.src_dir}/merged_cluster_liger.R \\
-	"${seurat_objects}"
+	"${seurat_objects}" \\
+	${params.outdir}
 	"""
 }
 
