@@ -19,3 +19,10 @@ nextflow bc_multiome.nf.groovy \
   -resume
 ```
 
+Repository folders:
+```bash
+/nextflow_version contains groovy file for nextflow pipeline calling and the environment.yml for conda setup
+/original_code is a copy of the markdown files hosted on my github webpage for reference.
+/src contains python, bash and R scripts called by the groovy file. These are copied to /home/groups/CEDAR/mulqueen/bc_multiome/src for running on exacloud.
+/wip_src scripts that are currently being worked on to be added to the pipeline.
+```
