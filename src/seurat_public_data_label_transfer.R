@@ -48,6 +48,16 @@ single_sample_label_transfer<-function(dat,ref_obj,ref_prefix){
     verbose=T
   )
 
+  dat <- SCTransform(dat)
+  dat <- RunPCA(dat)
+  dat<- RunUMAP(
+    object = dat,
+    reduction.name="rna_umap",
+    reduction="pca",
+    assay = "SCT",
+    verbose = TRUE,
+    dims=1:50
+  )
   predictions<- TransferData(
     anchorset = transfer.anchors,
     refdata = ref_obj$celltype,

@@ -378,6 +378,7 @@ workflow {
 nextflow bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
 -with-report bc_multiome.report.html \
---merge_bed merged_500bp.bed
+-resume \
+--merge_bed merged_500bp.bed 
 
 */
