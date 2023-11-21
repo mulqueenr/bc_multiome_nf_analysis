@@ -11,22 +11,9 @@ library(parallel)
 library(GenomicRanges)
 args = commandArgs(trailingOnly=TRUE)
 
-#args[1]=list of seurat files
-seurat_obj_list=unlist(strsplit(args[1]," "))
-
-# set up sample loop to load the RNA and ATAC data, save to seurat object
-merge_seurat<-function(x){
-  #read in data
-  outname=strsplit(x,"[.]")[[1]][1]
-  dat<-readRDS(x)
-  dat$sample<-outname #set up sample metadata
-  print(paste("Finished sample:",outname))
-  return(dat)}
-
-out<-lapply(seurat_obj_list,merge_seurat)
-sample_names=unlist(lapply(strsplit(seurat_obj_list,"[.]"),"[",1))
-dat <- merge(out[[1]], y = as.list(out[2:length(out)]), add.cell.ids = sample_names, project = "all_data")
-
+#args[1]=merged seurat file
+dat=readRDS(args[1])
+outname<-strsplit(args[1],"[.]")[1]
 outdir=paste0(args[2],"/merged_cluster_plots")
 
 system(paste0("mkdir -p ",outdir))

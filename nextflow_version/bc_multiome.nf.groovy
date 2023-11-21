@@ -27,6 +27,8 @@ log.info """
 
 """.stripIndent()
 
+
+
   //////////////////////////
  ///	Data correction	///
 //////////////////////////
@@ -172,14 +174,14 @@ process TITAN_PER_SAMPLE {
 }
 
 
-process PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE {
+process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
     publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
-		path(obj_in)
+		path(seurat_objects)
 	output:
-		path("${obj_in}")
+		path("merged.SueratObject.Rds")
 
 	script:
 	"""
@@ -200,9 +202,9 @@ process MERGED_CLUSTER {
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
-		path(seurat_objects)
+		path(merged_in)
 	output:
-		tuple path("${merged_in}"),path("*.genecounts.rds")
+		path("${merged_in}")
 
 	script:
 	"""
@@ -248,6 +250,8 @@ process MERGED_GENE_ACTIVITY {
 //process MOLECULAR_CHARACTERIZATION {}
 
 //process NMF_METAPROGRAMS {}
+
+
   //////////////////////////////////
  ///	CNV Calling Per Sample	///
 //////////////////////////////////
@@ -349,15 +353,12 @@ workflow {
 
 
 	// DATA PROCESSING 
-		sample_dir | view 
-		merged_peaks | view 
-
 		merged_seurat_object =
 		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
-		//| CISTOPIC_PER_SAMPLE \
-		//| TITAN_PER_SAMPLE \
-		| PUBLIC_DATA_LABEL_TRANSFER_PER_SAMPLE \
+		| CISTOPIC_PER_SAMPLE \
+		| TITAN_PER_SAMPLE \
 		| collect \
+		| MERGED_PUBLIC_DATA_LABEL_TRANSFER \
 		| MERGED_CLUSTER \
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
