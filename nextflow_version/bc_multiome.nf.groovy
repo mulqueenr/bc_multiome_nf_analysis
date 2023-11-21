@@ -186,7 +186,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
-	${obj_in} \\
+	"${seurat_objects}" \\
 	${params.outdir}/plots \\
 	${params.ref}
 	"""
