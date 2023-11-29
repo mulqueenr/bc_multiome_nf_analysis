@@ -41,8 +41,8 @@ single_sample_titan_generation<-function(x,outdir,obj_out=obj_out){
   #        AnnoVector = dat@meta.data$HBCA_predicted.id,
   #        AnnoName = "HBCA_predicted.id")
   #dev.off()
-  saveRDS(LDA_model, paste0(obj_out,"/",outname,"TITANObject.rds"))
-  saveRDS(dat,paste0(outname,".SeuratObject.rds"))
+  saveRDS(LDA_model, paste0(obj_out,"/",outname,".TITANObject.rds"))
+  saveRDS(dat,paste0(outname,".titan.SeuratObject.rds"))
   }
 
 

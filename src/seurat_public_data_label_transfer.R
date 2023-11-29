@@ -9,10 +9,14 @@ library(plyr)
 
 args = commandArgs(trailingOnly=TRUE)
 seurat_obj_list=args[1]
-outdir=args[2]
-ref_dir=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/ref
+ref_dir=args[2] #/home/groups/CEDAR/mulqueen/bc_multiome/ref
 
+#add metadata.tsv per sample if supplied
+if(length(args>2)){
+  met<-read.csv(args[3],header=T,sep=",") #/home/groups/CEDAR/mulqueen/bc_multiome/sample_metadata.csv
 
+}
+sample_metadata=args[3]
 # set up sample loop to load the RNA and ATAC data, save to seurat object
 merge_seurat<-function(x){
   #read in data
@@ -26,9 +30,13 @@ seurat_obj_list=strsplit(seurat_obj_list," ")[[1]]
 out<-lapply(unlist(seurat_obj_list),merge_seurat)
 sample_names=unlist(lapply(strsplit(seurat_obj_list,"[.]"),"[",1))
 dat <- merge(out[[1]], y = as.list(out[2:length(out)]), add.cell.ids = sample_names, project = "all_data")
-
+dat_met<-as.data.frame(dat@meta.data)
+met<-merge(dat_met,met,by.x="sample",by.y="Manuscript_Name")
+row.names(met)<-row.names(dat_met)
+dat<-AddMetaData(dat,met)
 
 saveRDS(dat,file="merged.SeuratObject.rds")
+#dat<-readRDS(file="merged.SeuratObject.rds"))
 
 #prepare data
 DefaultAssay(dat)<-"RNA" #can use SoupXRNA here also
@@ -79,5 +87,5 @@ rm(embo_er)
 hbca<-readRDS(paste0(ref_dir,"/hbca/hbca.rds")) #HBCA cell types
 dat<-single_sample_label_transfer(dat,ref_obj=hbca,"HBCA")
 
-saveRDS(dat,file="merged.SeuratObject.rds")
+saveRDS(dat,file="merged.public_transfer.SeuratObject.rds")
 

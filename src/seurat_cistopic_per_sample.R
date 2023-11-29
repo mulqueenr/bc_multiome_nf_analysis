@@ -72,7 +72,7 @@ single_sample_cistopic_generation<-function(x,outdir,obj_out){
   #print(plt2)
   dev.off()
   saveRDS(sub_cistopic_models,file=paste0(obj_out,"/",outname,".CisTopicObject.rds"))
-  saveRDS(atac_sub,paste0(outname,".SeuratObject.rds"))
+  saveRDS(atac_sub,paste0(outname,".cistopic.SeuratObject.rds"))
   }
   }
 

@@ -11,7 +11,8 @@ params.sample_dir="${params.proj_dir}/cellranger_data"
 params.ref = "${params.proj_dir}/ref"
 params.src_dir="${params.proj_dir}/src"
 params.force_rewrite="false"
-params.merged_bed="merged_500bp.bed"
+//params.merged_bed="${params.proj_dir}/merged_500bp.bed"
+params.sample_metadata="${params.proj_dir}/sample_metadata.csv"
 
 log.info """
 
@@ -23,6 +24,9 @@ log.info """
 		Reference Directory: ${params.ref}
 		Looking for samples in: ${params.sample_dir}
 		Force Rewriting Data: ${params.force_rewrite}
+		Supplied Sample Metadata: ${params.sample_metadata}
+		Supplied Bed Files of Peaks: ${params.merged_bed}
+		If null, will generate peaks.
 		================================================
 
 """.stripIndent()
@@ -79,12 +83,13 @@ process SOUPX_RNA {
 process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
+	publishDir "${params.outdir}", mode: 'copy', overwrite: true
 	cpus 20
 
 	input:
 		path(sample_dir)
 	output:
-		path("mergedpeaks_500bp.bed")
+		path("mergedpeaks_500bp.nf.bed")
 	script:
 		"""
 		#merge all ATAC bam files
@@ -102,9 +107,10 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 		#take summits and then expand to 250bp in either direction
 		awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
+		awk 'OFS="\\t" sub(/-./,\"1\")1' peaks_500bp.bed > peaks_500bp.nonneg.bed #set negative values to 1
 		#bed will be filtered to only main chroms and no negative values.
 		#merge peaks that overlap
-		bedtools merge -i merged_500bp.bed > mergedpeaks_500bp.bed
+		bedtools merge -i peaks_500bp.nonneg.bed > mergedpeaks_500bp.nf.bed
 		"""
 
 }
@@ -112,6 +118,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 process SUPPLIED_MERGED_PEAKS {
 		//Copy supplied bed file. If one is given to the --merged_peaks argument on initialization of pipeline.
+		publishDir "${params.outdir}", mode: 'copy', overwrite: true
 		input:
 			path(merged_bed)
 		output:
@@ -144,11 +151,12 @@ process DIM_REDUCTION_PER_SAMPLE {
 
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
-   	cpus 3
+  cpus 3
+	
 	input:
 		path(obj_in)
 	output:
-		path("${obj_in}")
+		path("${obj_in.simpleName}.cistopic.SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
@@ -165,7 +173,7 @@ process TITAN_PER_SAMPLE {
 	input:
 		path(obj_in)
 	output:
-		path("${obj_in}")
+		path("${obj_in}.titan.SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
@@ -182,14 +190,16 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 
 	input:
 		path(seurat_objects)
+		path(metadata)
 	output:
-		path("merged.SueratObject.Rds")
+		path("merged.label_transfer.SeuratObject.Rds")
 
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
 	"${seurat_objects}" \\
-	${params.ref}
+	${params.ref} \\
+	${metadata}
 	"""
 }
 
@@ -202,11 +212,11 @@ process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
   cpus 20
-  
+
 	input:
 		path(merged_in)
 	output:
-		path("${merged_in}")
+		path("${merged_in.simpleName}.liger.SeuratObject.Rds")
 
 	script:
 	"""
@@ -333,6 +343,7 @@ process COPYSCAT_ATAC_PER_SAMPLE {
 workflow {
 	/* SETTING UP VARIABLES */
 		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
+		sample_metadata = Channel.fromPath("${params.sample_metadata}")
 
 	// DATA CORRECTION
 		merged_peaks_input=
@@ -345,23 +356,24 @@ workflow {
 			Channel.fromPath("${params.merged_bed}") \
 			| SUPPLIED_MERGED_PEAKS \
 			| toList
-
   	} else {
   		//Make merged bed file of peaks
 	  	merged_peaks = 
 	  	merged_peaks_input \
 	  	| collect \
-	    | MERGE_SAMPLES_CALLPEAKS(merged_peaks_input)
+	    | MERGE_SAMPLES_CALLPEAKS
   	}
 
 
 	// DATA PROCESSING 
-		merged_seurat_object =
+		seurat_object_list =
 		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
 		| CISTOPIC_PER_SAMPLE \
 		| TITAN_PER_SAMPLE \
-		| collect \
-		| MERGED_PUBLIC_DATA_LABEL_TRANSFER \
+		| collect
+
+		merged_seurat_object=
+		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
 		| MERGED_CLUSTER \
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY

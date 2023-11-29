@@ -15,8 +15,10 @@ args = commandArgs(trailingOnly=TRUE)
 #args[1]=merged seurat file
 dat=readRDS(args[1])
 outname<-strsplit(args[1],"[.]")[1]
+seurat_out=paste0(args[2],"/seurat_objects")
 outdir=paste0(args[2],"/merged_cluster_plots")
 
+system(paste0("mkdir -p ",seurat_obj))
 system(paste0("mkdir -p ",outdir))
 
 #RNA liger
@@ -80,6 +82,7 @@ Extend <- function(x,upstream = 0,downstream = 0,from.midpoint = FALSE) {
 }
 
 split_gene_count<-function(x,obj=dat){
+    DefaultAssay(obj)<-"peaks"
     FeatureMatrix(fragments = Fragments(obj),cells=Cells(obj),
                               features= feat_split[[x]],
                               verbose = TRUE,
@@ -146,12 +149,12 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
   dat_in <- FindNeighbors(dat_in, reduction = "iNMF", dims = seq(1,dim_in,1))
   dat_in <- FindClusters(dat_in, resolution = 0.3)
   dat_in <- RunUMAP(dat_in, dims = 1:ncol(dat_in[["iNMF"]]), reduction = "iNMF")
-  plt<-DimPlot(dat_in, group.by = c("sample", "EMBO_predicted.id","diagnosis","HBCA_predicted.id"), ncol = 2)+
+  plt<-DimPlot(dat_in, group.by = c("sample", "EMBO_predicted.id","Diagnosis","HBCA_predicted.id"), ncol = 2)+
   ggtitle(paste("nfeat_rna:",as.character(nfeat_rna),
       "nfeat_ga:",as.character(nfeat_peaks),
       "dim:",as.character(dim_in),
       "k:",as.character(k_in)))
-  ggsave(plt,file=paste0(outdir,"/merged.liger.peaks.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),width=20,height=20)
+  ggsave(plt,file=paste0(outdir,"/merged.liger.RNA_and_GA.pdf"),width=20,height=20)
   return(dat_in)
 }
 
@@ -176,7 +179,7 @@ plot_predictions<-function(dat=dat_in,ref_prefix){
 #subset to which protein coding gene is longest that has the same name
 #extend 2kb upstream for promoter inclusion
 feat=dat@assays$peaks@annotation[dat@assays$peaks@annotation$gene_biotype=="protein_coding",]
-feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=20) #collapse to longest transcripts
+feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=10) #collapse to longest transcripts
 feat<-unlist(as(feat, "GRangesList"))
 feat<-setNames(feat,feat$gene_name)#set row names as gene names
 feat<-feat[feat@ranges@width<500000,]#filter extra long transcripts
@@ -186,7 +189,7 @@ feat_split<-split(transcripts, rep_len(1:300, length(transcripts)))#parallelize 
 dat_atac_counts<-mclapply(1:length(feat_split),split_gene_count,mc.cores=10)
 x<-do.call("rbind",dat_atac_counts)
 dat_atac_counts<-x
-saveRDS(dat_atac_counts,file="merged.genecounts.rds")
+saveRDS(dat_atac_counts,file=paste0(seurat_out,"/merged.genecounts.rds")
 dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
 
 #loops for testing
@@ -200,6 +203,6 @@ dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
 k=30
 dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k)
 
-saveRDS(dat_in,file="merged.SeuratObject.rds")
+saveRDS(dat_in,file="merged.liger.SeuratObject.rds")
 lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x)
 
