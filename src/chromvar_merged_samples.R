@@ -51,7 +51,7 @@ dat <- RunChromVAR( object = dat,
   genome = BSgenome.Hsapiens.UCSC.hg38,
   assay="ATAC")
 
-saveRDS(dat,file="merged.SeuratObject.rds")
+saveRDS(dat,file="merged.chromvar.SeuratObject.rds")
 
 #Many transcription factors share the same motifs. To account for this, we are also going to perform chromvar across TF families.
 #download cluster root motifs
@@ -79,4 +79,4 @@ dat_chrom<- RegionStats(object = dat_chrom, genome = BSgenome.Hsapiens.UCSC.hg38
 dat_chrom<- RunChromVAR(object = dat_chrom,genome = BSgenome.Hsapiens.UCSC.hg38,new.assay.name="jaspar_tffamily")
 
 dat[["jaspar_tffamily"]]<-dat_chrom@assays$jaspar_tffamily
-saveRDS(dat,file="merged.SeuratObject.rds")
+saveRDS(dat,file="merged.chromvar.SeuratObject.rds")

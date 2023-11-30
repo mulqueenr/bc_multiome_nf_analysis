@@ -20,5 +20,6 @@ dat<- NormalizeData(
   normalization.method = 'LogNormalize',
   scale.factor = median(dat$nCount_GeneActivity)
 )
-saveRDS(dat,file=args[1])
+saveRDS(dat,file=paste0(outname,".geneactivity.SeuratObject.rds"))
+
 

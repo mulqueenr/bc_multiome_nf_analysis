@@ -7,7 +7,7 @@ nextflow.enable.dsl=2
 //////////////////////////////
 params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
-params.sample_dir="${params.proj_dir}/cellranger_data"
+params.sample_dir="${params.proj_dir}/cellranger_data" 
 params.ref = "${params.proj_dir}/ref"
 params.src_dir="${params.proj_dir}/src"
 params.force_rewrite="false"
@@ -142,8 +142,6 @@ process DIM_REDUCTION_PER_SAMPLE {
 		path("*SeuratObject.rds")
 	script:
 	"""
-	mkdir -p ${params.outdir}/seurat_objects
-
 	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
 	${combined_peaks} \\
 	${sample_dir} \\
@@ -155,15 +153,12 @@ process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
   cpus 3
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.CisTopicObject.rds"
-
 	input:
 		path(obj_in)
 	output:
 		path("${obj_in.simpleName}.cistopic.SeuratObject.rds")
 	script:
 	"""
-	mkdir -p ${params.outdir}/seurat_objects
-
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
@@ -174,11 +169,12 @@ process CISTOPIC_PER_SAMPLE {
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.TITANObject.rds"
 	cpus 3
 	input:
 		path(obj_in)
 	output:
-		path("${obj_in}.titan.SeuratObject.rds")
+		path("${obj_in.simpleName}.titan.SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
@@ -197,7 +193,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 		path(seurat_objects)
 		path(metadata)
 	output:
-		path("merged.label_transfer.SeuratObject.Rds")
+		path("merged.public_transfer.SeuratObject.rds")
 
 	script:
 	"""
@@ -233,7 +229,6 @@ process MERGED_CLUSTER {
 
 process MERGED_CHROMVAR {	
 	//Run chromVAR on merged seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 
 	input:
 		path(merged_in)
@@ -242,14 +237,14 @@ process MERGED_CHROMVAR {
 
 	script:
 	"""
-	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
+	Rscript ${params.src_dir}/chromvar_merged_samples.R \\
 	${merged_in}
 	"""
 }
 
 process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.GeneActivity.rds"
 
 	input:
 		path(merged_in)
@@ -258,7 +253,7 @@ process MERGED_GENE_ACTIVITY {
 
 	script:
 	"""
-	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
+	Rscript ${params.src_dir}/geneactivity_merged_sample.R \\
 	${merged_in}
 	"""
 }
@@ -347,8 +342,9 @@ process COPYSCAT_ATAC_PER_SAMPLE {
 
 workflow {
 	/* SETTING UP VARIABLES */
-		sample_dir = Channel.fromPath("${params.sample_dir}/*/" , type: 'dir').map { [it.name, it ] }
+		sample_dir = Channel.fromPath("${params.sample_dir}/[I|N|D]*/" , type: 'dir').map { [it.name, it ] }
 		sample_metadata = Channel.fromPath("${params.sample_metadata}")
+		//Sample_dir finds all folders that start with I (IDC/ILC), N (NAT), or D (DCIS), but that regex filter can be removed//
 
 	// DATA CORRECTION
 		merged_peaks_input=
@@ -388,8 +384,8 @@ workflow {
 		merged_seurat_object \
 		| INFERCNV_RNA_PER_SAMPLE \
 		| CASPER_RNA_PER_SAMPLE \
-		| COPYKAT_RNA_PER_SAMPLE \
-		| COPYSCAT_ATAC_PER_SAMPLE
+		| COPYKAT_RNA_PER_SAMPLE 
+		//| COPYSCAT_ATAC_PER_SAMPLE
 
 }
 

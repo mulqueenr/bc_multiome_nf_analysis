@@ -387,16 +387,61 @@ ${phase2_rna_dir}/sequencing_data/fq/HFMTNDRX2/${i},${i},Gene Expression""" > ${
 
 ```
 
-Then use cellranger-arc count for processing.
-```bash
-sample_list=$(ls ${proj_dir}/sequencing_data/*.csv)
-for i in $sample_list; do
-  outname=${i::-4};
-  cellranger-arc count --id=${outname} \
-   --reference=${proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0 \
-   --libraries=${proj_dir}/cellranger_data/${i} \
-   --localcores=30 \
-   --localmem=90 
-done &
 
+## Deeper sequencing performed for all samples, final cellranger run for manuscript.
+
+Sample processing followed same pipeline as before. Rerunning cellranger to keep sample names consistent.
+Initial bcl2fastq processing performed by Hugo Cros and the OHSU Sequencing Core.
+New data moved to /home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/second_round_sequencing_combined
+New cellranger output to /home/groups/CEDAR/mulqueen/bc_multiome/cellranger_data/second_round
+
+```bash
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+old_dir="/home/groups/CEDAR/cros/projects/Ryan_multiome_newdata/data"
+new_dir="/home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/second_round_sequencing_combined"
+sample_list=($(ls ${proj_dir}/sequencing_data/second_round_sequencing_combined/["s|R"]*.csv))
+list_length=$(echo ${#sample_list[@]})
+
+#hardcoded rename of samples, sorted alphabetically by original name
+#sample 15 (NAT 11) is excluded for reseq, so just added from first round
+sample_names=("ILC_1" "IDC_5" "IDC_12" "NAT_4" "IDC_3" "IDC_4" "IDC_10" "DCIS_3" "NAT_14" "DCIS_1" "IDC_11" "IDC_1" "IDC_2" "IDC_6" "IDC_7" "DCIS_2" "IDC_8" "IDC_9")
+names_length=$(echo ${#sample_names[@]})
+echo $list_length
+echo $names_length
+#rewrite csv files to current directory after moved and rename output
+for i in $(eval echo {0..$list_length}); do
+  outname=${sample_names[i]}
+  csv_in=${sample_list[i]}
+  cat $csv_in | sed 's|/home/groups/CEDAR/cros/projects/Ryan_multiome_newdata/data|/home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/second_round_sequencing_combined|g' > ${outname}.csv
+done
+
+```
+Then use cellranger-arc count for processing.
+Using slurm submission for multinodes
+
+cellranger_processing.slurm
+```bash
+#!/bin/bash
+#SBATCH --nodes=1 #request 19 nodes
+#SBATCH --array=1-19 #19 samples from csv files
+#SBATCH --tasks-per-node=2 ##we want our node to do N tasks at the same time
+#SBATCH --cpus-per-task=20 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
+#SBATCH --mem-per-cpu=3gb ## request gigabyte per cpu
+#SBATCH --time=10:00:00 ## ask for 5 hour on the node
+#SBATCH --partition="exacloud"
+#SBATCH --
+
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+file_in=$(ls ${proj_dir}/sequencing_data/second_round_sequencing_combined/*.csv | awk -v line=$SLURM_ARRAY_TASK_ID '{if (NR == line) print $0}')
+
+outname=${file_in::-4};
+prefix=`basename $outname`
+cellranger-arc count --id=${prefix} \
+ --reference=${proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0 \
+ --libraries=${file_in} \
+ --localcores=20 \
+ --localmem=60 
+```
+```bash
+sbatch cellranger_processing.slurm
 ```
