@@ -10,9 +10,9 @@ library(rtracklayer)
 library(ggplot2)
 
 args = commandArgs(trailingOnly=TRUE)
-obj_in=args[1]
-outdir=args[2]
-obj_out=args[3]
+obj_in=args[1] #NAT_11.SeuratObject.rds
+outdir=args[2] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots
+obj_out=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects
 
 
 #filter to cells with ATAC features > 1000
@@ -22,7 +22,7 @@ single_sample_cistopic_generation<-function(x,outdir,obj_out){
   atac_sub<-readRDS(x)
   #skip cistopic if cell count too low
   if(sum(atac_sub$nCount_ATAC>1000)<500){
-      saveRDS(atac_sub,paste0(outname,".SeuratObject.rds"))
+      saveRDS(atac_sub,paste0(outname,".cistopic.SeuratObject.rds"))
   }else{
   atac_sub<-subset(atac_sub,nCount_ATAC>1000)
 
@@ -71,7 +71,7 @@ single_sample_cistopic_generation<-function(x,outdir,obj_out){
   print(plt1)
   #print(plt2)
   dev.off()
-  saveRDS(sub_cistopic_models,file=paste0(obj_out,"/",outname,".CisTopicObject.rds"))
+  saveRDS(sub_cistopic_models,file=paste0(outname,".CisTopicObject.rds"))
   saveRDS(atac_sub,paste0(outname,".cistopic.SeuratObject.rds"))
   }
   }

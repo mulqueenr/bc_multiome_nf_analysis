@@ -142,6 +142,8 @@ process DIM_REDUCTION_PER_SAMPLE {
 		path("*SeuratObject.rds")
 	script:
 	"""
+	mkdir -p ${params.outdir}/seurat_objects
+
 	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
 	${combined_peaks} \\
 	${sample_dir} \\
@@ -152,13 +154,16 @@ process DIM_REDUCTION_PER_SAMPLE {
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
   cpus 3
-	
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.CisTopicObject.rds"
+
 	input:
 		path(obj_in)
 	output:
 		path("${obj_in.simpleName}.cistopic.SeuratObject.rds")
 	script:
 	"""
+	mkdir -p ${params.outdir}/seurat_objects
+
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
@@ -383,8 +388,8 @@ workflow {
 		merged_seurat_object \
 		| INFERCNV_RNA_PER_SAMPLE \
 		| CASPER_RNA_PER_SAMPLE \
-		| COPYKAT_RNA_PER_SAMPLE 
-		// COPYSCAT_ATAC_PER_SAMPLE
+		| COPYKAT_RNA_PER_SAMPLE \
+		| COPYSCAT_ATAC_PER_SAMPLE
 
 }
 

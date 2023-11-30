@@ -3,9 +3,10 @@
 This repository contains the nextflow pipeline and accessory scripts for processing samples from standard cellranger-arc output through final analysis for the breast cancer multiome CEDAR project. 
 
 The file /nextflow_version/bc_multiome.nf.groovy contains the nextflow pipeline and calls R and bash scripts from src/
-Processing of public data, used in cell label transfer, if contained in the processing_public_data.md.
 
-The code below details the full processing steps for bcl files to cellranger-arc output. Which is subsequently used for nextflow input.
+The code in processing_10x_data.md details the full processing steps for bcl files to cellranger-arc output. Which is subsequently used for nextflow input.
+
+Processing of public data, used in cell label transfer, if contained in the processing_public_data.md.
 
 Example run of nextflow:
 ```bash
