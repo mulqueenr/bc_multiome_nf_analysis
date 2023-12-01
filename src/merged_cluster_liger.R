@@ -199,5 +199,5 @@ k=30
 dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k)
 
 saveRDS(dat_in,file="merged.liger.SeuratObject.rds")
-lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x)
+lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x))
 
