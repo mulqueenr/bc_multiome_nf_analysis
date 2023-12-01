@@ -445,3 +445,5 @@ cellranger-arc count --id=${prefix} \
 ```bash
 sbatch cellranger_processing.slurm
 ```
+
+error: FASTQ path doesn't exist: "/home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/first_round_sequencing/EXP220628HM/220713_A01058_0246_BHFMTNDRX2/Data/Intensities/BaseCalls/phase_2_rna/"

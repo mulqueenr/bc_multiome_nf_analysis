@@ -211,18 +211,20 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 
 process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.genecounts.rds"
+  publishDir "${params.outdir}/plots", mode: 'copy', overwrite: true, pattern: "*.pdf"
+
   cpus 20
 
 	input:
 		path(merged_in)
 	output:
-		path("${merged_in.simpleName}.liger.SeuratObject.Rds")
+		path("${merged_in.simpleName}.liger.SeuratObject.rds")
 
 	script:
 	"""
 	Rscript ${params.src_dir}/merged_cluster_liger.R \\
-	"${seurat_objects}" \\
+	"${merged_in}" \\
 	${params.outdir}
 	"""
 }
@@ -233,7 +235,7 @@ process MERGED_CHROMVAR {
 	input:
 		path(merged_in)
 	output:
-		path("${merged_in}")
+		path("${merged_in.simpleName}.chromvar.SeuratObject.rds")
 
 	script:
 	"""
@@ -248,8 +250,9 @@ process MERGED_GENE_ACTIVITY {
 
 	input:
 		path(merged_in)
+
 	output:
-		tuple path("${merged_in}"), path("*.GeneActivity.rds")
+		path("${merged_in.simpleName}.geneactivity.SeuratObject.rds")
 
 	script:
 	"""

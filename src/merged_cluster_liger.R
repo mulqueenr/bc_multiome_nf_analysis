@@ -15,11 +15,6 @@ args = commandArgs(trailingOnly=TRUE)
 #args[1]=merged seurat file
 dat=readRDS(args[1])
 outname<-strsplit(args[1],"[.]")[1]
-seurat_out=paste0(args[2],"/seurat_objects")
-outdir=paste0(args[2],"/merged_cluster_plots")
-
-system(paste0("mkdir -p ",seurat_obj))
-system(paste0("mkdir -p ",outdir))
 
 #RNA liger
 rna_liger<-function(nfeat=1000,dims=10,k_in=10){
@@ -34,7 +29,7 @@ rna_liger<-function(nfeat=1000,dims=10,k_in=10){
   dat <- RunUMAP(dat, dims = 1:ncol(dat[["iNMF"]]), reduction = "iNMF")
   plt<-DimPlot(dat, group.by = c("sample", "HBCA_predicted.id","diagnosis","EMBO_predicted.id"), ncol = 2)+ggtitle(paste("nfeat:",as.character(nfeat),"dim:",as.character(dims),"k:",as.character(k_in)))
   ggsave(plt,
-    file=paste0(outdir,"/merged.liger.RNA.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),
+    file=paste0("merged.liger.RNA.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),
     width=20,height=20)
 }
 
@@ -101,7 +96,7 @@ GA_liger<-function(nfeat=1000,dims=10,k_in=10){
   dat <- FindClusters(dat, resolution = 0.3)
   dat <- RunUMAP(dat, dims = 1:ncol(dat[["iNMF"]]), reduction = "iNMF")
   plt<-DimPlot(dat, group.by = c("sample", "HBCA_predicted.id","diagnosis","EMBO_predicted.id"), ncol = 2)+ggtitle(paste("nfeat:",as.character(nfeat),"dim:",as.character(dims),"k:",as.character(k_in)))
-  ggsave(plt,file=paste0(outdir,"/merged.liger.GA.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),width=30)
+  ggsave(plt,file=paste0("merged.liger.GA.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),width=30)
 }
 
 peak_liger<-function(nfeat=1000,dims=10,k_in=10){
@@ -117,7 +112,7 @@ peak_liger<-function(nfeat=1000,dims=10,k_in=10){
   dat <- FindClusters(dat, resolution = 0.3)
   dat <- RunUMAP(dat, dims = 1:ncol(dat[["iNMF"]]), reduction = "iNMF")
   plt<-DimPlot(dat, group.by = c("sample", "HBCA_predicted.id","diagnosis"), ncol = 2)+ggtitle(paste("nfeat:",as.character(nfeat),"dim:",as.character(dims),"k:",as.character(k_in)))
-  ggsave(plt,file=paste0(outdir,"/merged.liger.peaks.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),width=20,height=20)
+  ggsave(plt,file=paste0("merged.liger.peaks.",as.character(nfeat),".",as.character(dims),".",as.character(k_in),".pdf"),width=20,height=20)
 }
 
 
@@ -154,14 +149,14 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
       "nfeat_ga:",as.character(nfeat_peaks),
       "dim:",as.character(dim_in),
       "k:",as.character(k_in)))
-  ggsave(plt,file=paste0(outdir,"/merged.liger.RNA_and_GA.pdf"),width=20,height=20)
+  ggsave(plt,file=paste0("merged.liger.RNA_and_GA.pdf"),width=20,height=20)
   return(dat_in)
 }
 
 
 #plot label transfer predictions over integration
 plot_predictions<-function(dat=dat_in,ref_prefix){
-  out_plot<-paste0(outdir,"/",ref_prefix,".predictions.umap.pdf")
+  out_plot<-paste0(ref_prefix,".predictions.umap.pdf")
   feat_predictions=colnames(predictions)
   feat_predictions=feat_predictions[!endsWith(feat_predictions,c("id"))]
   feat_predictions=feat_predictions[!endsWith(feat_predictions,c("max"))]
@@ -189,7 +184,7 @@ feat_split<-split(transcripts, rep_len(1:300, length(transcripts)))#parallelize 
 dat_atac_counts<-mclapply(1:length(feat_split),split_gene_count,mc.cores=10)
 x<-do.call("rbind",dat_atac_counts)
 dat_atac_counts<-x
-saveRDS(dat_atac_counts,file=paste0(seurat_out,"/merged.genecounts.rds")
+saveRDS(dat_atac_counts,file=paste0("merged.genecounts.rds"))
 dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
 
 #loops for testing
