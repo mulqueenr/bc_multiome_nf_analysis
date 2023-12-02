@@ -157,8 +157,8 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
 #plot label transfer predictions over integration
 plot_predictions<-function(dat=dat_in,ref_prefix){
   out_plot<-paste0(ref_prefix,".predictions.umap.pdf")
-  feat_predictions=colnames(predictions)
-  feat_predictions=feat_predictions[!endsWith(feat_predictions,c("id"))]
+  feat_predictions=colnames(dat_in@meta.data)
+  feat_predictions=feat_predictions[startsWith(feat_predictions,prefix=paste0(ref_prefix,"_prediction."))]
   feat_predictions=feat_predictions[!endsWith(feat_predictions,c("max"))]
 
   plt1<-FeaturePlot(dat,features=feat_predictions,pt.size=0.1,order=T,col=c("white","red"))
@@ -167,6 +167,7 @@ plot_predictions<-function(dat=dat_in,ref_prefix){
 
   plt<-(plt2|plt3)/plt1
   ggsave(plt,file=out_plot,width=20,height=30,limitsize=F)
+  print(paste("Plotted predictions for:",ref_prefix))
 }
 
 #doing feature setting following signac gene activity calculation
