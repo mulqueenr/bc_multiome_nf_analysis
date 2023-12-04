@@ -423,11 +423,11 @@ cellranger_processing.slurm
 ```bash
 #!/bin/bash
 #SBATCH --nodes=1 #request 19 nodes
-#SBATCH --array=1-19 #19 samples from csv files
+#SBATCH --array=11,4,7,8 #1-19 samples from csv files
 #SBATCH --tasks-per-node=2 ##we want our node to do N tasks at the same time
 #SBATCH --cpus-per-task=20 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
 #SBATCH --mem-per-cpu=3gb ## request gigabyte per cpu
-#SBATCH --time=10:00:00 ## ask for 5 hour on the node
+#SBATCH --time=20:00:00 ## ask for 5 hour on the node
 #SBATCH --partition="exacloud"
 #SBATCH --
 
@@ -442,8 +442,30 @@ cellranger-arc count --id=${prefix} \
  --localcores=20 \
  --localmem=60 
 ```
+IDC_1, IDC_12, IDC_2, IDC_5
+ 4, 7, 8, 11
 ```bash
 sbatch cellranger_processing.slurm
 ```
 
-error: FASTQ path doesn't exist: "/home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/first_round_sequencing/EXP220628HM/220713_A01058_0246_BHFMTNDRX2/Data/Intensities/BaseCalls/phase_2_rna/"
+error: FASTQ path doesn't exist: "/home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/EXP220628HM/220713_A01058_0246_BHFMTNDRX2/Data/Intensities/BaseCalls/phase_2_rna/"
+Rerun of NAT 11
+```bash
+#!/bin/bash
+#SBATCH --nodes=1 #request 19 nodes
+#SBATCH --tasks-per-node=2 ##we want our node to do N tasks at the same time
+#SBATCH --cpus-per-task=20 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
+#SBATCH --mem-per-cpu=3gb ## request gigabyte per cpu
+#SBATCH --time=10:00:00 ## ask for 5 hour on the node
+#SBATCH --partition="exacloud"
+#SBATCH --
+
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+file_in=$(ls ${proj_dir}/sequencing_data/second_round_sequencing_combined/NAT_11.csv)
+prefix="NAT_11"
+cellranger-arc count --id=${prefix} \
+ --reference=${proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0 \
+ --libraries=${file_in} \
+ --localcores=20 \
+ --localmem=60 
+```
