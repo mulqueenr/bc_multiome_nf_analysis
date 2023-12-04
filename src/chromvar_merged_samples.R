@@ -14,7 +14,7 @@ args = commandArgs(trailingOnly=TRUE)
 
 
 dat=readRDS(args[1])
-outname<-strsplit(args[1],"[.]")[1]
+outname<-strsplit(args[1],"[.]")[[1]][1]
 
 DefaultAssay(dat)<-"ATAC"
 

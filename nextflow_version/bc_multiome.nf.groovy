@@ -7,7 +7,7 @@ nextflow.enable.dsl=2
 //////////////////////////////
 params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
-params.sample_dir="${params.proj_dir}/cellranger_data" 
+params.sample_dir="${params.proj_dir}/cellranger_data/second_round" 
 params.ref = "${params.proj_dir}/ref"
 params.src_dir="${params.proj_dir}/src"
 params.force_rewrite="false"
@@ -152,7 +152,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
   cpus 3
-	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.CisTopicObject.rds"
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 	input:
 		path(obj_in)
 	output:
@@ -169,7 +169,7 @@ process CISTOPIC_PER_SAMPLE {
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
-	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.TITANObject.rds"
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
 	cpus 3
 	input:
 		path(obj_in)
@@ -273,6 +273,7 @@ process MERGED_GENE_ACTIVITY {
 //////////////////////////////////
 process INFERCNV_RNA_PER_SAMPLE {
 	//Run InferCNV per sample.
+  publishDir "${params.outdir}/infercnv", mode: 'copy', overwrite: true, pattern: "*inferCNV*"
 
 	input:
 		path(merged_in)
@@ -280,11 +281,9 @@ process INFERCNV_RNA_PER_SAMPLE {
 		path("${merged_in}")
 	script:
 	"""
-	mkdir -p ${params.outdir}/cnv
 
 	Rscript ${params.src_dir}/infercnv_per_sample.R \\
-	${merged_in} \\
-	${params.outdir}/cnv
+	${merged_in}
 	"""
 }
 
@@ -393,11 +392,9 @@ workflow {
 }
 
 /*
-
+module load nextflow
 nextflow bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html \
--resume \
---merge_bed merged_500bp.bed 
+-with-report bc_multiome.report.html 
 
 */

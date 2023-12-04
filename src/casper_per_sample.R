@@ -12,7 +12,6 @@ args = commandArgs(trailingOnly=TRUE)
 dat=readRDS(args[1])
 ref_dir=args[2]
 cellranger_in=args[3]
-outdir=args[4]
 
 BAFExtract_location<-paste0(ref_dir,"/BAFExtract/bin/BAFExtract")
 hg38_list_location<-paste0(ref_dir,"/BAFExtract/hg38.list") #downloaded from https://github.com/akdess/BAFExtract
@@ -22,7 +21,6 @@ DefaultAssay(dat)<-"RNA"
 
 casper_per_sample<-function(dat=dat,outname=x){
   outdir_sample=paste0(outdir,"/",outname,"/casper/")
-  system(paste0("mkdir -p ",outdir_sample))
   bam_location<-paste0(cellranger_in,"/",outname,"/outs/gex_possorted_bam.bam")
 
   dat<-subset(dat,sample==outname) #subset data to sample specified by x and outname
