@@ -2,7 +2,6 @@ library(Signac)
 library(Seurat)
 library(ggplot2)
 library(patchwork)
-library(SeuratObjects)
 library(EnsDb.Hsapiens.v86)
 args = commandArgs(trailingOnly=TRUE)
 
