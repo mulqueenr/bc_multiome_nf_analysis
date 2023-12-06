@@ -152,7 +152,8 @@ process DIM_REDUCTION_PER_SAMPLE {
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
   cpus 3
-	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*cistopic.SeuratObject.rds"
+
 	input:
 		path(obj_in)
 	output:
@@ -169,7 +170,7 @@ process CISTOPIC_PER_SAMPLE {
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
-	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*titan.SeuratObject.rds"
 	cpus 3
 	input:
 		path(obj_in)
@@ -246,7 +247,7 @@ process MERGED_CHROMVAR {
 
 process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.GeneActivity.rds"
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 
 	input:
 		path(merged_in)
@@ -277,13 +278,15 @@ process INFERCNV_RNA_PER_SAMPLE {
 
 	input:
 		path(merged_in)
+		val(sample)
 	output:
-		path("${merged_in}")
+		tuple path("${merged_in}"),val(sample)
 	script:
 	"""
 
 	Rscript ${params.src_dir}/infercnv_per_sample.R \\
-	${merged_in}
+	${merged_in} \\
+	${sample}
 	"""
 }
 
@@ -382,19 +385,21 @@ workflow {
 		| MERGED_GENE_ACTIVITY
 		
 	// CNV CALLING 
-		merged_seurat_object =
-		merged_seurat_object \
-		| INFERCNV_RNA_PER_SAMPLE \
-		| CASPER_RNA_PER_SAMPLE \
-		| COPYKAT_RNA_PER_SAMPLE 
+		INFERCNV_RNA_PER_SAMPLE(merged_seurat_object,sample_dir) //\
+		//| CASPER_RNA_PER_SAMPLE(merged_seurat_object,sample_metadata)
+		//| CASPER_RNA_PER_SAMPLE(merged_seurat_object,sample_metadata)
 		//| COPYSCAT_ATAC_PER_SAMPLE
 
 }
 
 /*
+WIP: Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
+
+cd /home/groups/CEDAR/mulqueen/bc_multiome
 module load nextflow
 nextflow bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html 
+-with-report bc_multiome.report.html \
+-resume
 
 */
