@@ -395,6 +395,12 @@ workflow {
 module load nextflow
 nextflow bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html 
+-with-report bc_multiome.report.html \
+-resume
+
+#it didnt publish some files, so I just took them from the temp dir
+find -name ./work/*/*/*pdf
+find -name ./work/*/*/*cistopic*
+find -name ./work/*/*/*titan*
 
 */
