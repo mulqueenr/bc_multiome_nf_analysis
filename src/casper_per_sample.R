@@ -7,26 +7,27 @@ set.seed(1234)
 library(stringr)
 library(CaSpER) 
 library(parallel)
+
 args = commandArgs(trailingOnly=TRUE)
+dat=readRDS(args[1]) #dat=readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
+sample_arr=args[2] #sample_arr=as.numeric(as.character(8)) 
+proj_dir=args[3] #proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 
-dat=readRDS(args[1])
-ref_dir=args[2]
-cellranger_in=args[3]
+BAFExtract_location<-paste0(proj_dir,"/src/BAFExtract/bin/BAFExtract")
+hg38_list_location<-paste0(proj_dir,"/src/BAFExtract/hg38.list") #downloaded from https://github.com/akdess/BAFExtract
+hg38_folder_location<-paste0(proj_dir,"/src/BAFExtract/hg38/")
 
-BAFExtract_location<-paste0(ref_dir,"/BAFExtract/bin/BAFExtract")
-hg38_list_location<-paste0(ref_dir,"/BAFExtract/hg38.list") #downloaded from https://github.com/akdess/BAFExtract
-hg38_folder_location<-paste0(ref_dir,"/BAFExtract/hg38/")
-baf_sample_directory<-paste0(dir_in,"/casper")
 DefaultAssay(dat)<-"RNA"
 
 casper_per_sample<-function(dat=dat,outname=x){
-  outdir_sample=paste0(outdir,"/",outname,"/casper/")
-  bam_location<-paste0(cellranger_in,"/",outname,"/outs/gex_possorted_bam.bam")
+  dir_in=paste0(proj_dir,"/cellranger_data/second_round/",outname,"/outs")
+  baf_sample_directory<-paste0(dir_in,"/casper")
+  bam_location<-paste0(dir_in,"/gex_possorted_bam.bam")
+  #generate BAF per sample in respective cellranger output folder
 
   dat<-subset(dat,sample==outname) #subset data to sample specified by x and outname
-
   dat$cnv_ref<-"FALSE"
-  dat@meta.data[!(dat$EMBO_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell")),]$cnv_ref<-"TRUE" #set cnv ref by cell type
+  dat@meta.data[!(dat$HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell")),]$cnv_ref<-"TRUE" #set cnv ref by cell type
   control<-names(dat$cnv_ref == "TRUE") 
   log.ge <- as.matrix(dat@assays$RNA@data)
   genes <- rownames(log.ge)
@@ -64,18 +65,18 @@ casper_per_sample<-function(dat=dat,outname=x){
   control.sample.ids=control, 
   cytoband=cytoband)
 
-  saveRDS(object,paste0(outdir_sample,"/casper.initialobj.rds"))
+  saveRDS(object,paste0(outname,"initialobj.casper.rds"))
 
   ## runCaSpER
   final.objects <- runCaSpER(object, removeCentromere=T, cytoband=cytoband, method="iterative")
-  saveRDS(final.objects,paste0(outdir_sample,"/casper.finalobj.rds"))
+  saveRDS(final.objects,paste0(outname,".finalobj.casper.rds"))
 
   ## summarize large scale events 
   finalChrMat <- extractLargeScaleEvents(final.objects, thr=0.75)
   final.obj <- final.objects[[9]]
 
-  saveRDS(final.obj,paste0(outdir_sample,"/casper.finalobj.rds"))
-  saveRDS(finalChrMat,paste0(outdir_sample,"/casper.finalchrmat.rds"))
+  saveRDS(final.obj,paste0(outname,".finalobj.casper.rds"))
+  saveRDS(finalChrMat,paste0(outname,".finalchrmat.casper.rds"))
 
   #Segmentations
   gamma <- 6
@@ -99,8 +100,8 @@ casper_per_sample<-function(dat=dat,outname=x){
   all.genes <- unique(final.objects[[1]]@annotation.filt[,2])
   all.samples <- unique(as.character(final.objects[[1]]@segments$ID))
   rna.matrix <- gene.matrix(seg=all.summary, all.genes=all.genes, all.samples=all.samples, genes.ann=genes.ann) #just need to fix genes.ann
-  saveRDS(rna.matrix, paste0(outdir_sample,"/casper.finalgenemat.rds"))
+  saveRDS(rna.matrix, paste0(outname,".finalgenemat.casper.rds"))
 }
 
-mclapply(unique(dat$sample),function(x) casper_per_sample(dat=dat,outname=x),mc.cores=10)
+casper_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])
 

@@ -14,7 +14,8 @@ library(patchwork)
 library(parallel)
 args = commandArgs(trailingOnly=TRUE)
 
-dat=readRDS(arg[1])
+dat=readRDS(args[1])
+sample_arr=args[2]
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
@@ -40,15 +41,15 @@ infercnv_per_sample<-function(dat,outname){
   counts=as.matrix(dat@assays$RNA@counts[,colnames(dat)])
   cell_annotation=as.data.frame(cbind(row.names(dat@meta.data),dat@meta.data["cnv_ref"]))
 
-  write.table(gene_order,file=paste0(outname,".inferCNV.gene_order.txt"),sep="\t",col.names=F,row.names=F,quote=F)
-  write.table(counts,file=paste0(outname,".inferCNV.counts.txt"),sep="\t",col.names=T,row.names=T,quote=F)
-  write.table(cell_annotation,file=paste0(outname,".inferCNV.annotation.txt"),sep="\t",col.names=F,row.names=F,quote=F)
+  write.table(gene_order,file=paste0(outname,".gene_order.infercnv.txt"),sep="\t",col.names=F,row.names=F,quote=F)
+  write.table(counts,file=paste0(outname,".counts.infercnv.txt"),sep="\t",col.names=T,row.names=T,quote=F)
+  write.table(cell_annotation,file=paste0(outname,".annotation.infercnv.txt"),sep="\t",col.names=F,row.names=F,quote=F)
 
   infercnv_obj = CreateInfercnvObject(
-    raw_counts_matrix=paste0(outname,".inferCNV.counts.txt"),
-    annotations_file=paste0(outname,".inferCNV.annotation.txt"),
+    raw_counts_matrix=paste0(outname,".counts.infercnv.txt"),
+    annotations_file=paste0(outname,".annotation.infercnv.txt"),
     delim="\t",
-    gene_order_file=paste0(outname,".inferCNV.gene_order.txt"),
+    gene_order_file=paste0(outname,".gene_order.infercnv.txt"),
     ref_group_names="TRUE")
 
   infercnv_obj = infercnv::run(infercnv_obj,
@@ -60,13 +61,9 @@ infercnv_per_sample<-function(dat,outname){
     HMM_report_by="cell",
     resume_mode=F,
     HMM_type='i3',
-    num_threads=1)
-
-  write.table(gene_order,file=paste0(outname,".inferCNV.gene_order.txt"),sep="\t",col.names=F,row.names=F,quote=F)
-  write.table(counts,file=paste0(outname,".inferCNV.counts.txt"),sep="\t",col.names=T,row.names=T,quote=F)
-  write.table(cell_annotation,file=paste0(outname,".inferCNV.annotation.txt"),sep="\t",col.names=F,row.names=F,quote=F)
-  saveRDS(infercnv_obj,paste0(outname,".inferCNV.Rds"))
+    num_threads=10)
+  saveRDS(infercnv_obj,paste0(outname,".inferCNV.rds"))
   }
 }
 
-mclapply(unique(dat$sample),function(x) infercnv_per_sample(dat=dat,outname=x),mc.cores=10)
+infercnv_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])

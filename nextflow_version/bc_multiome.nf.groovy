@@ -152,7 +152,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
   cpus 3
-	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
 	input:
 		path(obj_in)
 	output:
@@ -169,7 +169,7 @@ process CISTOPIC_PER_SAMPLE {
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
-	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
 	cpus 3
 	input:
 		path(obj_in)
@@ -381,13 +381,8 @@ workflow {
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
 		
-	// CNV CALLING 
-		merged_seurat_object =
-		merged_seurat_object \
-		| INFERCNV_RNA_PER_SAMPLE \
-		| CASPER_RNA_PER_SAMPLE \
-		| COPYKAT_RNA_PER_SAMPLE 
-		//| COPYSCAT_ATAC_PER_SAMPLE
+	// CNV CALLING WILL BE DONE PER SAMPLE WITH SLURM SBATCH SUBMISSION (NEED A COMPUTE NODE PER SAMPLE)
+	//SEE ${proj_dir}/nf_analysis/cnv_analysis/cnv_callers.md for more detail.
 
 }
 
@@ -399,8 +394,12 @@ nextflow bc_multiome.nf.groovy \
 -resume
 
 #it didnt publish some files, so I just took them from the temp dir
-find -name ./work/*/*/*pdf
-find -name ./work/*/*/*cistopic*
+find -name . /home/groups/CEDAR/mulqueen/bc_multiome/work/*/*/*pdf
+find /home/groups/CEDAR/mulqueen/bc_multiome/work -type f -name "*cistopic*" -exec mv -t /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects {} +
+find /home/groups/CEDAR/mulqueen/bc_multiome/work -type f -name "*titan*" -exec mv -t /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects {} +
+
+
+find -name . /home/groups/CEDAR/mulqueen/bc_multiome/work/*/*/*cistopic*
 find -name ./work/*/*/*titan*
 
 */
