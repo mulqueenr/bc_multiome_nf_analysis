@@ -29,7 +29,7 @@ infercnv_per_sample<-function(dat,outname){
   dat$cnv_ref<-"FALSE"
   dat@meta.data[!(dat$HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell")),]$cnv_ref<-"TRUE" #set cnv ref by cell type
 
-  if((sum(dat$cnv_ref=="FALSE")>50) && sum(dat$cnv_ref=="TRUE")>50)){
+  if((sum(dat$cnv_ref=="FALSE")>50) && (sum(dat$cnv_ref=="TRUE")>50)){
   #write out gene order list
   gene_order<-annotation[!duplicated(annotation$gene_name),]
   gene_order<-as.data.frame(gene_order[gene_order$gene_name %in% row.names(dat),])
@@ -67,3 +67,4 @@ infercnv_per_sample<-function(dat,outname){
 }
 
 infercnv_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])
+

@@ -153,6 +153,7 @@ process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
   cpus 3
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
+
 	input:
 		path(obj_in)
 	output:
@@ -170,6 +171,7 @@ process CISTOPIC_PER_SAMPLE {
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
 	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
+
 	cpus 3
 	input:
 		path(obj_in)
@@ -246,7 +248,7 @@ process MERGED_CHROMVAR {
 
 process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.GeneActivity.rds"
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 
 	input:
 		path(merged_in)
@@ -277,13 +279,15 @@ process INFERCNV_RNA_PER_SAMPLE {
 
 	input:
 		path(merged_in)
+		val(sample)
 	output:
-		path("${merged_in}")
+		tuple path("${merged_in}"),val(sample)
 	script:
 	"""
 
 	Rscript ${params.src_dir}/infercnv_per_sample.R \\
-	${merged_in}
+	${merged_in} \\
+	${sample}
 	"""
 }
 
@@ -381,25 +385,16 @@ workflow {
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
 		
-	// CNV CALLING WILL BE DONE PER SAMPLE WITH SLURM SBATCH SUBMISSION (NEED A COMPUTE NODE PER SAMPLE)
-	//SEE ${proj_dir}/nf_analysis/cnv_analysis/cnv_callers.md for more detail.
-
 }
 
 /*
+WIP: Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
+
+cd /home/groups/CEDAR/mulqueen/bc_multiome
 module load nextflow
 nextflow bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
 -with-report bc_multiome.report.html \
 -resume
-
-#it didnt publish some files, so I just took them from the temp dir
-find -name . /home/groups/CEDAR/mulqueen/bc_multiome/work/*/*/*pdf
-find /home/groups/CEDAR/mulqueen/bc_multiome/work -type f -name "*cistopic*" -exec mv -t /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects {} +
-find /home/groups/CEDAR/mulqueen/bc_multiome/work -type f -name "*titan*" -exec mv -t /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects {} +
-
-
-find -name . /home/groups/CEDAR/mulqueen/bc_multiome/work/*/*/*cistopic*
-find -name ./work/*/*/*titan*
 
 */
