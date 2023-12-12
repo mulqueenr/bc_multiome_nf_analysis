@@ -29,3 +29,12 @@ copykat_per_sample<-function(dat=dat,outname=x){
 
 copykat_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])
 #to set CNV discrete changes, as per correspondence suggetions with Ruli Gao, 1.5x SD threshold, 1.5 absolute distance, or use +/-0.25 as cutoff
+
+"""
+#alternative on single node (three jobs at once):
+arr_in=$(seq 1 19)
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+src_dir=${proj_dir}"/src"
+obj="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds"
+parallel -j 1 Rscript ${src_dir}/copykat_per_sample.R $obj {} ::: $arr_in
+"""

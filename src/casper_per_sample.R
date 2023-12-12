@@ -105,3 +105,14 @@ casper_per_sample<-function(dat=dat,outname=x){
 
 casper_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])
 
+
+"""
+#alternative on single node (three jobs at once):
+arr_in=$(seq 1 19)
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+src_dir=${proj_dir}"/src"
+obj="${proj_dir}/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds"
+cd ${proj_dir}/nf_analysis/cnv_analysis/casper
+parallel -j 1 Rscript ${src_dir}/casper_per_sample.R $obj {} $proj_dir ::: $arr_in
+
+"""
