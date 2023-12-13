@@ -4,7 +4,7 @@ library(CopyscAT)
 library(BSgenome.Hsapiens.UCSC.hg38)
 
 args = commandArgs(trailingOnly=TRUE)
-dat=readRDS(args[1]) #dat=readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
+dat_all=readRDS(args[1]) #dat_all=readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
 sample_arr=as.numeric(as.character(args[2])) #sample_arr=as.numeric(as.character(8)) 
 proj_dir=args[3] #proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 ref_dir=paste0(proj_dir,"/ref/copyscat/")
@@ -23,8 +23,8 @@ initialiseEnvironment(genomeFile=paste0(ref_dir,"hg38_chrom_sizes.tsv"),
                       upperTrim=0.8)
 
 #Set up copyscAT Loop per sample
-copyscAT_per_sample<-function(dat, outname){
-  dat<-subset(dat,sample==outname) #subset data to sample specified by x and outname
+copyscAT_per_sample<-function(dat_all, outname){
+  dat<-subset(dat_all,sample==outname) #subset data to sample specified by x and outname
   dir_in=paste0(proj_dir,"/cellranger_data/second_round/",outname,"/outs")
   write.table(as.data.frame(dat@meta.data),col.names=T,row.names=T,sep="\t",file=paste0(dir_in,"/metadata.tsv"))
   bam_location<-paste0(dir_in,"/gex_possorted_bam.bam")
@@ -41,12 +41,12 @@ copyscAT_per_sample<-function(dat, outname){
     
   #PART 1: INITIAL DATA NORMALIZATION
   scData<-readInputTable(paste0(dir_in,"/copyscat.1mb.tsv"))
-
+  setOutputFile(".",outname)
   #collapse into chromosome arm level
   summaryFunction<-cutAverage
   scData_k_norm <- normalizeMatrixN(scData,
     logNorm = FALSE,
-    maxZero=3000,
+    maxZero=2000,
     imputeZeros = FALSE,
     blacklistProp = 0.8,
     blacklistCutoff=125,
@@ -116,7 +116,7 @@ copyscAT_per_sample<-function(dat, outname){
   saveRDS(final_cnv_list,file=paste0(outname,"_copyscat_cnvs.copyscat.rds"))
 }
 
-copyscAT_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])
+lapply(unique(dat_all$sample), function(x) copyscAT_per_sample(dat_all=dat_all,outname=x))
 
 
 #proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"

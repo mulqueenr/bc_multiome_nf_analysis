@@ -14,8 +14,8 @@ library(patchwork)
 library(parallel)
 args = commandArgs(trailingOnly=TRUE)
 
-dat=readRDS(args[1])
-sample_arr=args[2]
+dat=readRDS(args[1]) #dat=readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
+sample_arr=as.numeric(as.character(args[2])) #sample_arr=as.numeric(as.character(8)) 
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
@@ -29,7 +29,7 @@ infercnv_per_sample<-function(dat,outname){
   dat$cnv_ref<-"FALSE"
   dat@meta.data[!(dat$HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell")),]$cnv_ref<-"TRUE" #set cnv ref by cell type
 
-  if((sum(dat$cnv_ref=="FALSE")>50) && (sum(dat$cnv_ref=="TRUE")>50)){
+  if(sum(dat$cnv_ref=="FALSE")>50 && sum(dat$cnv_ref=="TRUE")>50){
   #write out gene order list
   gene_order<-annotation[!duplicated(annotation$gene_name),]
   gene_order<-as.data.frame(gene_order[gene_order$gene_name %in% row.names(dat),])
@@ -61,10 +61,21 @@ infercnv_per_sample<-function(dat,outname){
     HMM_report_by="cell",
     resume_mode=F,
     HMM_type='i3',
-    num_threads=10)
+    num_threads=3)
   saveRDS(infercnv_obj,paste0(outname,".inferCNV.rds"))
   }
 }
 
 infercnv_per_sample(dat=dat,outname=unique(dat$sample)[sample_arr])
+
+
+#"""
+##alternative on single node (three jobs at once):
+#arr_in=$(seq 1 19)
+#proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+#src_dir=${proj_dir}"/src"
+#obj="${proj_dir}/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds"
+#cd ${proj_dir}/nf_analysis/cnv_analysis/infercnv
+#parallel -j 1 Rscript ${src_dir}/infercnv_per_sample.R $obj {} ::: $arr_in
+#"""
 
