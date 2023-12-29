@@ -89,7 +89,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 	input:
 		path(sample_dir)
 	output:
-		path("mergedpeaks_500bp.nf.bed")
+		path("*.nf.bed")
 	script:
 		"""
 		#merge all ATAC bam files
@@ -105,12 +105,13 @@ process MERGE_SAMPLES_CALLPEAKS {
 		-n merged \\
 		-q 0.01
 
+		cp merged_summits.bed merged.nf.bed
 		#take summits and then expand to 250bp in either direction
-		awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
-		awk 'OFS="\\t" sub(/-./,\"1\")1' peaks_500bp.bed > peaks_500bp.nonneg.bed #set negative values to 1
+		#awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
+		#awk 'OFS="\\t" sub(/-./,\"1\")1' peaks_500bp.bed > peaks_500bp.nonneg.bed #set negative values to 1
 		#bed will be filtered to only main chroms and no negative values.
 		#merge peaks that overlap
-		bedtools merge -i peaks_500bp.nonneg.bed > mergedpeaks_500bp.nf.bed
+		#bedtools merge -i peaks_500bp.nonneg.bed > mergedpeaks_500bp.nf.bed
 		"""
 
 }
@@ -269,7 +270,7 @@ process MERGED_GENE_ACTIVITY {
 
 //process NMF_METAPROGRAMS {}
 
-
+/*
   //////////////////////////////////
  ///	CNV Calling Per Sample	///
 //////////////////////////////////
@@ -342,6 +343,7 @@ process COPYSCAT_ATAC_PER_SAMPLE {
 	"""
 }
 */
+
   //////////////////////////////
  ///	Cell Type Analysis	/////
 //////////////////////////////

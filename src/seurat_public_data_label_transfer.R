@@ -9,13 +9,16 @@ library(plyr)
 
 args = commandArgs(trailingOnly=TRUE)
 seurat_obj_list=args[1]
+#seurat_obj_list="DCIS_3.titan.SeuratObject.rds IDC_8.titan.SeuratObject.rds IDC_7.titan.SeuratObject.rds IDC_5.titan.SeuratObject.rds ILC_1.titan.SeuratObject.rds IDC_11.titan.SeuratObject.rds IDC_9.titan.SeuratObject.rds NAT_14.titan.SeuratObject.rds DCIS_2.titan.SeuratObject.rds NAT_11.titan.SeuratObject.rds IDC_6.titan.SeuratObject.rds IDC_1.titan.SeuratObject.rds NAT_4.titan.SeuratObject.rds DCIS_1.titan.SeuratObject.rds IDC_12.titan.SeuratObject.rds IDC_4.titan.SeuratObject.rds IDC_2.titan.SeuratObject.rds IDC_3.titan.SeuratObject.rds IDC_10.titan.SeuratObject.rds"
 ref_dir=args[2] #/home/groups/CEDAR/mulqueen/bc_multiome/ref
+#ref_dir="/home/groups/CEDAR/mulqueen/bc_multiome/ref"
 
 #add metadata.tsv per sample if supplied
 if(length(args>2)){
   met<-read.csv(args[3],header=T,sep=",") #/home/groups/CEDAR/mulqueen/bc_multiome/sample_metadata.csv
 
 }
+#met=read.csv("sample_metadata.csv",header=T,sep=",")
 sample_metadata=args[3]
 # set up sample loop to load the RNA and ATAC data, save to seurat object
 merge_seurat<-function(x){
@@ -30,10 +33,13 @@ seurat_obj_list=strsplit(seurat_obj_list," ")[[1]]
 out<-lapply(unlist(seurat_obj_list),merge_seurat)
 sample_names=unlist(lapply(strsplit(seurat_obj_list,"[.]"),"[",1))
 dat <- merge(out[[1]], y = as.list(out[2:length(out)]), add.cell.ids = sample_names, project = "all_data")
+dat$cellID<-row.names(dat@meta.data)
 dat_met<-as.data.frame(dat@meta.data)
-met<-merge(dat_met,met,by.x="sample",by.y="Manuscript_Name")
-row.names(met)<-row.names(dat_met)
-dat<-AddMetaData(dat,met)
+met_merged<-merge(dat_met,met,by.x="sample",by.y="Manuscript_Name",all.x=T)
+row.names(met_merged)<-met_merged$cellID
+dat<-AddMetaData(dat,met_merged[,c("phase","Original_Sample","sample_ID","sample_weight","Diagnosis","Mol_Diagnosis","sampled_site","batch","outcome")])
+
+
 
 saveRDS(dat,file="merged.SeuratObject.rds")
 #dat<-readRDS(file="merged.SeuratObject.rds"))

@@ -102,6 +102,8 @@ dat<-subset(dat, cells=names(which(colSums(dat@assays$peaks@counts)>=500)))
 dat <- NucleosomeSignal(dat)
 dat <- TSSEnrichment(dat)
 
+if(ncol(dat)>50){
+
 #RNA Processing
 DefaultAssay(dat) <- "SoupXRNA"
 dat <- SCTransform(dat)
@@ -163,6 +165,6 @@ p4<-FeaturePlot(dat,
 plt<-(p1 | p2)/(p3 | p4)
 ggsave(plt,file=paste0(outdir,"/",outname,".umap.pdf"))
 table(dat$predicted_doublets)
-
+}
 
 saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))
