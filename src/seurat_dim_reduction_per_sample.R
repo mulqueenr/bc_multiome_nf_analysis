@@ -10,6 +10,7 @@ library(RColorBrewer)
 library(GenomicRanges)
 args = commandArgs(trailingOnly=TRUE)
 
+
 peaks=read.csv(file=args[1],sep="\t",col.names=c("chr","start","end","peak_name","peak_score"))
 peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
 peaks<-peaks[peaks$start>0,]
@@ -54,14 +55,13 @@ dat[["ATAC"]] <- CreateChromatinAssay(
   fragments = fragpath,
   annotation = annotation
 )
+
 #Create corrected RNA data and add to object
 dat[["SoupXRNA"]]<-CreateAssayObject(
   counts=soupx_output)
 
 #QC cells
 DefaultAssay(dat) <- "ATAC"
-dat <- NucleosomeSignal(dat)
-dat <- TSSEnrichment(dat)
 dat<-AddMetaData(dat,metadata=metadata_cellranger)
 dat<-AddMetaData(dat,metadata=scrublet_output)
 
@@ -82,15 +82,25 @@ macs2_counts <- FeatureMatrix(
 )
 
 # create a new assay using the MACS2 peak set and add it to the Seurat object
-dat[["peaks"]] <- CreateChromatinAssay(
+
+peaks_assay <-CreateChromatinAssay(
   counts = macs2_counts,
-  fragments = dat@assays$ATAC@fragments,
-  annotation = annotation
+  fragments = Fragments(dat),
+  annotation = annotation,
+  min.features=-1
 )
+
+dat[["peaks"]]<-peaks_assay
 
 #set up colors for samples
 my_cols = brewer.pal(1,"Spectral")
 alpha_val=0.33
+
+#set up basic filters
+dat<-subset(dat, cells=names(which(colSums(dat@assays$RNA@counts)>=500)))
+dat<-subset(dat, cells=names(which(colSums(dat@assays$peaks@counts)>=500)))
+dat <- NucleosomeSignal(dat)
+dat <- TSSEnrichment(dat)
 
 #RNA Processing
 DefaultAssay(dat) <- "SoupXRNA"
