@@ -15,7 +15,7 @@ option_list = list(
               help="Reference directory containing genome information. default: %default]", metavar="character")
     make_option(c("-m","--metadata"), type="character", default=NULL,
               help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character")
-    make_output(c("-o","--plot_output_directory"), type="character", default=NULL,
+    make_option(c("-o","--plot_output_directory"), type="character", default=NULL,
               help="Directory to publish output plots to.", metavar="character")
 
 ); 

@@ -15,7 +15,7 @@ args = commandArgs(trailingOnly=TRUE)
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
               help="List of sample RDS files", metavar="character"),
-    make_output(c("-o","--plot_output_directory"), type="character", default=NULL,
+    make_option(c("-o","--plot_output_directory"), type="character", default=NULL,
               help="Directory to publish output plots to.", metavar="character"),
 
 ); 
