@@ -26,6 +26,7 @@ dat=readRDS(opt$object_input)
 outname<-strsplit(opt$object_input,"[.]")[1]
 outdir<-opt$plot_output_directory
 
+
 #RNA liger
 rna_liger<-function(nfeat=1000,dims=10,k_in=10){
   DefaultAssay(dat)<-"RNA"
@@ -149,6 +150,8 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
 
   dat_in<-SetAssayData(dat_in,assay="liger_in",slot="scale.data",new.data=as.matrix(dat_in@assays$liger_in@counts))
   DefaultAssay(dat_in)<-"liger_in"
+  #filter out batches with too few of cells for correction (require at least 100)
+  dat_in <- subset(dat_in, cells=colnames(dat_in)[which(dat_in$sample %in% names(which(table(dat_in$sample)>100)))])
   dat_in <- RunOptimizeALS(dat_in, k = k_in, lambda = 5, split.by = "sample")
   dat_in <- RunQuantileNorm(dat_in, split.by = "sample")
   dat_in <- FindNeighbors(dat_in, reduction = "iNMF", dims = seq(1,dim_in,1))
