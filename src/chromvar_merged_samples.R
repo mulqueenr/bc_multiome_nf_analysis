@@ -9,12 +9,19 @@ library(BiocParallel)
 library(universalmotif)
 library(GenomicRanges)
 library(patchwork)
+library(optparse)
 register(SerialParam()) #using single core mode
-args = commandArgs(trailingOnly=TRUE)
 
 
-dat=readRDS(args[1])
-outname<-strsplit(args[1],"[.]")[[1]][1]
+option_list = list(
+  make_option(c("-i", "--object_input"), type="character", default=NULL, 
+              help="List of sample RDS files", metavar="character")
+);
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+dat=readRDS(opt$object_input)
+outdir<-opt$plot_output_directory
 
 DefaultAssay(dat)<-"ATAC"
 

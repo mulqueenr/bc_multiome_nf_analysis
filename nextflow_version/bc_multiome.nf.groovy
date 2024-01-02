@@ -58,6 +58,7 @@ process SCRUBLET_RNA {
 
 process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
+	//TODO: Update with R getopts library
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -135,6 +136,8 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 	//Note at this stage the seurat object is unfiltered.
+		//TODO: Update with R getopts library
+
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -152,6 +155,8 @@ process DIM_REDUCTION_PER_SAMPLE {
 
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
+		//TODO: Update with R getopts library
+
   cpus 3
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
 
@@ -171,6 +176,8 @@ process CISTOPIC_PER_SAMPLE {
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
+		//TODO: Update with R getopts library
+
 	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
 
 	cpus 3
@@ -201,9 +208,10 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
-	"${seurat_objects}" \\
-	${params.ref} \\
-	${metadata}
+	-s "${seurat_objects}" \\
+	-r ${params.ref} \\
+	-m ${metadata} \\
+	-o ${params.outdir}/plots
 	"""
 }
 
@@ -214,21 +222,18 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 
 process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.genecounts.rds"
-  publishDir "${params.outdir}/plots", mode: 'copy', overwrite: true, pattern: "*.pdf"
-
   cpus 20
 
 	input:
 		path(merged_in)
 	output:
-		path("${merged_in.simpleName}.liger.SeuratObject.rds")
+		path("*.liger.SeuratObject.rds")
 
 	script:
 	"""
 	Rscript ${params.src_dir}/merged_cluster_liger.R \\
-	"${merged_in}" \\
-	${params.outdir}
+	-i "${merged_in}" \\
+	-o ${params.outdir}/plots
 	"""
 }
 
@@ -238,12 +243,12 @@ process MERGED_CHROMVAR {
 	input:
 		path(merged_in)
 	output:
-		path("${merged_in.simpleName}.chromvar.SeuratObject.rds")
+		path("*.chromvar.SeuratObject.rds")
 
 	script:
 	"""
 	Rscript ${params.src_dir}/chromvar_merged_samples.R \\
-	${merged_in}
+	-i ${merged_in}
 	"""
 }
 
@@ -255,12 +260,12 @@ process MERGED_GENE_ACTIVITY {
 		path(merged_in)
 
 	output:
-		path("${merged_in.simpleName}.geneactivity.SeuratObject.rds")
+		path("*.geneactivity.SeuratObject.rds")
 
 	script:
 	"""
 	Rscript ${params.src_dir}/geneactivity_merged_sample.R \\
-	${merged_in}
+	-i ${merged_in}
 	"""
 }
 

@@ -6,20 +6,27 @@ library(GenomeInfoDb)
 set.seed(1234)
 library(stringr)
 library(plyr)
+library(optparse)
 
-args = commandArgs(trailingOnly=TRUE)
-seurat_obj_list=args[1]
-#seurat_obj_list="DCIS_3.titan.SeuratObject.rds IDC_8.titan.SeuratObject.rds IDC_7.titan.SeuratObject.rds IDC_5.titan.SeuratObject.rds ILC_1.titan.SeuratObject.rds IDC_11.titan.SeuratObject.rds IDC_9.titan.SeuratObject.rds NAT_14.titan.SeuratObject.rds DCIS_2.titan.SeuratObject.rds NAT_11.titan.SeuratObject.rds IDC_6.titan.SeuratObject.rds IDC_1.titan.SeuratObject.rds NAT_4.titan.SeuratObject.rds DCIS_1.titan.SeuratObject.rds IDC_12.titan.SeuratObject.rds IDC_4.titan.SeuratObject.rds IDC_2.titan.SeuratObject.rds IDC_3.titan.SeuratObject.rds IDC_10.titan.SeuratObject.rds"
-ref_dir=args[2] #/home/groups/CEDAR/mulqueen/bc_multiome/ref
-#ref_dir="/home/groups/CEDAR/mulqueen/bc_multiome/ref"
+option_list = list(
+  make_option(c("-s", "--sample_list"), type="character", default=NULL, 
+              help="List of sample RDS files", metavar="character"),
+    make_option(c("-r", "--ref_dir"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref", 
+              help="Reference directory containing genome information. default: %default]", metavar="character")
+    make_option(c("-m","--metadata"), type="character", default=NULL,
+              help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character")
+    make_output(c("-o","--plot_output_directory"), type="character", default=NULL,
+              help="Directory to publish output plots to.", metavar="character"),
 
-#add metadata.tsv per sample if supplied
-if(length(args>2)){
-  met<-read.csv(args[3],header=T,sep=",") #/home/groups/CEDAR/mulqueen/bc_multiome/sample_metadata.csv
+); 
+ 
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+seurat_obj_list=opt$sample_list
+ref_dir=opt$ref_dir
+met<-read.csv(opt$metadata,header=T,sep=",")
+outdir<-opt$plot_output_directory
 
-}
-#met=read.csv("sample_metadata.csv",header=T,sep=",")
-sample_metadata=args[3]
 # set up sample loop to load the RNA and ATAC data, save to seurat object
 merge_seurat<-function(x){
   #read in data
