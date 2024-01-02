@@ -9,7 +9,7 @@ library(plyr)
 library(optparse)
 
 option_list = list(
-  make_option(c("-s", "--sample_list"), type="character", default=NULL, 
+    make_option(c("-s", "--sample_list"), type="character", default=NULL, 
               help="List of sample RDS files", metavar="character"),
     make_option(c("-r", "--ref_dir"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref", 
               help="Reference directory containing genome information. default: %default]", metavar="character"),

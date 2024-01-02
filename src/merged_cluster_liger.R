@@ -10,7 +10,7 @@ library(SeuratWrappers)
 library(parallel)
 library(GenomicRanges)
 library(patchwork)
-args = commandArgs(trailingOnly=TRUE)
+library(optparse)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 

@@ -3,7 +3,7 @@ library(Seurat)
 library(ggplot2)
 library(patchwork)
 library(EnsDb.Hsapiens.v86)
-args = commandArgs(trailingOnly=TRUE)
+library(optparse)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
