@@ -16,7 +16,7 @@ option_list = list(
     make_option(c("-m","--metadata"), type="character", default=NULL,
               help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character")
     make_output(c("-o","--plot_output_directory"), type="character", default=NULL,
-              help="Directory to publish output plots to.", metavar="character"),
+              help="Directory to publish output plots to.", metavar="character")
 
 ); 
  
