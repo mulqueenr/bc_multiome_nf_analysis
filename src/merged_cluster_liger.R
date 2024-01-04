@@ -16,8 +16,7 @@ option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
               help="List of sample RDS files", metavar="character"),
     make_option(c("-o","--plot_output_directory"), type="character", default=NULL,
-              help="Directory to publish output plots to.", metavar="character"),
-
+              help="Directory to publish output plots to.", metavar="character")
 ); 
  
 opt_parser = OptionParser(option_list=option_list);

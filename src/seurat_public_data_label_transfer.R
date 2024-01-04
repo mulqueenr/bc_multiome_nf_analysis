@@ -9,7 +9,7 @@ library(plyr)
 library(optparse)
 
 option_list = list(
-    make_option(c("-s", "--sample_list"), type="character", default=NULL, 
+  make_option(c("-s", "--sample_list"), type="character", default=NULL, 
               help="List of sample RDS files", metavar="character"),
     make_option(c("-r", "--ref_dir"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref", 
               help="Reference directory containing genome information. default: %default]", metavar="character"),
@@ -45,8 +45,6 @@ dat_met<-as.data.frame(dat@meta.data)
 met_merged<-merge(dat_met,met,by.x="sample",by.y="Manuscript_Name",all.x=T)
 row.names(met_merged)<-met_merged$cellID
 dat<-AddMetaData(dat,met_merged[,c("phase","Original_Sample","sample_ID","sample_weight","Diagnosis","Mol_Diagnosis","sampled_site","batch","outcome")])
-
-
 
 saveRDS(dat,file="merged.SeuratObject.rds")
 #dat<-readRDS(file="merged.SeuratObject.rds"))
