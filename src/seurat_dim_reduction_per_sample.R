@@ -11,7 +11,7 @@ library(GenomicRanges)
 args = commandArgs(trailingOnly=TRUE)
 
 
-peaks=read.csv(file=args[1],sep="\t",col.names=c("chr","start","end","peak_name","peak_score"))
+peaks=read.csv(file=args[1],sep="\t",col.names=c("chr","start","end"))
 peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
 peaks<-peaks[peaks$start>0,]
 peaks<-makeGRangesFromDataFrame(peaks)
