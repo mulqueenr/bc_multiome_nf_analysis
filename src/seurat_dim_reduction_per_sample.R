@@ -10,16 +10,17 @@ library(RColorBrewer)
 library(GenomicRanges)
 args = commandArgs(trailingOnly=TRUE)
 
-
+#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
 peaks=read.csv(file=args[1],sep="\t",col.names=c("chr","start","end"))
 peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
 peaks<-peaks[peaks$start>0,]
 peaks<-makeGRangesFromDataFrame(peaks)
-
+#outname<-"NAT_11"
 outname<-args[2]
 nf_dir=getwd()
 wd=paste0(nf_dir,"/",outname,"/","outs")
 
+#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
 outdir=args[3]
 system(paste0("mkdir -p ",outdir))
 
@@ -65,15 +66,6 @@ DefaultAssay(dat) <- "ATAC"
 dat<-AddMetaData(dat,metadata=metadata_cellranger)
 dat<-AddMetaData(dat,metadata=scrublet_output)
 
-plt<-VlnPlot(
-  object = dat,
-  features = c("nCount_RNA", "nCount_ATAC", "TSS.enrichment", "nucleosome_signal"),
-  ncol = 4,
-  pt.size = 0
-)
-
-ggsave(plt,file=paste0(outdir,"/",outname,".qc.pdf"))
-
 # quantify counts in each peak (using merged peak set)
 macs2_counts <- FeatureMatrix(
   fragments = Fragments(dat),
@@ -102,7 +94,18 @@ dat<-subset(dat, cells=names(which(colSums(dat@assays$peaks@counts)>=500)))
 dat <- NucleosomeSignal(dat)
 dat <- TSSEnrichment(dat)
 
-if(ncol(dat)>50){
+
+plt<-VlnPlot(
+  object = dat,
+  features = c("nCount_RNA", "nCount_ATAC", "TSS.enrichment", "nucleosome_signal"),
+  ncol = 4,
+  pt.size = 0
+)
+
+ggsave(plt,file=paste0(outdir,"/",outname,".qc.pdf"))
+
+
+if(ncol(dat)>200){
 
 #RNA Processing
 DefaultAssay(dat) <- "SoupXRNA"

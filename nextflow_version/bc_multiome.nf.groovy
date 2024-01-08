@@ -100,7 +100,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 		#run macs2 to call atac peaks
 		/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2 \\
-		callpeak -f BAM \\
+		callpeak -f BAMPE \\
 		-t out.bam \\
 		-g hs \\
 		-n merged \\
