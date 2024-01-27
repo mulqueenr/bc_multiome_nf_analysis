@@ -170,7 +170,7 @@ process CISTOPIC_PER_SAMPLE {
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
-	${params.outdir}/seurat_objects
+	${params.outdir}/cistopic_objects
 	"""
 }
 
@@ -191,10 +191,13 @@ process TITAN_PER_SAMPLE {
 	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
-	${params.outdir}/seurat_objects
+	${params.outdir}/titan_objects
 	"""
 }
 
+process INTEGRATE_TITAN_CISTOPIC_FACTORS {
+	//Combine TITAN and cisTOPIC output factors
+}
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
@@ -405,4 +408,13 @@ nextflow bc_multiome.nf.groovy \
 -with-report bc_multiome.report.html \
 -resume
 
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+titan_obj=$(find work -type f -name *TITANObject.rds)
+mkdir -p /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/titan_objects
+for i in $titan_obj; do cp $i nf_analysis/titan_objects; done
+
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+cistopic_obj=$(find work -type f -name *.CisTopicObject.rds)
+mkdir -p /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/cistopic_objects
+for i in $cistopic_obj; do cp $i nf_analysis/cistopic_objects; done
 */

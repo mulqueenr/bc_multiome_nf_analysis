@@ -7,8 +7,9 @@ set.seed(1234)
 args = commandArgs(trailingOnly=TRUE)
 obj_in=args[1] #IDC_7.SeuratObject.rds
 outdir=args[2]
-obj_out=args[3]
+obj_out=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/titan_objects
 
+system(paste0("mkdir -p ",obj_out))
 add_topics_to_seurat_obj <- function(model, Object) {
     modelMat <- t(scale(model$document_expects, center = TRUE, scale = TRUE))
     rownames(modelMat) <- paste(1:ncol(Object), colnames(Object), sep = "_")
@@ -41,7 +42,7 @@ single_sample_titan_generation<-function(x,outdir,obj_out=obj_out){
   #        AnnoVector = dat@meta.data$HBCA_predicted.id,
   #        AnnoName = "HBCA_predicted.id")
   #dev.off()
-  saveRDS(LDA_model, paste0(outname,".TITANObject.rds"))
+  saveRDS(LDA_model, paste0(obj_out,"/",outname,".TITANObject.rds"))
   saveRDS(dat,paste0(outname,".titan.SeuratObject.rds"))
   }
 
