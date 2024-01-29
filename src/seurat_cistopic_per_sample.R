@@ -12,8 +12,9 @@ library(ggplot2)
 args = commandArgs(trailingOnly=TRUE)
 obj_in=args[1] #NAT_11.SeuratObject.rds
 outdir=args[2] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots
-obj_out=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects
+obj_out=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/cistopic_objects
 
+system(paste0("mkdir -p ",obj_out))
 
 #filter to cells with ATAC features > 1000
 #for samples with not enough ATAC data, skip
@@ -71,7 +72,7 @@ single_sample_cistopic_generation<-function(x,outdir,obj_out){
   print(plt1)
   #print(plt2)
   dev.off()
-  saveRDS(sub_cistopic_models,file=paste0(outname,".CisTopicObject.rds"))
+  saveRDS(sub_cistopic_models,file=paste0(obj_out,"/",outname,".CisTopicObject.rds"))
   saveRDS(atac_sub,paste0(outname,".cistopic.SeuratObject.rds"))
   }
   }

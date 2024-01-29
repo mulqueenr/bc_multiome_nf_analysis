@@ -108,7 +108,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		-q 0.01
 
 		#format as bam and filter chr
-		awk OFS="\\t" '{print \$1,\$2,\$3}' merged_peaks.narrowPeak | grep "chr" | grep -v "chrY" > merged.nf.bed
+		awk 'OFS="\\t" {print \$1,\$2,\$3}' merged_peaks.narrowPeak | grep "chr" | grep -v "chrY" > merged.nf.bed
 		#take summits and then expand to 250bp in either direction
 		#awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
 		#awk 'OFS="\\t" sub(/-./,\"1\")1' peaks_500bp.bed > peaks_500bp.nonneg.bed #set negative values to 1
@@ -171,7 +171,7 @@ process CISTOPIC_PER_SAMPLE {
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
-	${params.outdir}/seurat_objects
+	${params.outdir}/cistopic_objects
 	"""
 }
 
@@ -192,10 +192,13 @@ process TITAN_PER_SAMPLE {
 	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
 	${obj_in} \\
 	${params.outdir}/plots \\
-	${params.outdir}/seurat_objects
+	${params.outdir}/titan_objects
 	"""
 }
 
+process INTEGRATE_TITAN_CISTOPIC_FACTORS {
+	//Combine TITAN and cisTOPIC output factors
+}
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
@@ -406,4 +409,13 @@ nextflow bc_multiome.nf.groovy \
 -with-report bc_multiome.report.html \
 -resume
 
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+titan_obj=$(find work -type f -name *TITANObject.rds)
+mkdir -p /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/titan_objects
+for i in $titan_obj; do cp $i nf_analysis/titan_objects; done
+
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+cistopic_obj=$(find work -type f -name *.CisTopicObject.rds)
+mkdir -p /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/cistopic_objects
+for i in $cistopic_obj; do cp $i nf_analysis/cistopic_objects; done
 */
