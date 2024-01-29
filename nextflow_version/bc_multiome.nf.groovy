@@ -96,11 +96,12 @@ process MERGE_SAMPLES_CALLPEAKS {
 		#merge all ATAC bam files
 		samples_arr=(${sample_dir})
 		for i in "\${samples_arr[@]}"; do echo \${i}"/outs/atac_possorted_bam.bam"; done > fofn.txt
-		samtools cat -@ ${task.cpus} -b fofn.txt | samtools sort -@ ${task.cpus} - > out.bam
+		samtools cat -@ ${task.cpus} -b fofn.txt \\
+		| samtools sort -@ ${task.cpus} - > out.bam
 
 		#run macs2 to call atac peaks
 		/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2 \\
-		callpeak -f BED \\
+		callpeak -f BAMPE \\
 		-t out.bam \\
 		-g hs \\
 		-n merged \\

@@ -16,7 +16,7 @@ dat=readRDS(opt$object_input)
 outdir<-opt$plot_output_directory
 
 gene_activity<-GeneActivity(dat,process_n=10000)
-saveRDS(gene_activity,file=paste0(outname,".GeneActivity.rds"))
+saveRDS(gene_activity,file="merged.GeneActivity.rds")
 
 dat[["GeneActivity"]]<-CreateAssayObject(counts=gene_activity)
 dat<- NormalizeData(
@@ -25,6 +25,6 @@ dat<- NormalizeData(
   normalization.method = 'LogNormalize',
   scale.factor = median(dat$nCount_GeneActivity)
 )
-saveRDS(dat,file=paste0(outname,".geneactivity.SeuratObject.rds"))
+saveRDS(dat,file="merged.geneactivity.SeuratObject.rds")
 
 
