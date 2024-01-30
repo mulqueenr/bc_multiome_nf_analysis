@@ -398,9 +398,37 @@ workflow {
 		| MERGED_GENE_ACTIVITY
 		
 }
-
 /*
-WIP: Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
+WIP Environment: 
+module load R/4.2.1
+install.packages("devtools") #install to personal library
+
+
+devtools::install_github("buenrostrolab/FigR")
+
+
+//TOPIC ENRICHMENTS//
+//USE THIS ONE https://saezlab.github.io/decoupleR/ for TITAN/CISTOPIC ENRICHMENT TESTS
+
+//ATAC-RNA INTERACTIONS//
+```install FigR
+conda install r-gmp#gmp is busted for some reason
+install.packages("gmp")
+install.packages("Rmpfr")
+devtools::install_github("caleblareau/BuenColors")
+devtools::install_github("buenrostrolab/FigR")
+```
+
+```install pando
+devtools::install_github("const-ae/sparseMatrixStats")
+devtools::install_github('quadbio/Pando') #https://quadbio.github.io/Pando/articles/getting_started.html
+```
+
+
+//CELL COMPOSITIONS//
+//https://www.nature.com/articles/s41467-021-27150-6 scCODA for cell composition changes
+
+Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome
 module load nextflow
