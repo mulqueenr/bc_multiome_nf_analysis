@@ -399,31 +399,38 @@ workflow {
 		
 }
 /*
-WIP Environment: 
+
+#Make a singularity R environment following https://njstem.wordpress.com/2018/08/02/r-script-seurat-with-a-singularity-container-using-slurm/ ??
+
+WIP Environment: https://www.nature.com/articles/s41576-023-00586-w
 module load R/4.2.1
+module load raxml-ng/1.0.1
 install.packages("devtools") #install to personal library
+install.packages(c("pkgdown", "roxygen2", "rversions", "urlchecker"))
 
-
-devtools::install_github("buenrostrolab/FigR")
-
-
-//TOPIC ENRICHMENTS//
-//USE THIS ONE https://saezlab.github.io/decoupleR/ for TITAN/CISTOPIC ENRICHMENT TESTS
-
-//ATAC-RNA INTERACTIONS//
-```install FigR
-conda install r-gmp#gmp is busted for some reason
-install.packages("gmp")
-install.packages("Rmpfr")
+#FigR
 devtools::install_github("caleblareau/BuenColors")
 devtools::install_github("buenrostrolab/FigR")
-```
 
-```install pando
-devtools::install_github("const-ae/sparseMatrixStats")
+#Pando
 devtools::install_github('quadbio/Pando') #https://quadbio.github.io/Pando/articles/getting_started.html
-```
 
+#decoupleR for enrichment
+install.packages("BiocManager")
+BiocManager::install("decoupleR")
+
+#scDC cell compositions
+## Some CRAN packages required by scDC
+install.packages(c("parallel", "DescTools", "lme4", "reshape2", "ggridges", 
+"lme4", "mice"))
+## Some BioConductor packages required by scDC
+BiocManager::install(c("scran"))
+## Some Github packages required by scDC
+devtools::install_github("taiyunkim/scClustBench")
+## Installing scDC 
+devtools::install_github("SydneyBioX/scDC")
+
+Tests specifically designed for single-cell data that make use of cell-type counts include scDC109, scCODA108 and tascCODA, which can incorporate hierarchical cell-type information110.
 
 //CELL COMPOSITIONS//
 //https://www.nature.com/articles/s41467-021-27150-6 scCODA for cell composition changes
