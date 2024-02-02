@@ -398,9 +398,44 @@ workflow {
 		| MERGED_GENE_ACTIVITY
 		
 }
-
 /*
-WIP: Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
+
+#Make a singularity R environment following https://njstem.wordpress.com/2018/08/02/r-script-seurat-with-a-singularity-container-using-slurm/ ??
+
+WIP Environment: https://www.nature.com/articles/s41576-023-00586-w
+module load R/4.2.1
+module load raxml-ng/1.0.1
+install.packages("devtools") #install to personal library
+install.packages(c("pkgdown", "roxygen2", "rversions", "urlchecker"))
+
+#FigR
+devtools::install_github("caleblareau/BuenColors")
+devtools::install_github("buenrostrolab/FigR")
+
+#Pando
+devtools::install_github('quadbio/Pando') #https://quadbio.github.io/Pando/articles/getting_started.html
+
+#decoupleR for enrichment
+install.packages("BiocManager")
+BiocManager::install("decoupleR")
+
+#scDC cell compositions
+## Some CRAN packages required by scDC
+install.packages(c("parallel", "DescTools", "lme4", "reshape2", "ggridges", 
+"lme4", "mice"))
+## Some BioConductor packages required by scDC
+BiocManager::install(c("scran"))
+## Some Github packages required by scDC
+devtools::install_github("taiyunkim/scClustBench")
+## Installing scDC 
+devtools::install_github("SydneyBioX/scDC")
+
+Tests specifically designed for single-cell data that make use of cell-type counts include scDC109, scCODA108 and tascCODA, which can incorporate hierarchical cell-type information110.
+
+//CELL COMPOSITIONS//
+//https://www.nature.com/articles/s41467-021-27150-6 scCODA for cell composition changes
+
+Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome
 module load nextflow
