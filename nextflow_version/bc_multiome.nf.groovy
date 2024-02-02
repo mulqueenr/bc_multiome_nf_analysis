@@ -196,9 +196,9 @@ process TITAN_PER_SAMPLE {
 	"""
 }
 
-process INTEGRATE_TITAN_CISTOPIC_FACTORS {
+//process INTEGRATE_TITAN_CISTOPIC_FACTORS {
 	//Combine TITAN and cisTOPIC output factors
-}
+//}
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
@@ -438,11 +438,12 @@ Tests specifically designed for single-cell data that make use of cell-type coun
 Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome
+module load singularity
 module load nextflow
 nextflow bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html \
--resume
+-with-report bc_multiome.report.html 
+
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome
 titan_obj=$(find work -type f -name *TITANObject.rds)

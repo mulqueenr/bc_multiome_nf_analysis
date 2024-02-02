@@ -125,7 +125,6 @@ From: ubuntu:latest
 	conda install -y -c conda-forge mamba 
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
-	eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 
 	#install python libraries
 	pip install MACS2 #
