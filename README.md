@@ -10,14 +10,15 @@ Processing of public data, used in cell label transfer, if contained in the proc
 
 Example run of nextflow:
 ```bash
-#module load nextflow #on exacloud
-#cd /home/groups/CEDAR/mulqueen/bc_multiome
+cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
+git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
+module load singularity #load singularity on exacloud
+module load nextflow #load nextflow on exacloud
 
-nextflow bc_multiome.nf.groovy \
-  -with-dag bc_multiome.flowchart.pdf \
-  -with-report bc_multiome.report.html \
-  --merged_bed merged_500bp.bed \
-  -resume
+#run nextflow with defaults
+nextflow bc_multiome/bc_multiome.nf.groovy \
+-with-dag bc_multiome.flowchart.png \
+-with-report bc_multiome.report.html 
 ```
 
 Repository folders:
