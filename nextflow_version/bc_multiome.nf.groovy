@@ -9,7 +9,7 @@ params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
 params.sample_dir="${params.proj_dir}/cellranger_data/second_round" 
 params.ref = "${params.proj_dir}/ref"
-params.src_dir="${params.proj_dir}/src"
+params.src_dir="${params.proj_dir}/bc_multiome/src"
 params.force_rewrite="false"
 //params.merged_bed="${params.proj_dir}/merged_500bp.bed"
 params.sample_metadata="${params.proj_dir}/sample_metadata.csv"
@@ -21,7 +21,9 @@ log.info """
 		================================================
 		NF Working Directory : ${workflow.launchDir}
 		Project Directory : ${params.proj_dir}
+		Script Directory: ${params.src_dir}
 		Reference Directory: ${params.ref}
+		Singularity Container: /home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif
 		Looking for samples in: ${params.sample_dir}
 		Force Rewriting Data: ${params.force_rewrite}
 		Supplied Sample Metadata: ${params.sample_metadata}
@@ -138,8 +140,6 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 	//Note at this stage the seurat object is unfiltered.
-		//TODO: Update with R getopts library
-
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -154,11 +154,6 @@ process DIM_REDUCTION_PER_SAMPLE {
 	${params.outdir}/plots 
 	"""
 }
-
-
-//process INTEGRATE_TITAN_CISTOPIC_FACTORS {
-	//Combine TITAN and cisTOPIC output factors
-//}
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
@@ -221,6 +216,13 @@ process TITAN_PER_SAMPLE {
 	-o ${params.outdir}/titan
 	"""
 }
+
+
+//process INTEGRATE_TITAN_CISTOPIC_FACTORS {
+	//Combine TITAN and cisTOPIC output factors
+//}
+
+
   //////////////////////////////////////////////////////
  ///	Sample Integration and Merged Processing	///
 //////////////////////////////////////////////////////
@@ -280,79 +282,6 @@ process MERGED_GENE_ACTIVITY {
 
 //process NMF_METAPROGRAMS {}
 
-/*
-  //////////////////////////////////
- ///	CNV Calling Per Sample	///
-//////////////////////////////////
-process INFERCNV_RNA_PER_SAMPLE {
-	//Run InferCNV per sample.
-  publishDir "${params.outdir}/infercnv", mode: 'copy', overwrite: true, pattern: "*inferCNV*"
-
-	input:
-		path(merged_in)
-		val(sample)
-	output:
-		tuple path("${merged_in}"),val(sample)
-	script:
-	"""
-
-	Rscript ${params.src_dir}/infercnv_per_sample.R \\
-	${merged_in} \\
-	${sample}
-	"""
-}
-
-process CASPER_RNA_PER_SAMPLE {
-	//Run CASPER per sample.
-
-	input:
-		path(merged_in)
-	output:
-		path("${merged_in}")
-	script:
-	"""
-	Rscript ${params.src_dir}/casper_per_sample.R \\
-	${merged_in} \\
-	${ref} \\
-	${params.sample_dir} \\
-	${params.outdir}/cnv
-	"""
-}
-
-process COPYKAT_RNA_PER_SAMPLE {
-	//Run CopyKAT per sample.
-
-	input:
-		path(merged_in)
-	output:
-		path("${merged_in}")
-	script:
-	"""
-	Rscript ${params.src_dir}/copykat_per_sample.R \\
-	${merged_in} \\
-	${params.outdir}/cnv
-	"""
-}
-
-/*
-process COPYSCAT_ATAC_PER_SAMPLE {
-	//Run CopyscAT per sample.
-
-	input:
-		path(merged_in)
-	output:
-		path("${merged_in}")
-	script:
-	"""
-	Rscript ${params.src_dir}/copykat_per_sample.R \\
-	${merged_in} \\
-	${params.outdir}/cnv \\
-	${ref} \\
-	${params.sample_dir}
-
-	"""
-}
-*/
 
   //////////////////////////////
  ///	Cell Type Analysis	/////
@@ -402,59 +331,17 @@ workflow {
 		
 }
 /*
+#Example running
+cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
+git clone https://github.com/mulqueenr/bc_multiome.git #pull github repo
+module load singularity #load singularity
+module load nextflow #load nextflow
 
-#Make a singularity R environment following https://njstem.wordpress.com/2018/08/02/r-script-seurat-with-a-singularity-container-using-slurm/ ??
-
-WIP Environment: https://www.nature.com/articles/s41576-023-00586-w
-module load R/4.2.1
-module load raxml-ng/1.0.1
-install.packages("devtools") #install to personal library
-install.packages(c("pkgdown", "roxygen2", "rversions", "urlchecker"))
-
-#FigR
-devtools::install_github("caleblareau/BuenColors")
-devtools::install_github("buenrostrolab/FigR")
-
-#Pando
-devtools::install_github('quadbio/Pando') #https://quadbio.github.io/Pando/articles/getting_started.html
-
-#decoupleR for enrichment
-install.packages("BiocManager")
-BiocManager::install("decoupleR")
-
-#scDC cell compositions
-## Some CRAN packages required by scDC
-install.packages(c("parallel", "DescTools", "lme4", "reshape2", "ggridges", 
-"lme4", "mice"))
-## Some BioConductor packages required by scDC
-BiocManager::install(c("scran"))
-## Some Github packages required by scDC
-devtools::install_github("taiyunkim/scClustBench")
-## Installing scDC 
-devtools::install_github("SydneyBioX/scDC")
-
-Tests specifically designed for single-cell data that make use of cell-type counts include scDC109, scCODA108 and tascCODA, which can incorporate hierarchical cell-type information110.
-
-//CELL COMPOSITIONS//
-//https://www.nature.com/articles/s41467-021-27150-6 scCODA for cell composition changes
-
-Update CASPER, COPYKIT, COPYSCAT, ANUEFINDER FOR CNV CALLS
-
-cd /home/groups/CEDAR/mulqueen/bc_multiome
-module load singularity
-module load nextflow
-nextflow bc_multiome.nf.groovy \
+#run nextflow with defaults
+nextflow bc_multiome/bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
 -with-report bc_multiome.report.html 
 
-
-cd /home/groups/CEDAR/mulqueen/bc_multiome
-titan_obj=$(find work -type f -name *TITANObject.rds)
-mkdir -p /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/titan_objects
-for i in $titan_obj; do cp $i nf_analysis/titan_objects; done
-
-cd /home/groups/CEDAR/mulqueen/bc_multiome
-cistopic_obj=$(find work -type f -name *.CisTopicObject.rds)
-mkdir -p /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/cistopic_objects
-for i in $cistopic_obj; do cp $i nf_analysis/cistopic_objects; done
 */
+
+

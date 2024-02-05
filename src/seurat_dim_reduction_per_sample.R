@@ -8,20 +8,35 @@ library(stringr)
 library(ggplot2)
 library(RColorBrewer)
 library(GenomicRanges)
-args = commandArgs(trailingOnly=TRUE)
+library(optparse)
 
-#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
-peaks=read.csv(file=args[1],sep="\t",col.names=c("chr","start","end"))
-peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
-peaks<-peaks[peaks$start>0,]
-peaks<-makeGRangesFromDataFrame(peaks)
+
+option_list = list(
+  make_option(c("-s", "--sample_dir"), type="character", default="NAT_1", 
+              help="Sample directory from cellranger output.", metavar="character"),
+    make_option(c("-p", "--peaks_bed"), type="character", default="NULL", 
+              help="Bed file formated peaks.", metavar="character"),
+        make_option(c("-o", "--output_directory"), type="character", default=NULL, 
+              help="Output directory, defined in nextflow parameters.", metavar="character")
+
+); 
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+sample_in=strsplit(opt$sample_dir,"[.]")[[1]][1]
 #outname<-"NAT_11"
-outname<-args[2]
+outname<-sample_in
 nf_dir=getwd()
 wd=paste0(nf_dir,"/",outname,"/","outs")
 
+#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
+peaks=read.csv(file=opt$peaks_bed,sep="\t",col.names=c("chr","start","end"))
+peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
+peaks<-peaks[peaks$start>0,]
+peaks<-makeGRangesFromDataFrame(peaks)
+
 #outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
-outdir=args[3]
+outdir=paste0(opts$output_directory,"/plots")
 system(paste0("mkdir -p ",outdir))
 
 
