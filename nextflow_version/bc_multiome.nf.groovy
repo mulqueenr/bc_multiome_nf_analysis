@@ -155,46 +155,6 @@ process DIM_REDUCTION_PER_SAMPLE {
 	"""
 }
 
-process CISTOPIC_PER_SAMPLE {
-	//Run cisTopic on sample ATAC data
-		//TODO: Update with R getopts library
-
-  cpus 3
-	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
-
-	input:
-		path(obj_in)
-	output:
-		path("${obj_in.simpleName}.cistopic.SeuratObject.rds")
-	script:
-	"""
-	Rscript ${params.src_dir}/seurat_cistopic_per_sample.R \\
-	${obj_in} \\
-	${params.outdir}/plots \\
-	${params.outdir}/cistopic_objects
-	"""
-}
-
-
-process TITAN_PER_SAMPLE {
-	//Run TITAN on sample RNA data
-		//TODO: Update with R getopts library
-
-	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
-
-	cpus 3
-	input:
-		path(obj_in)
-	output:
-		path("${obj_in.simpleName}.titan.SeuratObject.rds")
-	script:
-	"""
-	Rscript ${params.src_dir}/seurat_titan_per_sample.R \\
-	${obj_in} \\
-	${params.outdir}/plots \\
-	${params.outdir}/titan_objects
-	"""
-}
 
 //process INTEGRATE_TITAN_CISTOPIC_FACTORS {
 	//Combine TITAN and cisTOPIC output factors
@@ -221,6 +181,46 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 }
 
 
+process CISTOPIC_PER_SAMPLE {
+	//Run cisTopic on sample ATAC data
+
+  cpus 3
+	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
+
+	input:
+		val(merged_in)
+		tuple val(sample_name), path(sample_dir)
+	output:
+		path("${obj_in.simpleName}.cistopic.SeuratObject.rds")
+	script:
+	"""
+	Rscript ${params.src_dir}/seurat_cistopic_per_sample_onmerged.R \\
+	-i ${merged_in} \\
+	-s ${sample_name} \\
+	-o ${params.outdir}/cistopic
+	"""
+}
+
+
+process TITAN_PER_SAMPLE {
+	//Run TITAN on sample RNA data
+
+	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
+
+	cpus 3
+	input:
+		val(merged_in)
+		tuple val(sample_name), path(sample_dir)
+	output:
+		path("${obj_in.simpleName}.titan.SeuratObject.rds")
+	script:
+	"""
+	Rscript ${params.src_dir}/seurat_titan_per_sample_onmerged.R \\
+	-i ${merged_in} \\
+	-s ${sample_name} \\
+	-o ${params.outdir}/titan
+	"""
+}
   //////////////////////////////////////////////////////
  ///	Sample Integration and Merged Processing	///
 //////////////////////////////////////////////////////
@@ -387,12 +387,15 @@ workflow {
 	// DATA PROCESSING 
 		seurat_object_list =
 		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
-		| CISTOPIC_PER_SAMPLE \
-		| TITAN_PER_SAMPLE \
 		| collect
 
 		merged_seurat_object=
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
+
+		cistopic_object_list=CISTOPIC_PER_SAMPLE(merged_seurat_object,sample_dir)
+		titan_object_list=TITAN_PER_SAMPLE(merged_seurat_object,sample_dir)
+
+		merged_seurat_object \
 		| MERGED_CLUSTER \
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY

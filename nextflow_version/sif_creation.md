@@ -12,12 +12,12 @@ https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/get-set-up-for-amazon-ec2.ht
 
 Change permissions for pem key-pair
 ```bash
-chmod 400 ~/Downloads/newkey.pem
+chmod 400 ~/Downloads/newkey2.pem
 ```
 
 ssh -i <path to pem> ubuntu@<public ip4>
 ```bash
-ssh -i ~/Downloads/newkey.pem ubuntu@34.222.152.147
+ssh -i ~/Downloads/newkey2.pem ubuntu@54.187.193.117
 ```
 
 
@@ -101,13 +101,15 @@ From: ubuntu:latest
 %environment
     # set up all essential environment variables
     export LC_ALL=C
-    export PATH=/miniconda3/bin:$PATH
-    export PYTHONPATH=/miniconda3/lib/python3.9/:$PYTHONPATH
+    export PATH=/opt/miniconda3/bin:$PATH
+    export PYTHONPATH=/opt/miniconda3/lib/python3.9/:$PYTHONPATH
 
     # activate conda environment
-    conda init;  
-    echo ". /miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
-	echo "conda activate base" >> $SINGULARITY_ENVIRONMENT  
+    echo ". /opt/miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
+	echo "conda activate base" >> $SINGULARITY_ENVIRONMENT
+	conda init # Modifies .bashrc on your host machine
+	source .bashrc # Loads modified .bashrc
+
 %post
  
 	# update and install essential dependencies
@@ -116,12 +118,12 @@ From: ubuntu:latest
 
 	# download, install, and update miniconda3
 	wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-	bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /miniconda3/
+	bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /opt/miniconda3/
 	rm Miniconda3-latest-Linux-x86_64.sh
+	chmod --recursive a+rw /opt/miniconda3
 
 	# install dependencies via conda
-	export PATH="/miniconda3/bin:$PATH"
-
+	export PATH="/opt/miniconda3/bin:$PATH"
 
 	#build full conda environment for sif
 	conda install -y -c conda-forge mamba 
@@ -246,6 +248,7 @@ Use sftp to get images off cluster
 
 ```bash
 sftp -i ~/Downloads/newkey.pem ubuntu@34.222.152.147
+
 get *sif
 ```
 Now test on exacloud/seadragon

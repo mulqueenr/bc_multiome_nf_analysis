@@ -8,36 +8,73 @@ library(TxDb.Hsapiens.UCSC.hg38.knownGene)
 library(AUCell)
 library(rtracklayer)
 library(ggplot2)
+library(optparse)
 
-args = commandArgs(trailingOnly=TRUE)
-obj_in=args[1] #NAT_11.SeuratObject.rds
-outdir=args[2] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots
-obj_out=args[3] #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/cistopic_objects
+#######################for testing#######################
+#module load singularity
+#cd /home/groups/CEDAR/mulqueen/bc_multiome
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome multiome_bc.sif
+#R
+#dat<-readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.public_transfer.SeuratObject.rds")
+#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
+#sample_in="IDC_1"
 
-system(paste0("mkdir -p ",obj_out))
+#########################################################
+
+option_list = list(
+  make_option(c("-s", "--sample"), type="character", default="NAT_1", 
+              help="Sample name to subset to", metavar="character"),
+    make_option(c("-i", "--input_merged_object"), type="character", default="merged.public_transfer.SeuratObject.rds", 
+              help="Reference directory containing genome information. default: %default]", metavar="character"),
+        make_option(c("-o", "--output_directory"), type="character", default=NULL, 
+              help="Output directory, defined in nextflow parameters.", metavar="character")
+
+); 
+ 
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+sample_in=strsplit(opt$sample,"[.]")[[1]][1]
+dat<-readRDS(file=opt$input_merged_object)
+outdir=paste0(opt$output_directory,"/cistopic_objects") #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots
+system(paste0("mkdir -p ",outdir))
 
 #filter to cells with ATAC features > 1000
 #for samples with not enough ATAC data, skip
-single_sample_cistopic_generation<-function(x,outdir,obj_out){
-  outname<-strsplit(x,"[.]")[[1]][1]
-  atac_sub<-readRDS(x)
-  #skip cistopic if cell count too low
-  if(sum(atac_sub$nCount_ATAC>1000)<500){
-      saveRDS(atac_sub,paste0(outname,".cistopic.SeuratObject.rds"))
-  }else{
-  atac_sub<-subset(atac_sub,nCount_ATAC>1000)
+single_sample_cistopic_generation<-function(dat,sample_in,outdir,epithelial_only=TRUE){
+  if(epithelial_only){
+      dat<-subset(dat,sample==sample_in)
+      dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+      out_seurat_object<-paste0(sample_in,".cistopic_epithelial.SeuratObject.rds")
+      model_selection_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.model_selection.pdf")
+      out_cistopic_obj<-paste0(sample_in,".cistopic_epithelial.cistopicObject.rds")
+      umap_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.umap.pdf")
+    }
+    else {
+      dat<-subset(dat,sample==sample_in)
+      out_seurat_object<-paste0(sample_in,".cistopic.SeuratObject.rds")
+      model_selection_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.model_selection.pdf")
+      out_cistopic_obj<-paste0(sample_in,".cistopic.cistopicObject.rds")
+      umap_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.umap.pdf")
 
-  cistopic_counts_frmt<-atac_sub@assays$peaks@counts
+    }
+
+  #skip cistopic if cell count too low
+  if(sum(dat$nCount_ATAC>1000)<500){
+      saveRDS(dat,file=out_seurat_object)
+  }else{
+  dat<-subset(dat,nCount_ATAC>1000)
+
+  cistopic_counts_frmt<-dat@assays$peaks@counts
   row.names(cistopic_counts_frmt)<-sub("-", ":", row.names(cistopic_counts_frmt))
   sub_cistopic<-cisTopic::createcisTopicObject(cistopic_counts_frmt)
   print("made cistopic object")
-  sub_cistopic_models<-cisTopic::runWarpLDAModels(sub_cistopic,
+  sub_cistopic_models<-cisTopic::runModels(sub_cistopic,
     topic=seq(from=10, to=30, by=5),
     nCores=1,
-    addModels=FALSE)
+    addModels=FALSE) #using v2 of cistopic (we are only using single core anyway)
 
-  sub_cistopic_models<-addCellMetadata(sub_cistopic_models, cell.data =atac_sub@meta.data)
-  pdf(paste0(outdir,"/",outname,"_model_selection.pdf"))
+  sub_cistopic_models<-addCellMetadata(sub_cistopic_models, cell.data =dat@meta.data)
+  pdf(model_selection_out)
   par(mfrow=c(3,3))
   sub_cistopic_models<- selectModel(sub_cistopic_models, type='derivative')
   dev.off()
@@ -59,25 +96,24 @@ single_sample_cistopic_generation<-function(x,outdir,obj_out){
   #combined cistopic results (cistopic loadings and umap with seurat object)
   cistopic_obj<-CreateDimReducObject(embeddings=as.matrix(cell_embeddings),loadings=as.matrix(feature_loadings),assay="peaks",key="topic_")
   print("Cistopic Loading into Seurat")
-  atac_sub@reductions$cistopic<-cistopic_obj
-  n_topics<-ncol(Embeddings(atac_sub,reduction="cistopic")) #add scaling for ncount peaks somewhere in here
+  dat@reductions$cistopic<-cistopic_obj
+  n_topics<-ncol(Embeddings(dat,reduction="cistopic")) #add scaling for ncount peaks somewhere in here
   print("Running UMAP")
-  atac_sub<-RunUMAP(atac_sub,reduction="cistopic",dims=1:n_topics)
-  atac_sub <- FindNeighbors(object = atac_sub, reduction = 'cistopic', dims = 1:n_topics ) 
-  atac_sub <- FindClusters(object = atac_sub, verbose = TRUE, graph.name="peaks_snn", resolution=0.2 ) 
+  dat<-RunUMAP(dat,reduction="cistopic",dims=1:n_topics)
+  dat <- FindNeighbors(object = dat, reduction = 'cistopic', dims = 1:n_topics ) 
+  dat <- FindClusters(object = dat, verbose = TRUE, graph.name="peaks_snn", resolution=0.2 ) 
   print("Plotting UMAPs")
-  plt1<-DimPlot(atac_sub,reduction="umap",group.by=c("seurat_clusters"))
-  #plt2<-FeaturePlot(atac_sub,reduction="umap",features=c("nucleosome_signal","TSS.enrichment","nCount_peaks","nFeature_peaks"))
-  pdf(paste0(outdir,"/",outname,".cistopic.umap.pdf"),width=10)
+  plt1<-DimPlot(dat,reduction="umap",group.by=c("HBCA_predicted.id"))
+  pdf(umap_out,width=10)
   print(plt1)
-  #print(plt2)
   dev.off()
-  saveRDS(sub_cistopic_models,file=paste0(obj_out,"/",outname,".CisTopicObject.rds"))
-  saveRDS(atac_sub,paste0(outname,".cistopic.SeuratObject.rds"))
+  saveRDS(sub_cistopic_models,file=out_cistopic_obj)
+  saveRDS(dat,file=out_seurat_object)
   }
-  }
+}
 
 
-single_sample_cistopic_generation(x=obj_in,outdir=outdir,obj_out=obj_out)
+single_sample_cistopic_generation(x=obj_in,outdir=outdir,obj_out=obj_out,epithelial_only=TRUE) #only epithelial cells per sample
+single_sample_cistopic_generation(x=obj_in,outdir=outdir,obj_out=obj_out,epithelial_only=FALSE) #all cells per sample
 
 
