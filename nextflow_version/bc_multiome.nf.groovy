@@ -9,7 +9,7 @@ params.proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 params.outdir = "${params.proj_dir}/nf_analysis"
 params.sample_dir="${params.proj_dir}/cellranger_data/second_round" 
 params.ref = "${params.proj_dir}/ref"
-params.src_dir="${params.proj_dir}/bc_multiome/src"
+params.src_dir="${params.proj_dir}/bc_multiome_nf_analysis/src"
 params.force_rewrite="false"
 //params.merged_bed="${params.proj_dir}/merged_500bp.bed"
 params.sample_metadata="${params.proj_dir}/sample_metadata.csv"
@@ -333,7 +333,7 @@ workflow {
 /*
 #Example running
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-git clone https://github.com/mulqueenr/bc_multiome.git #pull github repo
+git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
 module load singularity #load singularity
 module load nextflow #load nextflow
 
