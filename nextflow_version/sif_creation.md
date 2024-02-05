@@ -105,9 +105,9 @@ From: ubuntu:latest
     export PYTHONPATH=/miniconda3/lib/python3.9/:$PYTHONPATH
 
     # activate conda environment
-    conda init
-    source activate base;
-    
+    conda init;  
+    echo ". /miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
+	echo "conda activate base" >> $SINGULARITY_ENVIRONMENT  
 %post
  
 	# update and install essential dependencies
@@ -121,6 +121,8 @@ From: ubuntu:latest
 
 	# install dependencies via conda
 	export PATH="/miniconda3/bin:$PATH"
+
+
 	#build full conda environment for sif
 	conda install -y -c conda-forge mamba 
 	conda config --add channels bioconda
