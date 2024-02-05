@@ -8,6 +8,8 @@ The code in processing_10x_data.md details the full processing steps for bcl fil
 
 Processing of public data, used in cell label transfer, if contained in the processing_public_data.md.
 
+The file sif_creation.md details the creation of a Singularity container using AWS (for sudo privledges) and transferring it to the appropriate location for the script to run. All nextflow processes are run within this single container.
+
 Example run of nextflow:
 ```bash
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
