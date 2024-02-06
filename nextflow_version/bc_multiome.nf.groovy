@@ -186,7 +186,7 @@ process CISTOPIC_PER_SAMPLE {
 		val(merged_in)
 		tuple val(sample_name), path(sample_dir)
 	output:
-		path("${obj_in.simpleName}.cistopic.SeuratObject.rds")
+		path("${sample_name}.cistopic.SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_cistopic_per_sample_onmerged.R \\
@@ -207,7 +207,7 @@ process TITAN_PER_SAMPLE {
 		val(merged_in)
 		tuple val(sample_name), path(sample_dir)
 	output:
-		path("${obj_in.simpleName}.titan.SeuratObject.rds")
+		path("${sample_name}.titan.SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_titan_per_sample_onmerged.R \\
@@ -321,7 +321,7 @@ workflow {
 		merged_seurat_object=
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
 
-		cistopic_object_list=CISTOPIC_PER_SAMPLE(merged_seurat_object,sample_dir)
+		cistopic_object_list=CISTOPIC_PER_SAMPLE(merged_seurat_object,sample_dir) 
 		titan_object_list=TITAN_PER_SAMPLE(merged_seurat_object,sample_dir)
 
 		merged_seurat_object \

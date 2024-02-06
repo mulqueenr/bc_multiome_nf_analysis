@@ -6,9 +6,9 @@ https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/get-set-up-for-amazon-ec2.ht
 ### Set these settings for the EC2 instance.
 - Make with ubuntu
 - Free tier 64bit (x86)
-- t3.micro
+- t3.xlarge
 - Generated pem
-- 50gb gp2 storage
+- 100gb gp2 storage
 
 Change permissions for pem key-pair
 ```bash
@@ -105,10 +105,10 @@ From: ubuntu:latest
     export PYTHONPATH=/opt/miniconda3/lib/python3.9/:$PYTHONPATH
 
     # activate conda environment
-    echo ". /opt/miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
-	echo "conda activate base" >> $SINGULARITY_ENVIRONMENT
-	conda init # Modifies .bashrc on your host machine
-	source .bashrc # Loads modified .bashrc
+    #echo ". /opt/miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
+	#echo "conda activate base" >> $SINGULARITY_ENVIRONMENT
+	#conda init # Modifies .bashrc on your host machine
+	#source .bashrc # Loads modified .bashrc
 
 %post
  
@@ -220,14 +220,14 @@ From: ubuntu:latest
 	R --slave -e 'install.packages("rliger", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("SoupX", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("Seurat", repos="http://cran.us.r-project.org")' #
-	R --slave -e 'install.packages("Signac", repos="http://cran.us.r-project.org")' #
+	R --slave -e 'devtools::install_github("stuart-lab/signac", "develop", quiet = TRUE)' #
 	R --slave -e 'remotes::install_github("satijalab/seurat-wrappers")' #
 	R --slave -e 'devtools::install_github("JuliusCampbell/TITAN")' #
 	R --slave -e 'devtools::install_github("caleblareau/BuenColors")' #
 	R --slave -e 'devtools::install_github("buenrostrolab/FigR")' #
 	R --slave -e 'devtools::install_github("quadbio/Pando")' #
 	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' #
-	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' 
+	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' #
 
 	#TO ADD??
 	#R --slave -e 'devtools::install_github("navinlabcode/copykat")'
@@ -247,13 +247,14 @@ sudo singularity shell multiome_bc.sif
 Use sftp to get images off cluster
 
 ```bash
-sftp -i ~/Downloads/newkey.pem ubuntu@34.222.152.147
+sftp -i ~/Downloads/newkey2.pem ubuntu@54.187.193.117
 
 get *sif
 ```
 Now test on exacloud/seadragon
 ```bash
 sftp mulqueen@acc.ohsu.edu
+cd /home/groups/CEDAR/mulqueen/bc_multiome
 put multiome_bc.sif
 
 ssh mulqueen@acc.ohsu.edu
