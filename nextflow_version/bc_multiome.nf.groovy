@@ -334,13 +334,16 @@ workflow {
 #Example running
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
+
 module load singularity #load singularity
 module load nextflow #load nextflow
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 
 #run nextflow with defaults
-nextflow bc_multiome/bc_multiome.nf.groovy \
+nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html 
+-with-report bc_multiome.report.html \
+-with-singularity $sif
 
 */
 
