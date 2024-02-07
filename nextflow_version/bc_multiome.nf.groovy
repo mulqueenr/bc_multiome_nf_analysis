@@ -102,7 +102,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		| samtools sort -@ ${task.cpus} - > out.bam
 
 		#run macs2 to call atac peaks
-		/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2 \\
+		macs2 \\
 		callpeak -f BAMPE \\
 		-t out.bam \\
 		-g hs \\
@@ -111,6 +111,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 		#format as bam and filter chr
 		awk 'OFS="\\t" {print \$1,\$2,\$3}' merged_peaks.narrowPeak | grep "chr" | grep -v "chrY" > merged.nf.bed
+		
 		#take summits and then expand to 250bp in either direction
 		#awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
 		#awk 'OFS="\\t" sub(/-./,\"1\")1' peaks_500bp.bed > peaks_500bp.nonneg.bed #set negative values to 1

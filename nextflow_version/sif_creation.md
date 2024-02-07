@@ -264,3 +264,7 @@ singularity shell multiome_bc.sif
 cp ~/multiome_bc.sif /home/groups/CEDAR/mulqueen/bc_multiome
 
 ```
+
+```bash
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome /home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif
+```
