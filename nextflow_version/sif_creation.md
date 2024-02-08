@@ -129,6 +129,7 @@ From: ubuntu:latest
 	conda install -y -c conda-forge mamba 
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
+	conda config --add channels r
 
 	#install python libraries
 	pip install MACS2 #
@@ -232,7 +233,8 @@ From: ubuntu:latest
 	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' #
 	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' #
 
-	mamba install -y -f conda-forge::r-matrix=1.6_3 # set this version
+	mamba install -y -f conda-forge::r-matrix=1.6_2 # set this version
+	mamba install -y -f r::r-irlba # set this version
 
 	#TO ADD??
 	#R --slave -e 'devtools::install_github("navinlabcode/copykat")'
@@ -252,14 +254,7 @@ sudo singularity shell multiome_bc.sif
 
 ## Pull Images
 Use sftp to get images off cluster
-
-```bash
-sftp -i ~/Downloads/newkey2.pem ubuntu@54.187.193.117
-
-get *sif
-```
-
-Now test on exacloud/seadragon
+Now test on exacloud
 ```bash
 sftp mulqueen@acc.ohsu.edu
 cd /home/groups/CEDAR/mulqueen/bc_multiome
