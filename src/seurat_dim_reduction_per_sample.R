@@ -10,7 +10,6 @@ library(RColorBrewer)
 library(GenomicRanges)
 library(optparse)
 
-
 option_list = list(
   make_option(c("-s", "--sample_dir"), type="character", default="NAT_1", 
               help="Sample directory from cellranger output.", metavar="character"),
@@ -21,9 +20,24 @@ option_list = list(
 
 ); 
 
+#######testing######
+sample_in="DCIS_2" 
+outname<-sample_in
+nf_dir=getwd()
+wd=paste0(nf_dir,"/",outname,"/","outs")
+
+peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
+peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
+peaks<-peaks[peaks$start>0,]
+peaks<-makeGRangesFromDataFrame(peaks)
+
+outdir=paste0("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis","/plots")
+system(paste0("mkdir -p ",outdir))
+####################
+
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-sample_in=strsplit(opt$sample_dir,"[.]")[[1]][1]
+sample_in=opt$sample_dir
 #outname<-"NAT_11"
 outname<-sample_in
 nf_dir=getwd()
@@ -35,8 +49,8 @@ peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
 peaks<-peaks[peaks$start>0,]
 peaks<-makeGRangesFromDataFrame(peaks)
 
-#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
-outdir=paste0(opts$output_directory,"/plots")
+#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis"
+outdir=paste0(opt$output_directory,"/plots")
 system(paste0("mkdir -p ",outdir))
 
 
@@ -99,13 +113,11 @@ peaks_assay <-CreateChromatinAssay(
 
 dat[["peaks"]]<-peaks_assay
 
-#set up colors for samples
-my_cols = brewer.pal(1,"Spectral")
-alpha_val=0.33
 
 #set up basic filters
-dat<-subset(dat, cells=names(which(colSums(dat@assays$RNA@counts)>=500)))
-dat<-subset(dat, cells=names(which(colSums(dat@assays$peaks@counts)>=500)))
+dat<-subset(dat, nCount_RNA>=500)
+dat<-subset(dat, nCount_peaks>=500)
+
 dat <- NucleosomeSignal(dat)
 dat <- TSSEnrichment(dat)
 

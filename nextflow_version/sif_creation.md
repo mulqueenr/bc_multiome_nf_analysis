@@ -145,6 +145,7 @@ From: ubuntu:latest
 	mamba install -y -f bedtools #
 	mamba install -y -f fastqc #
 	mamba install -y -f multiqc #
+	mamba install -y -f anaconda::graphviz
 	mamba install -y -f conda-forge::parallel #
 
 	#install R packages
@@ -162,6 +163,7 @@ From: ubuntu:latest
 	mamba install -y -f conda-forge::r-ggraph #
 	mamba install -y -f conda-forge::r-nloptr #
 	mamba install -y -f conda-forge::r-jomo #
+	mamba install -y -f r::r-irlba
 
 	#R utility libraries
 	R --slave -e 'install.packages("remotes", repos="http://cran.us.r-project.org")' #
@@ -189,7 +191,8 @@ From: ubuntu:latest
 	mamba install -y -f bioconda::bioconductor-scran
 	mamba install -y -f bioconda::bioconductor-infercnv
 	mamba install -y -f bioconda::bioconductor-complexheatmap
-
+	mamba install -y -f bioconda::bioconductor-biovizbase
+	mamba install -y -f bioconductor-glmgampoi
 	#R --slave -e 'BiocManager::install("BiocParallel")' #
 	#R --slave -e 'BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")' #
 	#R --slave -e 'BiocManager::install("EnsDb.Hsapiens.v86")' #
@@ -229,12 +232,16 @@ From: ubuntu:latest
 	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' #
 	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' #
 
+	mamba install -y -f conda-forge::r-matrix=1.6_3 # set this version
+
 	#TO ADD??
 	#R --slave -e 'devtools::install_github("navinlabcode/copykat")'
 	#R --slave -e 'remotes::install_github("akdess/CaSpER")' #https://rpubs.com/akdes/673120
 	#copyscAT
 	#AneuFinder
 
+#Changelog v2:
+#added r-matrix, graphviz, and biovizbase,glmgampoi, added r-matrix specific version, i think 1.6_5 might be broken
 
 ```
 
@@ -251,17 +258,12 @@ sftp -i ~/Downloads/newkey2.pem ubuntu@54.187.193.117
 
 get *sif
 ```
+
 Now test on exacloud/seadragon
 ```bash
 sftp mulqueen@acc.ohsu.edu
 cd /home/groups/CEDAR/mulqueen/bc_multiome
 put multiome_bc.sif
-
-ssh mulqueen@acc.ohsu.edu
-ssh exacloud.ohsu.edu
-module load singularity
-singularity shell multiome_bc.sif
-cp ~/multiome_bc.sif /home/groups/CEDAR/mulqueen/bc_multiome
 
 ```
 

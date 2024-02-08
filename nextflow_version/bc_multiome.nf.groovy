@@ -150,9 +150,9 @@ process DIM_REDUCTION_PER_SAMPLE {
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
-	${combined_peaks} \\
-	${sample_dir} \\
-	${params.outdir}/plots 
+	-p ${combined_peaks} \\
+	-s ${sample_dir} \\
+	-o ${params.outdir}
 	"""
 }
 
@@ -344,7 +344,16 @@ sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 -with-dag bc_multiome.flowchart.png \
 -with-report bc_multiome.report.html \
--with-singularity $sif
+-with-singularity $sif \
+-resume
+
+
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
+#Error in GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86) : 
+  Please install biovizBase
+https://www.bioconductor.org/packages/biovizBase/
 
 */
 

@@ -52,7 +52,7 @@ single_sample_cistopic_generation<-function(dat,sample_in,outdir,epithelial_only
     else {
       dat<-subset(dat,sample==sample_in)
       out_seurat_object<-paste0(sample_in,".cistopic.SeuratObject.rds")
-      model_selection_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.model_selection.pdf")
+      model_selection_out<-paste0(outdir,"/",sample_in,".cistopic.model_selection.pdf")
       out_cistopic_obj<-paste0(sample_in,".cistopic.cistopicObject.rds")
       umap_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.umap.pdf")
 
@@ -69,15 +69,12 @@ single_sample_cistopic_generation<-function(dat,sample_in,outdir,epithelial_only
   sub_cistopic<-cisTopic::createcisTopicObject(cistopic_counts_frmt)
   print("made cistopic object")
   sub_cistopic_models<-cisTopic::runModels(sub_cistopic,
-    topic=seq(from=10, to=30, by=5),
+    topic=seq(from=10, to=30, by=10),
     nCores=1,
     addModels=FALSE) #using v2 of cistopic (we are only using single core anyway)
 
   sub_cistopic_models<-addCellMetadata(sub_cistopic_models, cell.data =dat@meta.data)
-  pdf(model_selection_out)
-  par(mfrow=c(3,3))
   sub_cistopic_models<- selectModel(sub_cistopic_models, type='derivative')
-  dev.off()
   
   print("finshed running cistopic")
 

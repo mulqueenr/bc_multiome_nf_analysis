@@ -56,6 +56,7 @@ NetworkModules(test_srt)
 
 
 ## FigR
+Subsetting to just epithelial cells for now. 
 https://buenrostrolab.github.io/FigR/
 ```R
 library(FigR)
@@ -64,6 +65,7 @@ library(Signac)
 
 dat<-readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
 
+dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
 
 # Create a summarized experiment
 ATAC.SE <- SummarizedExperiment(
@@ -76,7 +78,7 @@ assays = list(counts = dat@assays$peaks@counts)
 cisCor <- runGenePeakcorr(ATAC.se = ATAC.SE,
                         RNAmat = dat[["RNA"]]@counts,
                         genome = "hg38",
-                        nCores = 5, 
+                        nCores = 1, 
                         p.cut=NULL)
 
         
@@ -103,7 +105,72 @@ fig.d <- runFigRGRN(ATAC.se=,ATAC.SE,
                     nCores=5)
 
 ```
+# Plot genomic ranges with Signac
 
+```R
+#module load singularity
+#cd /home/groups/CEDAR/mulqueen/bc_multiome
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome multiome_bc.sif
+
+library(Signac)
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+
+dat<-readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
+
+dat_downsamp<- dat[, sample(colnames(dat), size =10000, replace=F)]
+plt1<-DimPlot(dat_downsamp,reduction="umap",group.by="Diagnosis")
+DefaultAssay(dat)<-"RNA"
+plt3<-DimPlot(dat_downsamp,reduction="umap",group.by="HBCA_predicted.id")
+
+ggsave(plt1/plt3,file="umap.pdf",width=10,height=20)
+
+
+library(plyr)
+#snRNA markers
+hbca_snmarkers=list()
+hbca_snmarkers[["lumhr"]]=c("ANKRD30A","AFF3","ERBB4")
+hbca_snmarkers[["lumsec"]]=c("COBL","ELF5","KIT")
+hbca_snmarkers[["basal"]]=c("CARMN","ACTA2","KLHL29")
+hbca_snmarkers[["fibro"]]=c("LAMA2","ANK2","SLIT2")
+hbca_snmarkers[["lymphatic"]]=c("KLHL4","RHOJ","MMRN1")
+hbca_snmarkers[["vascular"]]=c("MECOM","VWF","LDB2")
+hbca_snmarkers[["perivasc"]]=c("RGS6","COL25A1","ADGRL3")
+hbca_snmarkers[["myeloid"]]=c("F13A1","CD163","RAB31")
+hbca_snmarkers[["tcells"]]=c("PTPRC","THEMIS","CD247")
+hbca_snmarkers[["mast"]]=c("SLC24A3","HPGD","HDC")
+hbca_snmarkers[["adipo"]]=c("PCDH9","CLSTN2","TRHDE")
+features<-llply(hbca_snmarkers, unlist)
+
+#Idents(dat)<-factor(dat$EMBO_predicted.id,levels=rev(c("epithelial","cycling.epithelial","CAFs","Endothelial","Pericytes","Myeloid","TAMs","TAMs_2","Plasma.cells","B.cells","T.cells","NA")))
+Idents(dat)<-factor(dat$HBCA_predicted.id,levels=c("luminal epithelial cell of mammary gland",
+  "basal cell","fibroblast","endothelial cell of lymphatic vessel",
+  "endothelial cell of vascular tree","pericyte","myeloid cell","T cell","mast cell","adipocyte of breast" ))
+
+plt1<-DotPlot(dat, features = features,dot.scale = 20,cluster.idents = FALSE) +
+  geom_point(aes(size=pct.exp), shape = 21, colour="black", stroke=0.5) +RotatedAxis()+
+  scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3)) +
+  guides(size=guide_legend(override.aes=list(shape=21, colour="black", fill="white")))
+
+ggsave(plt1,file="hbca_markers.pdf",height=10,width=30,limitsize = FALSE)
+
+outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
+dat_backup<-dat
+
+
+
+dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+Idents(dat)<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
+DefaultAssay(dat)<-"peaks"
+cov_plot <- CoveragePlot(
+  object = dat,
+  region = "ESR1",extend.upstream = 2000, extend.downstream = 2000,
+  annotation = TRUE,
+  peaks = TRUE
+)
+ggsave(cov_plot,file="coverage.pdf")
+```
 # Cell type bias inferences
 
 ## scDC
@@ -131,6 +198,20 @@ dev.off()
 #res_GLM <- fitGLM(res_scDC_noClust, cond, pairwise = FALSE) to run this need to fix matrix https://community.rstudio.com/t/error-in-initializeptr-function-cholmod-factor-ldeta-not-provided-by-package-matrix/178694
 ```
 
+
+```bash
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+module load singularity
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome /home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif
+
+
+library(Signac)
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+
+dat<-readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.public_transfer.SeuratObject.rds")
+```
 
 # Compare topics
 
