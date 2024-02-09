@@ -129,10 +129,10 @@ process SUPPLIED_MERGED_PEAKS {
 		input:
 			path(merged_bed)
 		output:
-			path("${merged_bed.simpleName}.nf.bed")
+			path("${merged_bed}")
 		script:
 		"""
-		cp -f ${merged_bed} ${merged_bed.simpleName}.nf.bed
+		touch ${merged_bed}
 		"""
 
 }
@@ -339,9 +339,11 @@ git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github 
 module load singularity #load singularity
 module load nextflow #load nextflow
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
 
 #run nextflow with defaults
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
+--merged_bed $bed \
 -with-dag bc_multiome.flowchart.png \
 -with-report bc_multiome.report.html \
 -with-singularity $sif \
