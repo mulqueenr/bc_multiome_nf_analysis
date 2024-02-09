@@ -243,7 +243,7 @@ From: ubuntu:latest
 	#AneuFinder
 
 #Changelog v2:
-#added r-matrix, graphviz, and biovizbase,glmgampoi, added r-matrix specific version, i think 1.6_5 might be broken
+#added r-matrix, graphviz, and biovizbase,glmgampoi, added r-matrix specific version, i think 1.6_5 might be broken, also reinstall r-irlba after
 
 ```
 
