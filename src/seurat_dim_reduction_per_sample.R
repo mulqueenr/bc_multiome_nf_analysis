@@ -9,10 +9,6 @@ library(ggplot2)
 library(RColorBrewer)
 library(GenomicRanges)
 library(optparse)
-#######testing######
-#install.packages("Matrix", type = "source") #matrix v 1.6.3+ is known to be broken, might have to reinstall from source?
-#install.packages("irlba", type = "source")
-
 
 option_list = list(
   make_option(c("-s", "--sample_dir"), type="character", default="NAT_1", 
@@ -25,18 +21,18 @@ option_list = list(
 ); 
 
 #######testing######
-sample_in="IDC_4" 
-outname<-sample_in
-nf_dir=getwd()
-wd=paste0(nf_dir,"/",outname,"/","outs")
+#sample_in="IDC_4" 
+#outname<-sample_in
+#nf_dir=getwd()
+#wd=paste0(nf_dir,"/",outname,"/","outs")
 
-peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
-peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
-peaks<-peaks[peaks$start>0,]
-peaks<-makeGRangesFromDataFrame(peaks)
+#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
+#peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
+#peaks<-peaks[peaks$start>0,]
+#peaks<-makeGRangesFromDataFrame(peaks)
 
-outdir=paste0("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis","/plots")
-system(paste0("mkdir -p ",outdir))
+#outdir=paste0("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis","/plots")
+#system(paste0("mkdir -p ",outdir))
 ####################
 
 opt_parser = OptionParser(option_list=option_list);
