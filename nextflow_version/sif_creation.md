@@ -86,7 +86,7 @@ sudo chmod 666 /var/run/docker.sock
 ## Multiome BC Container Building
 
 ```bash
-sudo singularity build --sandbox bc_multiome_test/ /home/ubuntu/ubuntu.sif
+sudo singularity build --sandbox bc_multiome_test/ docker://ubuntu:latest
 sudo singularity shell --writable bc_multiome_test/
 
 #test r installs and stuff (just go line by line of def below)
@@ -103,12 +103,6 @@ From: ubuntu:latest
     export LC_ALL=C
     export PATH=/opt/miniconda3/bin:$PATH
     export PYTHONPATH=/opt/miniconda3/lib/python3.9/:$PYTHONPATH
-
-    # activate conda environment
-    #echo ". /opt/miniconda3/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
-	#echo "conda activate base" >> $SINGULARITY_ENVIRONMENT
-	#conda init # Modifies .bashrc on your host machine
-	#source .bashrc # Loads modified .bashrc
 
 %post
  
@@ -129,32 +123,31 @@ From: ubuntu:latest
 	conda install -y -c conda-forge mamba 
 	conda config --add channels bioconda
 	conda config --add channels conda-forge
-	conda config --add channels r
 
 	#install python libraries
-	pip install MACS2 #
-	pip install scrublet #
+	pip install macs3 #
+	pip install scrublet # 
 	pip install scipy #
-	pip install matplotlib #
+	pip install matplotlib # 
 	pip install numpy #
 	pip install pandas #
 
 	# denotes installed in sandbox without error
 	#install additional tools
-	mamba install -y -f bwa #
-	mamba install -y -f samtools # 
-	mamba install -y -f bedtools #
-	mamba install -y -f fastqc #
-	mamba install -y -f multiqc #
-	mamba install -y -f anaconda::graphviz
+	mamba install -y -f bioconda::bwa #
+	mamba install -y -f bioconda::samtools #
+	mamba install -y -f bioconda::bedtools #
+	mamba install -y -f bioconda::fastqc #
+	mamba install -y -f bioconda::multiqc #
+	mamba install -y -f anaconda::graphviz #
 	mamba install -y -f conda-forge::parallel #
 
 	#install R packages
-	mamba install -y -f r-base=4.2 #
-	mamba install -y -f r-devtools #
-	mamba install -y -f r-biocmanager=1.30.19 #
-	mamba install -y -f r-rlang #
-	mamba install -y -f r-ggplot2 # 
+	mamba install -y -f conda-forge::r-base=4.2 #
+	mamba install -y -f conda-forge::r-devtools #
+	mamba install -y -f conda-forge::r-biocmanager=1.30.19 #
+	mamba install -y -f conda-forge::r-rlang #
+	mamba install -y -f conda-forge::r-ggplot2 #
 	mamba install -y -f bioconda::bioconductor-dirichletmultinomial #
 	mamba install -y -f conda-forge::r-igraph #
 	mamba install -y -f conda-forge::r-rjags #
@@ -164,12 +157,11 @@ From: ubuntu:latest
 	mamba install -y -f conda-forge::r-ggraph #
 	mamba install -y -f conda-forge::r-nloptr #
 	mamba install -y -f conda-forge::r-jomo #
-	mamba install -y -f r::r-irlba
 
 	#R utility libraries
 	R --slave -e 'install.packages("remotes", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("circlize", repos="http://cran.us.r-project.org")' #
-	R --slave -e 'install.packages("Matrix", repos="http://cran.us.r-project.org")' #
+	#R --slave -e 'install.packages("Matrix", repos="http://cran.us.r-project.org")' 
 	R --slave -e 'install.packages("optparse", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("patchwork", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("plyr", repos="http://cran.us.r-project.org")' #
@@ -178,72 +170,62 @@ From: ubuntu:latest
 	R --slave -e 'install.packages("RColorBrewer", repos="http://cran.us.r-project.org")' #
 
 	#Bioconductor packages through conda
-	mamba install -y -f bioconda::bioconductor-biocparallel
-	mamba install -y -f bioconda::bioconductor-bsgenome.hsapiens.ucsc.hg38
-	mamba install -y -f bioconda::bioconductor-ensdb.hsapiens.v86
-	mamba install -y -f bioconda::bioconductor-jaspar2020
-	mamba install -y -f bioconda::bioconductor-org.hs.eg.db
-	mamba install -y -f bioconda::bioconductor-tfbstools
-	mamba install -y -f bioconda::bioconductor-txdb.hsapiens.ucsc.hg38.knowngene
-	mamba install -y -f bioconda::bioconductor-universalmotif
-	mamba install -y -f bioconda::bioconductor-chromvar
-	mamba install -y -f bioconda::bioconductor-motifmatchr
-	mamba install -y -f bioconda::bioconductor-decoupler
-	mamba install -y -f bioconda::bioconductor-scran
-	mamba install -y -f bioconda::bioconductor-infercnv
-	mamba install -y -f bioconda::bioconductor-complexheatmap
-	mamba install -y -f bioconda::bioconductor-biovizbase
-	mamba install -y -f bioconductor-glmgampoi
-	#R --slave -e 'BiocManager::install("BiocParallel")' #
-	#R --slave -e 'BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")' #
-	#R --slave -e 'BiocManager::install("EnsDb.Hsapiens.v86")' #
-	#R --slave -e 'BiocManager::install("JASPAR2020")' #
-	#R --slave -e 'BiocManager::install("org.Hs.eg.db")' #
-	#R --slave -e 'BiocManager::install("TFBSTools")' #
-	#R --slave -e 'BiocManager::install("TxDb.Hsapiens.UCSC.hg38.knownGene")' #
-	#R --slave -e 'BiocManager::install("universalmotif")' #
-	#R --slave -e 'BiocManager::install("chromVAR")' #
-	#R --slave -e 'BiocManager::install("motifmatchr")' #
-	#R --slave -e 'BiocManager::install("infercnv")' #
-	#R --slave -e 'BiocManager::install("ComplexHeatmap")' #
-	#R --slave -e 'BiocManager::install("decoupleR")' #
-	#R --slave -e 'BiocManager::install("scran")' #
+	mamba install -y -f bioconda::bioconductor-biocparallel #
+	mamba install -y -f bioconda::bioconductor-bsgenome.hsapiens.ucsc.hg38 #
+	mamba install -y -f bioconda::bioconductor-ensdb.hsapiens.v86 #
+	mamba install -y -f bioconda::bioconductor-jaspar2020 #
+	mamba install -y -f bioconda::bioconductor-org.hs.eg.db #
+	mamba install -y -f bioconda::bioconductor-tfbstools #
+	mamba install -y -f bioconda::bioconductor-txdb.hsapiens.ucsc.hg38.knowngene #
+	mamba install -y -f bioconda::bioconductor-universalmotif #
+	mamba install -y -f bioconda::bioconductor-chromvar #
+	mamba install -y -f bioconda::bioconductor-motifmatchr #
+	mamba install -y -f bioconda::bioconductor-decoupler #
+	mamba install -y -f bioconda::bioconductor-scran #
+	mamba install -y -f bioconda::bioconductor-infercnv #
+	mamba install -y -f bioconda::bioconductor-complexheatmap #
+	mamba install -y -f bioconda::bioconductor-biovizbase #
+	mamba install -y -f bioconductor-glmgampoi #
 
 	#install cistopic
 	R --slave -e 'devtools::install_github("aertslab/RcisTarget")' #
-	R --slave -e 'devtools::install_github("aertslab/AUCell")' #
+	#R --slave -e 'devtools::install_github("aertslab/AUCell")' 
 	R --slave -e 'install.packages("lda", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("doSNOW", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("DT", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("feather", repos="http://cran.us.r-project.org")' #
 	cd #
-	wget https://github.com/aertslab/cisTopic/archive/refs/tags/v2.1.0.tar.gz #
+	wget https://github.com/aertslab/cisTopic/archive/refs/tags/v2.1.0.tar.gz 
 	R --slave -e 'install.packages("v2.1.0.tar.gz", repos = NULL)' # the install_github is broken so pulling from archive
 
 	#Funner stuff!
 	R --slave -e 'install.packages("rliger", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("SoupX", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("Seurat", repos="http://cran.us.r-project.org")' #
-	R --slave -e 'devtools::install_github("stuart-lab/signac", "develop", quiet = TRUE)' #
+	R --slave -e 'devtools::install_github("stuart-lab/signac", "develop")' #
 	R --slave -e 'remotes::install_github("satijalab/seurat-wrappers")' #
 	R --slave -e 'devtools::install_github("JuliusCampbell/TITAN")' #
 	R --slave -e 'devtools::install_github("caleblareau/BuenColors")' #
 	R --slave -e 'devtools::install_github("buenrostrolab/FigR")' #
 	R --slave -e 'devtools::install_github("quadbio/Pando")' #
-	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' #
-	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' #
+	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' 
+	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' 
 
+	#Correct matrix version
 	mamba install -y -f conda-forge::r-matrix=1.6_2 # set this version
 	mamba install -y -f r::r-irlba # set this version
 
-	#TO ADD??
-	#R --slave -e 'devtools::install_github("navinlabcode/copykat")'
-	#R --slave -e 'remotes::install_github("akdess/CaSpER")' #https://rpubs.com/akdes/673120
-	#copyscAT
-	#AneuFinder
+	#Add genefu
+	mamba install -y -f bioconda::bioconductor-genefu
 
 #Changelog v2:
-#added r-matrix, graphviz, and biovizbase,glmgampoi, added r-matrix specific version, i think 1.6_5 might be broken, also reinstall r-irlba after
+#added changed r irlba and rmatrix installation due to an error. added genefu for pseudobulk pam50 analysis
+
+%labels
+    Author Ryan Mulqueen
+    Version v0.2
+    MyLabel Multiome Breast Cancer Processing
+
 
 ```
 

@@ -101,12 +101,13 @@ process MERGE_SAMPLES_CALLPEAKS {
 		samtools cat -@ ${task.cpus} -b fofn.txt \\
 		| samtools sort -@ ${task.cpus} - > out.bam
 
-		#run macs2 to call atac peaks
-		macs2 \\
+		#run macs3 to call atac peaks
+		macs3 \\
 		callpeak -f BAMPE \\
 		-t out.bam \\
 		-g hs \\
 		-n merged \\
+		-B \\
 		-q 0.01
 
 		#format as bam and filter chr
@@ -352,10 +353,6 @@ nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
-
-#Error in GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86) : 
-  Please install biovizBase
-https://www.bioconductor.org/packages/biovizBase/
 
 */
 
