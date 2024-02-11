@@ -25,18 +25,18 @@ option_list = list(
 ); 
 
 #######testing######
-#sample_in="DCIS_2" 
-#outname<-sample_in
-#nf_dir=getwd()
-#wd=paste0(nf_dir,"/",outname,"/","outs")
+sample_in="IDC_4" 
+outname<-sample_in
+nf_dir=getwd()
+wd=paste0(nf_dir,"/",outname,"/","outs")
 
-#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
-#peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
-#peaks<-peaks[peaks$start>0,]
-#peaks<-makeGRangesFromDataFrame(peaks)
+peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
+peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
+peaks<-peaks[peaks$start>0,]
+peaks<-makeGRangesFromDataFrame(peaks)
 
-#outdir=paste0("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis","/plots")
-#system(paste0("mkdir -p ",outdir))
+outdir=paste0("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis","/plots")
+system(paste0("mkdir -p ",outdir))
 ####################
 
 opt_parser = OptionParser(option_list=option_list);
@@ -115,8 +115,9 @@ peaks_assay <-CreateChromatinAssay(
   min.features=-1
 )
 
+peaks_assay<-subset(peaks_assay, cells=colnames(dat))
 dat[["peaks"]]<-peaks_assay
-
+DefaultAssay(dat)<-"peaks"
 
 #set up basic filters
 dat<-subset(dat, nCount_RNA>=500)

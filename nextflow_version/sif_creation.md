@@ -161,7 +161,6 @@ From: ubuntu:latest
 	#R utility libraries
 	R --slave -e 'install.packages("remotes", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("circlize", repos="http://cran.us.r-project.org")' #
-	#R --slave -e 'install.packages("Matrix", repos="http://cran.us.r-project.org")' 
 	R --slave -e 'install.packages("optparse", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("patchwork", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("plyr", repos="http://cran.us.r-project.org")' #
@@ -189,7 +188,6 @@ From: ubuntu:latest
 
 	#install cistopic
 	R --slave -e 'devtools::install_github("aertslab/RcisTarget")' #
-	#R --slave -e 'devtools::install_github("aertslab/AUCell")' 
 	R --slave -e 'install.packages("lda", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("doSNOW", repos="http://cran.us.r-project.org")' #
 	R --slave -e 'install.packages("DT", repos="http://cran.us.r-project.org")' #
@@ -208,18 +206,23 @@ From: ubuntu:latest
 	R --slave -e 'devtools::install_github("caleblareau/BuenColors")' #
 	R --slave -e 'devtools::install_github("buenrostrolab/FigR")' #
 	R --slave -e 'devtools::install_github("quadbio/Pando")' #
-	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' 
-	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' 
+	R --slave -e 'install.packages(c("DescTools", "reshape2", "ggridges", "mice"), repos="http://cran.us.r-project.org")' #
+	R --slave -e 'devtools::install_github("SydneyBioX/scDC")' #
 
 	#Correct matrix version
-	mamba install -y -f conda-forge::r-matrix=1.6_2 # set this version
+	mamba install -y -f conda-forge::r-matrix=1.6_1 # set this version
 	mamba install -y -f r::r-irlba # set this version
+	R --slave -e 'install.packages("Matrix", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
+	R --slave -e 'install.packages("irlba", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
+	R --slave -e 'install.packages("SeuratObject", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
 
 	#Add genefu
 	mamba install -y -f bioconda::bioconductor-genefu
 
-#Changelog v2:
-#added changed r irlba and rmatrix installation due to an error. added genefu for pseudobulk pam50 analysis
+
+#Changelog v0.2:
+#added changed r irlba and rmatrix installation due to an error in newer matrix installs. 
+#added genefu for pseudobulk pam50 analysis
 
 %labels
     Author Ryan Mulqueen
