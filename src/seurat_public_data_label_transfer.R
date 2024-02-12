@@ -60,7 +60,7 @@ dat<- RunUMAP(
   object = dat,
   reduction.name="rna_umap",
   reduction="pca",
-  assay = "SCT",
+  assay = "RNA",
   verbose = TRUE,
   dims=1:50
 )
