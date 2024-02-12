@@ -40,6 +40,7 @@ log.info """
 //////////////////////////
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
+	 cpus 5
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -61,6 +62,7 @@ process SCRUBLET_RNA {
 process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
 	//TODO: Update with R getopts library
+  cpus 5
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -142,6 +144,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 	//Note at this stage the seurat object is unfiltered.
+  cpus 5
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -160,6 +163,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
     publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+  cpus 5
 
 	input:
 		path(seurat_objects)
@@ -231,7 +235,7 @@ process TITAN_PER_SAMPLE {
 
 process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
-  cpus 20
+  cpus 10
 
 	input:
 		path(merged_in)
@@ -337,18 +341,15 @@ workflow {
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
 
-module load singularity #load singularity
-module load nextflow #load nextflow
+module load singularity/3.8.0 #load singularity
+module load nextflow/21.10.1 #load nextflow
+cd /home/groups/CEDAR/mulqueen/bc_multiome
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
 
-#run nextflow with defaults
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --merged_bed $bed \
 -with-singularity $sif 
-#-resume
-#-with-dag bc_multiome.flowchart.png \
-#-with-report bc_multiome.report.html \
 
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
