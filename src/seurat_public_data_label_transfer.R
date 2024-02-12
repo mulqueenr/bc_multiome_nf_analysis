@@ -68,7 +68,7 @@ DefaultAssay(dat)<-"RNA" #can use SoupXRNA here also
 #dat<-NormalizeData(dat)
 #dat<-FindVariableFeatures(dat)
 #dat<-ScaleData(dat)
-dat <- SCTransform(dat,vst.flavor = 'v1')
+dat <- SCTransform(dat,vst.flavor = 'v2')
 dat <- RunPCA(dat)
 dat<- RunUMAP(
   object = dat,
@@ -80,14 +80,17 @@ dat<- RunUMAP(
 )
 
 single_sample_label_transfer<-function(dat,ref_obj,ref_prefix){
+  ref_obj<-UpdateSeuratObject(ref_obj)
+  ref_obj <- SCTransform(ref_obj,vst.flavor = 'v2')
 
   transfer.anchors <- FindTransferAnchors(
     reference = ref_obj,
-    reference.assay="RNA",
+    reference.assay="SCT",
     query = dat,
-    query.assay="RNA",
+    query.assay="SCT",
     features=VariableFeatures(ref_obj),
-    verbose=T
+    verbose=T,
+    dims=1:30
   )
 
   predictions<- TransferData(
@@ -105,7 +108,7 @@ swarbrick<-readRDS(paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds"))#swar
 dat<-single_sample_label_transfer(dat,ref_obj=swarbrick,"swarbrick")
 rm(swarbrick)
 
-embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds"))#EMBO cell types
+embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds")) #EMBO cell types
 dat<-single_sample_label_transfer(dat,ref_obj=embo_er,"EMBO")
 rm(embo_er)
 
