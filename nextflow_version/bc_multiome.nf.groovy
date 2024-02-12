@@ -345,11 +345,10 @@ bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using e
 #run nextflow with defaults
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --merged_bed $bed \
--with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html \
--with-singularity $sif \
--resume
-
+-with-singularity $sif 
+#-resume
+#-with-dag bc_multiome.flowchart.png \
+#-with-report bc_multiome.report.html \
 
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
