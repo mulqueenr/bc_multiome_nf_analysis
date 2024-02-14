@@ -12,6 +12,12 @@ library(GenomicRanges)
 library(patchwork)
 library(optparse)
 
+####testing######
+dat=readRDS("merged.public_transfer.SeuratObject.rds")
+outname=strsplit("merged.public_transfer.SeuratObject.rds","[.]")[1]
+outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
+
+############
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
               help="List of sample RDS files", metavar="character"),
@@ -140,7 +146,8 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
 
   dat_in<-dat
   ga<-dat@assays$GeneCount@scale.data
-  rna<-dat@assays$RNA@scale.data
+  dat[["RNA"]] <- as(object = dat[["RNA"]], Class = "Assay")
+  rna<-dat@assays$RNA$scale.data
   row.names(ga)<-paste0("GA_",row.names(ga))
   row.names(rna)<-paste0("RNA",row.names(rna))
   merged_dat<-as.matrix(rbind(ga,rna))
@@ -159,7 +166,7 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
   plt<-DimPlot(dat_in, group.by = c("sample", "EMBO_predicted.id","Diagnosis","HBCA_predicted.id"), ncol = 2)+
   ggtitle(paste("nfeat_rna:",as.character(nfeat_rna),
       "nfeat_ga:",as.character(nfeat_peaks),
-      "dim:",as.character(dim_in),
+      "dim:",as.character(dim_in),x`
       "k:",as.character(k_in)))
   ggsave(plt,file=paste0(outdir,"/","merged.liger.RNA_and_GA.pdf"),width=20,height=20)
   return(dat_in)

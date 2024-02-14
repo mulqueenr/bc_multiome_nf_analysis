@@ -150,7 +150,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 		tuple val(sample_name), path(sample_dir)
 		path(combined_peaks)
 	output:
-		path("*SeuratObject.rds")
+		path("${sample_dir.simpleName}.SeuratObject.rds")
 	script:
 	"""
 	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
@@ -330,8 +330,7 @@ workflow {
 		cistopic_object_list=CISTOPIC_PER_SAMPLE(merged_seurat_object,sample_dir) 
 		titan_object_list=TITAN_PER_SAMPLE(merged_seurat_object,sample_dir)
 
-		merged_seurat_object \
-		| MERGED_CLUSTER \
+		MERGED_CLUSTER(merged_seurat_object) \
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
 		
@@ -349,7 +348,8 @@ bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using e
 
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --merged_bed $bed \
--with-singularity $sif 
+-with-singularity $sif \
+-resume
 
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
