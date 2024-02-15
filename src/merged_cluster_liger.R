@@ -1,5 +1,4 @@
-#Following http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html 
-#Using a parallelized Signac GeneActivity function for the scATAC.
+
 library(Signac)
 library(Seurat)
 set.seed(1234)
@@ -12,12 +11,15 @@ library(GenomicRanges)
 library(patchwork)
 library(optparse)
 
-####testing######
-dat=readRDS("merged.public_transfer.SeuratObject.rds")
-outname=strsplit("merged.public_transfer.SeuratObject.rds","[.]")[1]
-outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
+#Following http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html 
+#Using a parallelized Signac GeneActivity function for the scATAC.
 
+####testing######
+#dat=readRDS("merged.public_transfer.SeuratObject.rds")
+#outname=strsplit("merged.public_transfer.SeuratObject.rds","[.]")[1]
+#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
 ############
+
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
               help="List of sample RDS files", metavar="character"),
@@ -30,7 +32,6 @@ opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 outname<-strsplit(opt$object_input,"[.]")[1]
 outdir<-opt$plot_output_directory
-
 
 #RNA liger
 rna_liger<-function(nfeat=1000,dims=10,k_in=10){
@@ -166,7 +167,7 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
   plt<-DimPlot(dat_in, group.by = c("sample", "EMBO_predicted.id","Diagnosis","HBCA_predicted.id"), ncol = 2)+
   ggtitle(paste("nfeat_rna:",as.character(nfeat_rna),
       "nfeat_ga:",as.character(nfeat_peaks),
-      "dim:",as.character(dim_in),x`
+      "dim:",as.character(dim_in),
       "k:",as.character(k_in)))
   ggsave(plt,file=paste0(outdir,"/","merged.liger.RNA_and_GA.pdf"),width=20,height=20)
   return(dat_in)
