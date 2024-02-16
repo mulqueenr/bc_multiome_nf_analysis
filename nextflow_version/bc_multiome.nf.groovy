@@ -324,11 +324,14 @@ workflow {
 		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
 		| collect
 
-		merged_seurat_object=
+		merged_seurat_object =
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
 
-		cistopic_object_list=CISTOPIC_PER_SAMPLE(merged_seurat_object,sample_dir) 
-		titan_object_list=TITAN_PER_SAMPLE(merged_seurat_object,sample_dir)
+		cistopic_object_list =
+		CISTOPIC_PER_SAMPLE(merged_seurat_object,sample_dir) 
+
+		titan_object_list =
+		TITAN_PER_SAMPLE(merged_seurat_object,sample_dir)
 
 		MERGED_CLUSTER(merged_seurat_object) \
 		| MERGED_CHROMVAR \
@@ -343,16 +346,18 @@ git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github 
 module load singularity/3.8.0 #load singularity
 module load nextflow/21.10.1 #load nextflow
 cd /home/groups/CEDAR/mulqueen/bc_multiome
+mkdir -p tmp
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
+NXF_TEMP="/home/groups/CEDAR/mulqueen/bc_multiome/tmp" #using a custom tmp directory fixes cacheing issue
 
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --merged_bed $bed \
 -with-singularity $sif \
 -resume
 
-#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 */
 
