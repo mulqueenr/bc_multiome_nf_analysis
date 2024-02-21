@@ -47,7 +47,7 @@ motif.hg38 <- CreateMotifObject(data = motif.matrix.hg38,
 
 dat <- SetAssayData(object = dat, 
   assay = 'ATAC', 
-  slot = 'motifs', 
+  layer = 'motifs', 
   new.data = motif.hg38)
 
 dat <- RegionStats(object = dat, 
