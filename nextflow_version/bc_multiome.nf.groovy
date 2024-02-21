@@ -184,9 +184,8 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
-
-  cpus 3
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
+  cpus 3
 
 	input:
 		val(merged_in)
@@ -205,10 +204,9 @@ process CISTOPIC_PER_SAMPLE {
 
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
-
 	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
-
 	cpus 3
+
 	input:
 		val(merged_in)
 		tuple val(sample_name), path(sample_dir)
@@ -222,11 +220,6 @@ process TITAN_PER_SAMPLE {
 	-o ${params.outdir}/titan
 	"""
 }
-
-
-//process INTEGRATE_TITAN_CISTOPIC_FACTORS {
-	//Combine TITAN and cisTOPIC output factors
-//}
 
 
   //////////////////////////////////////////////////////
@@ -245,7 +238,7 @@ process MERGED_CLUSTER {
 	script:
 	"""
 	Rscript ${params.src_dir}/merged_cluster_liger.R \\
-	-i "${merged_in}" \\
+	-i ${merged_in} \\
 	-o ${params.outdir}/plots
 	"""
 }
@@ -336,6 +329,7 @@ workflow {
 		MERGED_CLUSTER(merged_seurat_object) \
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY
+
 		
 }
 /*
@@ -352,12 +346,14 @@ bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using e
 NXF_TEMP="/home/groups/CEDAR/mulqueen/bc_multiome/tmp" #using a custom tmp directory fixes cacheing issue
 
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
---merged_bed $bed \
 -with-singularity $sif \
 -resume
+#--merged_bed $bed \
+
 
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+cd /home/groups/CEDAR/mulqueen/bc_multiome/work/9d/281bf7797e27d8d7332a1bcf5294d3
 
 */
 
