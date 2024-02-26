@@ -10,17 +10,6 @@ library(rtracklayer)
 library(ggplot2)
 library(optparse)
 
-#######################for testing#######################
-#module load singularity
-#cd /home/groups/CEDAR/mulqueen/bc_multiome
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome multiome_bc.sif
-#R
-#dat<-readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.public_transfer.SeuratObject.rds")
-#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
-#sample_in="IDC_1"
-
-#########################################################
-
 option_list = list(
   make_option(c("-s", "--sample"), type="character", default="NAT_1", 
               help="Sample name to subset to", metavar="character"),
@@ -40,7 +29,7 @@ system(paste0("mkdir -p ",outdir))
 
 #filter to cells with ATAC features > 1000
 #for samples with not enough ATAC data, skip
-single_sample_cistopic_generation<-function(dat,sample_in,outdir,epithelial_only=TRUE){
+single_sample_cistopic_generation<-function(x,sample_in,outdir,epithelial_only=TRUE){
   if(epithelial_only){
       dat<-subset(dat,sample==sample_in)
       dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
@@ -110,7 +99,7 @@ single_sample_cistopic_generation<-function(dat,sample_in,outdir,epithelial_only
 }
 
 
-single_sample_cistopic_generation(x=obj_in,outdir=outdir,obj_out=obj_out,epithelial_only=TRUE) #only epithelial cells per sample
-single_sample_cistopic_generation(x=obj_in,outdir=outdir,obj_out=obj_out,epithelial_only=FALSE) #all cells per sample
+single_sample_cistopic_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
+single_sample_cistopic_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 
 

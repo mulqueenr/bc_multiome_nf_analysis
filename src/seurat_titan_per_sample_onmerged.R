@@ -5,16 +5,6 @@ library(Signac)
 set.seed(1234)
 library(optparse)
 
-#######################for testing#######################
-#module load singularity
-#cd /home/groups/CEDAR/mulqueen/bc_multiome
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome multiome_bc.sif
-#R
-#dat<-readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.public_transfer.SeuratObject.rds")
-#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
-#sample_in="IDC_1"
-#########################################################
-
 option_list = list(
   make_option(c("-s", "--sample"), type="character", default="NAT_1", 
               help="Sample name to subset to", metavar="character"),
@@ -44,22 +34,21 @@ add_topics_to_seurat_obj <- function(model, Object) {
 }
 
 #filter to cells with RNA reads > 500
-single_sample_titan_generation<-function(x,outdir,obj_out=obj_out,epithelial_only=TRUE){
-      if(epithelial_only){
-      dat<-subset(dat,sample==sample_in)
+single_sample_titan_generation<-function(x,outdir,epithelial_only=TRUE,sample_in){
+    if(epithelial_only){
+      dat<-subset(x,sample==sample_in)
       dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
       out_seurat_object<-paste0(sample_in,".titan_epithelial.SeuratObject.rds")
       out_titan_obj<-paste0(sample_in,".titan_epithelial.titanObject.rds")
       umap_out<-paste0(outdir,"/",sample_in,".titan_epithelial.umap.pdf")
     }
     else {
-      dat<-subset(dat,sample==sample_in)
+      dat<-subset(x,sample==sample_in)
       out_seurat_object<-paste0(sample_in,".titan.SeuratObject.rds")
       out_titan_obj<-paste0(sample_in,".titan.cistopicObject.rds")
       umap_out<-paste0(outdir,"/",sample_in,".titan_epithelial.umap.pdf")
 
     }
-
 
   #skip titan if cell count too low
   if(sum(dat$nCount_RNA>500)<500){
@@ -89,8 +78,10 @@ single_sample_titan_generation<-function(x,outdir,obj_out=obj_out,epithelial_onl
   saveRDS(LDA_model, file=out_titan_obj)
   saveRDS(dat,file=out_seurat_object)
   }
+}
 
 
-single_sample_titan_generation(x=obj_in,outdir=outdir,obj_out=obj_out)
+single_sample_titan_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE)
+single_sample_titan_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 
 

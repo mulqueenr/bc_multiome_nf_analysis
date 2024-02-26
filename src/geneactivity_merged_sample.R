@@ -13,7 +13,6 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
-outdir<-opt$plot_output_directory
 
 gene_activity<-GeneActivity(dat,process_n=10000)
 saveRDS(gene_activity,file="merged.GeneActivity.rds")

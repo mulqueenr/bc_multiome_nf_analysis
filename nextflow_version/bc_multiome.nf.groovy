@@ -351,6 +351,8 @@ nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 #--merged_bed $bed \
 
 
+module load singularity/3.8.0 #load singularity
+module load nextflow/21.10.1 #load nextflow
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 cd /home/groups/CEDAR/mulqueen/bc_multiome/work/9d/281bf7797e27d8d7332a1bcf5294d3
