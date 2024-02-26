@@ -1,4 +1,3 @@
-
 library(Signac)
 library(Seurat)
 set.seed(1234)
@@ -13,12 +12,6 @@ library(optparse)
 
 #Following http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html 
 #Using a parallelized Signac GeneActivity function for the scATAC.
-
-####testing######
-#dat=readRDS("merged.public_transfer.SeuratObject.rds")
-#outname=strsplit("merged.public_transfer.SeuratObject.rds","[.]")[1]
-#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
-############
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
