@@ -81,7 +81,7 @@ single_sample_titan_generation<-function(x,outdir,epithelial_only=TRUE,sample_in
 }
 
 
-single_sample_titan_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE)
-single_sample_titan_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
+single_sample_titan_generation(x=dat,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE)
+single_sample_titan_generation(x=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 
 

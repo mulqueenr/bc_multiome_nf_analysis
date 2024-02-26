@@ -99,7 +99,7 @@ single_sample_cistopic_generation<-function(x,sample_in,outdir,epithelial_only=T
 }
 
 
-single_sample_cistopic_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
-single_sample_cistopic_generation(x=obj_in,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
+single_sample_cistopic_generation(x=dat,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
+single_sample_cistopic_generation(x=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 
 
