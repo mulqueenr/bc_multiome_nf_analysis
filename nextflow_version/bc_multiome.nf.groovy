@@ -63,6 +63,7 @@ process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
 	//TODO: Update with R getopts library
   cpus 5
+	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -74,7 +75,7 @@ process SOUPX_RNA {
 		if (test -e ${sample_dir}/outs/soupx_corrected_counts.rds) && (! ${params.force_rewrite}); then
 		echo "Using stored scrublet output: ${sample_dir}/outs/soupx_corrected_counts.rds"
 		else
-		Rscript ${params.src_dir}/soupx_per_sample.R \\
+		Rscript /src/soupx_per_sample.R \\
 		${sample_name} \\
 		${sample_dir}
 		fi
@@ -129,6 +130,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 process SUPPLIED_MERGED_PEAKS {
 		//Copy supplied bed file. If one is given to the --merged_peaks argument on initialization of pipeline.
 		publishDir "${params.outdir}", mode: 'copy', overwrite: true
+		
 		input:
 			path(merged_bed)
 		output:
@@ -145,6 +147,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 	//Note at this stage the seurat object is unfiltered.
   cpus 5
+	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -153,7 +156,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 		path("${sample_dir.simpleName}.SeuratObject.rds")
 	script:
 	"""
-	Rscript ${params.src_dir}/seurat_dim_reduction_per_sample.R \\
+	Rscript /src/seurat_dim_reduction_per_sample.R \\
 	-p ${combined_peaks} \\
 	-s ${sample_dir} \\
 	-o ${params.outdir}
@@ -162,8 +165,9 @@ process DIM_REDUCTION_PER_SAMPLE {
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
-    publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
   cpus 5
+	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
 
 	input:
 		path(seurat_objects)
@@ -173,7 +177,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 
 	script:
 	"""
-	Rscript ${params.src_dir}/seurat_public_data_label_transfer.R \\
+	Rscript /src/seurat_public_data_label_transfer.R \\
 	-s "${seurat_objects}" \\
 	-r ${params.ref} \\
 	-m ${metadata} \\
@@ -186,6 +190,7 @@ process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
   cpus 3
+	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
 
 	input:
 		tuple val(sample_name), path(sample_dir)		
@@ -194,7 +199,7 @@ process CISTOPIC_PER_SAMPLE {
 		path("${sample_name}.cistopic.SeuratObject.rds")
 	script:
 	"""
-	Rscript ${params.src_dir}/seurat_cistopic_per_sample_onmerged.R \\
+	Rscript /src/seurat_cistopic_per_sample_onmerged.R \\
 	-i ${merged_in} \\
 	-s ${sample_name} \\
 	-o ${params.outdir}/cistopic
@@ -206,6 +211,7 @@ process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
 	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
 	cpus 3
+	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
 
 	input:
 		tuple val(sample_name), val(sample_dir)
@@ -214,7 +220,7 @@ process TITAN_PER_SAMPLE {
 		path("${sample_name}.titan.SeuratObject.rds")
 	script:
 	"""
-	Rscript ${params.src_dir}/seurat_titan_per_sample_onmerged.R \\
+	Rscript /src/seurat_titan_per_sample_onmerged.R \\
 	-i ${merged_in} \\
 	-s ${sample_name} \\
 	-o ${params.outdir}/titan
@@ -348,7 +354,6 @@ bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using e
 #export APPTAINER_BINDPATH="/home/groups/CEDAR/mulqueen/bc_multiome"
 #export SINGULARITY_BIND="/home/groups/CEDAR/mulqueen/bc_multiome"
 #export SINGULARITY_BINDPATH="/home/groups/CEDAR/mulqueen/bc_multiome"
-
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 -with-singularity $sif \
 -resume
