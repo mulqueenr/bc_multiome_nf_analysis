@@ -326,9 +326,9 @@ workflow {
 		titan_object_list =
 		TITAN_PER_SAMPLE(merged_seurat_object,sample_dir)
 
-		MERGED_CLUSTER(merged_seurat_object) \
-		| MERGED_CHROMVAR \
-		| MERGED_GENE_ACTIVITY
+		//MERGED_CLUSTER(merged_seurat_object) \
+		//| MERGED_CHROMVAR \
+		//| MERGED_GENE_ACTIVITY
 
 		
 }
@@ -343,7 +343,11 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome
 mkdir -p tmp
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
-NXF_TEMP="/home/groups/CEDAR/mulqueen/bc_multiome/tmp" #using a custom tmp directory fixes cacheing issue
+#NXF_TEMP="/home/groups/CEDAR/mulqueen/bc_multiome/tmp" #using a custom tmp directory fixes cacheing issue
+#export APPTAINER_BIND="/home/groups/CEDAR/mulqueen/bc_multiome"
+#export APPTAINER_BINDPATH="/home/groups/CEDAR/mulqueen/bc_multiome"
+#export SINGULARITY_BIND="/home/groups/CEDAR/mulqueen/bc_multiome"
+#export SINGULARITY_BINDPATH="/home/groups/CEDAR/mulqueen/bc_multiome"
 
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 -with-singularity $sif \
@@ -355,7 +359,6 @@ module load singularity/3.8.0 #load singularity
 module load nextflow/21.10.1 #load nextflow
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
-cd /home/groups/CEDAR/mulqueen/bc_multiome/work/9d/281bf7797e27d8d7332a1bcf5294d3
 
 */
 
