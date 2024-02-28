@@ -63,7 +63,7 @@ process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
 	//TODO: Update with R getopts library
   cpus 5
-	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -147,7 +147,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
 	//Note at this stage the seurat object is unfiltered.
   cpus 5
-	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -167,7 +167,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
   cpus 5
-	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		path(seurat_objects)
@@ -189,12 +189,13 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
-  cpus 3
-	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
+  maxForks 1
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
-		tuple val(sample_name), path(sample_dir)		
-		val(merged_in)
+		tuple val(sample_name), path(merged_in)
+		path(final_object)
+		
 	output:
 		path("${sample_name}.cistopic.SeuratObject.rds")
 	script:
@@ -210,12 +211,13 @@ process CISTOPIC_PER_SAMPLE {
 process TITAN_PER_SAMPLE {
 	//Run TITAN on sample RNA data
 	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
-	cpus 3
-	containerOptions "--bind /home/groups/CEDAR/mulqueen/bc_multiome/bc_multiome_nf_analysis/src/:/src/"
+  maxForks 1
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
-		tuple val(sample_name), val(sample_dir)
-		val(merged_in)
+		tuple val(sample_name), path(merged_in)
+		path(final_object)
+
 	output:
 		path("${sample_name}.titan.SeuratObject.rds")
 	script:
@@ -234,7 +236,8 @@ process TITAN_PER_SAMPLE {
 
 process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
-  cpus 10
+  cpus 5
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		path(merged_in)
@@ -243,7 +246,7 @@ process MERGED_CLUSTER {
 
 	script:
 	"""
-	Rscript ${params.src_dir}/merged_cluster_liger.R \\
+	Rscript /src/merged_cluster_liger.R \\
 	-i ${merged_in} \\
 	-o ${params.outdir}/plots
 	"""
@@ -251,6 +254,7 @@ process MERGED_CLUSTER {
 
 process MERGED_CHROMVAR {	
 	//Run chromVAR on merged seurat object.
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		path(merged_in)
@@ -259,7 +263,7 @@ process MERGED_CHROMVAR {
 
 	script:
 	"""
-	Rscript ${params.src_dir}/chromvar_merged_samples.R \\
+	Rscript /src/chromvar_merged_samples.R \\
 	-i ${merged_in}
 	"""
 }
@@ -267,6 +271,7 @@ process MERGED_CHROMVAR {
 process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		path(merged_in)
@@ -276,7 +281,7 @@ process MERGED_GENE_ACTIVITY {
 
 	script:
 	"""
-	Rscript ${params.src_dir}/geneactivity_merged_sample.R \\
+	Rscript /src/geneactivity_merged_sample.R \\
 	-i ${merged_in}
 	"""
 }
@@ -326,16 +331,28 @@ workflow {
 		merged_seurat_object =
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
 
-		cistopic_object_list =
-		CISTOPIC_PER_SAMPLE(sample_dir,merged_seurat_object) 
+		merged_out =
+		MERGED_CLUSTER(merged_seurat_object)
+		| MERGED_CHROMVAR \
+		| MERGED_GENE_ACTIVITY \
+		| collect
 
+		//generate tuple of sample names with merged object 
+		//for splitting merged seurat object in parallel
+		merged_object_sample_split=
+		seurat_object_list
+		.flatten()
+		.map{[it.name.toString().split("[.]")[0]]}
+		.combine(merged_seurat_object)
+
+		//merged out is to serialize these		
+		cistopic_object_list=
+		CISTOPIC_PER_SAMPLE(merged_object_sample_split,merged_out) \
+		| collect
+		
 		titan_object_list =
-		TITAN_PER_SAMPLE(sample_dir,merged_seurat_object)
-
-		//MERGED_CLUSTER(merged_seurat_object) \
-		//| MERGED_CHROMVAR \
-		//| MERGED_GENE_ACTIVITY
-
+		TITAN_PER_SAMPLE(merged_object_sample_split,merged_out) \
+		| collect
 		
 }
 /*
@@ -349,15 +366,9 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome
 mkdir -p tmp
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
-#NXF_TEMP="/home/groups/CEDAR/mulqueen/bc_multiome/tmp" #using a custom tmp directory fixes cacheing issue
-#export APPTAINER_BIND="/home/groups/CEDAR/mulqueen/bc_multiome"
-#export APPTAINER_BINDPATH="/home/groups/CEDAR/mulqueen/bc_multiome"
-#export SINGULARITY_BIND="/home/groups/CEDAR/mulqueen/bc_multiome"
-#export SINGULARITY_BINDPATH="/home/groups/CEDAR/mulqueen/bc_multiome"
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 -with-singularity $sif \
 -resume
-#--merged_bed $bed \
 
 
 module load singularity/3.8.0 #load singularity

@@ -9,7 +9,6 @@ library(parallel)
 library(GenomicRanges)
 library(patchwork)
 library(optparse)
-
 #Following http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html 
 #Using a parallelized Signac GeneActivity function for the scATAC.
 
@@ -127,7 +126,17 @@ peak_liger<-function(nfeat=1000,dims=10,k_in=10){
 
 
 #http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html
-RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
+RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epithelial_only=FALSE){
+  if(epithelial_only){
+    dat<-subset(dat,sample==sample_in)
+    dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+    out_liger_umap<-paste0(outdir,"/","merged.liger.epithelial_only.RNA_and_GA.pdf")
+  }
+  else {
+    dat<-subset(dat,sample==sample_in)
+    out_liger_umap<-paste0(outdir,"/","merged.liger.RNA_and_GA.pdf")
+  }
+
   DefaultAssay(dat)<-"RNA"
   dat <- NormalizeData(dat)
   dat <- FindVariableFeatures(dat,nfeatures=nfeat_rna)
@@ -162,7 +171,7 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10){
       "nfeat_ga:",as.character(nfeat_peaks),
       "dim:",as.character(dim_in),
       "k:",as.character(k_in)))
-  ggsave(plt,file=paste0(outdir,"/","merged.liger.RNA_and_GA.pdf"),width=20,height=20)
+  ggsave(plt,file=out_liger_umap,width=20,height=20)
   return(dat_in)
 }
 
@@ -210,8 +219,10 @@ dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
 #for(i in c(10000)){for(k in c(10,20,30,50)){RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k)}}
 
 k=30
-dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k)
-
+dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k,epithelial_only=FALSE)
 saveRDS(dat_in,file="merged.liger.SeuratObject.rds")
 lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x))
 
+dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k,epithelial_only=TRUE)
+saveRDS(dat_in,file="merged.liger.epithelial.SeuratObject.rds")
+lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x))

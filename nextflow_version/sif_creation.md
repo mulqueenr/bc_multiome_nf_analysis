@@ -143,7 +143,7 @@ From: ubuntu:latest
 	mamba install -y -f conda-forge::parallel #
 
 	#install R packages
-	mamba install -y -f conda-forge::r-base=4.2 #
+	conda install -y -f r-base=4.2 #
 	mamba install -y -f conda-forge::r-devtools #
 	mamba install -y -f conda-forge::r-biocmanager=1.30.19 #
 	mamba install -y -f conda-forge::r-rlang #
@@ -215,10 +215,11 @@ From: ubuntu:latest
 	R --slave -e 'install.packages("Matrix", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
 	R --slave -e 'install.packages("irlba", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
 	R --slave -e 'install.packages("SeuratObject", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
+	R --slave -e 'tools::package_dependencies("Matrix", which = "LinkingTo", reverse = TRUE)[[1L]]'
+	R --slave -e 'install.packages("lme4", type = "source")'
 
 	#Add genefu
 	mamba install -y -f bioconda::bioconductor-genefu
-
 
 #Changelog v0.2:
 #added changed r irlba and rmatrix installation due to an error in newer matrix installs. 
@@ -233,7 +234,7 @@ From: ubuntu:latest
 ```
 
 ```bash
-sudo singularity build multiome_bc.sif bc_multiome.def
+sudo singularity build multiome_bc.sif multiome_bc.def
 sudo singularity shell multiome_bc.sif
 ```
 
