@@ -195,7 +195,7 @@ process CISTOPIC_PER_SAMPLE {
 	input:
 		tuple val(sample_name), path(merged_in)
 		path(final_object)
-		
+
 	output:
 		path("${sample_name}.cistopic.SeuratObject.rds")
 	script:
@@ -363,7 +363,6 @@ git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github 
 module load singularity/3.8.0 #load singularity
 module load nextflow/21.10.1 #load nextflow
 cd /home/groups/CEDAR/mulqueen/bc_multiome
-mkdir -p tmp
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \

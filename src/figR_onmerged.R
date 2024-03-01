@@ -1,4 +1,4 @@
-https://www.sciencedirect.com/science/article/pii/S2666979X22001082
+#https://www.sciencedirect.com/science/article/pii/S2666979X22001082
 #module load singularity
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
@@ -24,7 +24,7 @@ rnaMat<-as(object = JoinLayers(dat_in[["RNA"]])$counts, Class = "Matrix")
 cisCor <- runGenePeakcorr(ATAC.se = ATAC.SE,
                            RNAmat = rnaMat,
                            genome = "hg38", # Also supports mm10 and hg38
-                           nCores = 4, 
+                           nCores = 10, 
                            p.cut=NULL)
 
 # Filter peak-gene correlations by p-value                    
@@ -34,12 +34,12 @@ cisCor.filt <- cisCor %>% filter(pvalZ <= 0.05)
 dorcGenes <- cisCor.filt %>% dorcJPlot(cutoff=7, returnGeneList = TRUE)
 
 # Get DORC scores
-dorcMat <- getDORCScores(ATAC.SE,dorcTab=cisCor.filt,geneList=dorcGenes,nCores=4)
+dorcMat <- getDORCScores(ATAC.SE,dorcTab=cisCor.filt,geneList=dorcGenes,nCores=10)
 
 # Smooth DORC scores (using cell KNNs)
-dorcMat.smooth <- smoothScoresNN(NNmat=cellKNN.mat,mat=dorcMat,nCores=4)
+dorcMat.smooth <- smoothScoresNN(NNmat=cellKNN.mat,mat=dorcMat,nCores=10)
 
-rnaMat.smooth <- smoothScoresNN(NNmat=cellKNN.mat,mat=rnaMat,nCores=4)
+rnaMat.smooth <- smoothScoresNN(NNmat=cellKNN.mat,mat=rnaMat,nCores=10)
 
 # Run FigR
 fig.d <- runFigRGRN(ATAC.se=ATAC.SE,

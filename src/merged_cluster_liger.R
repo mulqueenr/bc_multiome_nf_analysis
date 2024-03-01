@@ -11,6 +11,9 @@ library(patchwork)
 library(optparse)
 #Following http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html 
 #Using a parallelized Signac GeneActivity function for the scATAC.
+#module load singularity
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
@@ -126,6 +129,7 @@ peak_liger<-function(nfeat=1000,dims=10,k_in=10){
 
 
 #http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html
+
 RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epithelial_only=FALSE){
   if(epithelial_only){
     dat<-subset(dat,sample==sample_in)
@@ -174,6 +178,7 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epi
   ggsave(plt,file=out_liger_umap,width=20,height=20)
   return(dat_in)
 }
+
 
 
 #plot label transfer predictions over integration
