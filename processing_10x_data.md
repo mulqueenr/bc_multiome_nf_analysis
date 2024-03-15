@@ -442,30 +442,128 @@ cellranger-arc count --id=${prefix} \
  --localcores=20 \
  --localmem=60 
 ```
-IDC_1, IDC_12, IDC_2, IDC_5
- 4, 7, 8, 11
+
 ```bash
 sbatch cellranger_processing.slurm
 ```
 
-error: FASTQ path doesn't exist: "/home/groups/CEDAR/mulqueen/bc_multiome/sequencing_data/EXP220628HM/220713_A01058_0246_BHFMTNDRX2/Data/Intensities/BaseCalls/phase_2_rna/"
-Rerun of NAT 11
+
+
+## Adding final samples as well.
+
+
+## Specify File Location
+Generate libraries csv file specifying fastq locations for cellranger-arc. Note that preliminary batch of data is different format because the core split data rather than supplied bcl files.
+
+```bash
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+ref="/home/groups/CEDAR/tools/refdata-cellranger-arc-GRCh38-2020-A-2.0.0"
+
+cd ${proj_dir}/sequencing_data
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB1377F1,A_4_CKDL240004757-1A_223K37LT4,Chromatin Accessibility
+${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB1377F1,TB1377F1_CKDL240004751-1A_22GVGKLT3,Gene Expression
+""" > IDC_13.csv #note this is the same as IDC_10
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB4823,A_5_CKDL240004758-1A_223K37LT4,Chromatin Accessibility
+${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB4823,TB4823_CKDL240004752-1A_22GVGKLT3,Gene Expression
+""" > IDC_14.csv
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/EXP240102/F1,EXP240102HM_ATAC_TB11591_F1,Chromatin Accessibility
+${proj_dir}/sequencing_data/EXP240102/F1,EXP240102HM_RNA_TB11591_F1,Gene Expression
+""" > IDC_16.csv
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB9540,A_3_CKDL240004756-1A_223K37LT4,Chromatin Accessibility
+${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB9540,TB9540_CKDL240004750-1A_22GVGKLT3,Gene Expression
+""" > IDC_15.csv 
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB13176F2,A_6_CKDL240004759-1A_223K37LT4,Chromatin Accessibility
+${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB13176F2,TB13176F2_CKDL240004753-1A_22GVGKLT3,Gene Expression
+""" > IDC_17.csv
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/EXP240102/S4,EXP240102HM_ATAC_TB8562,Chromatin Accessibility
+${proj_dir}/sequencing_data/EXP240102/S4,EXP240102HM_RNA_TB8562,Gene Expression
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB8563,A_7_CKDL240004760-1A_223K37LT4,Chromatin Accessibility
+""" > IDC_18.csv #note this is the same as IDC_1
+```
+
+```bash
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+ref="/home/groups/CEDAR/tools/refdata-cellranger-arc-GRCh38-2020-A-2.0.0"
+
+cd ${proj_dir}/sequencing_data
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/EXP240102/S3,EXP240102HM_ATAC_TB7481,Chromatin Accessibility
+${proj_dir}/sequencing_data/EXP240102/S3,EXP240102HM_RNA_TB7481,Gene Expression
+""" > ILC_2.csv
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB9550,A_1_CKDL240004754-1A_223K37LT4,Chromatin Accessibility
+${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB9550,TB9550_CKDL240004748-1A_22GVGKLT3,Gene Expression
+""" > ILC_3.csv
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/EXP240102/S2,EXP240102HM_ATAC_TB5221,Chromatin Accessibility
+${proj_dir}/sequencing_data/EXP240102/S2,EXP240102HM_RNA_TB5221,Gene Expression
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB5221,A_8_CKDL240004761-1A_223K37LT4,Chromatin Accessibility
+""" > ILC_4.csv
+
+echo """fastqs,sample,library_type
+${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB1377F1,A_4_CKDL240004757-1A_223K37LT4,Chromatin Accessibility
+${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB1377F1,TB1377F1_CKDL240004751-1A_22GVGKLT3,Gene Expression
+""" > ILC_5.csv
+```
+
+cellranger_processing_phase3.slurm
 ```bash
 #!/bin/bash
-#SBATCH --nodes=1 #request 19 nodes
-#SBATCH --tasks-per-node=2 ##we want our node to do N tasks at the same time
-#SBATCH --cpus-per-task=20 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
+#SBATCH --nodes=1 #request 10 nodes
+#SBATCH --array=0-9 #10 samples in new csv files
+#SBATCH --tasks-per-node=1 ##we want our node to do N tasks at the same time
+#SBATCH --cpus-per-task=30 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
 #SBATCH --mem-per-cpu=3gb ## request gigabyte per cpu
 #SBATCH --time=10:00:00 ## ask for 5 hour on the node
 #SBATCH --partition="exacloud"
+#SBATCH --chdir="/home/groups/CEDAR/mulqueen/bc_multiome/cellranger_data"
 #SBATCH --
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-file_in=$(ls ${proj_dir}/sequencing_data/second_round_sequencing_combined/NAT_11.csv)
-prefix="NAT_11"
+phase3_array=(${proj_dir}/sequencing_data/IDC_13.csv ${proj_dir}/sequencing_data/IDC_14.csv ${proj_dir}/sequencing_data/IDC_15.csv ${proj_dir}/sequencing_data/IDC_16.csv ${proj_dir}/sequencing_data/IDC_17.csv ${proj_dir}/sequencing_data/IDC_18.csv ${proj_dir}/sequencing_data/ILC_2.csv ${proj_dir}/sequencing_data/ILC_3.csv ${proj_dir}/sequencing_data/ILC_4.csv ${proj_dir}/sequencing_data/ILC_5.csv)
+
+file_in=${phase3_array[$SLURM_ARRAY_TASK_ID]}
+outname=${file_in::-4};
+prefix=`basename $outname`
 cellranger-arc count --id=${prefix} \
  --reference=${proj_dir}/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0 \
  --libraries=${file_in} \
- --localcores=20 \
- --localmem=60 
+ --localcores=30 \
+ --localmem=90 
+
+
+
 ```
+
+```bash
+sbatch cellranger_processing_phase3.slurm
+```
+
+Set up final third round data for nextflow pipeline
+```bash
+cd /home/groups/CEDAR/mulqueen/bc_multiome/cellranger_data
+mkdir third_round
+
+#all first and second round samples
+for i in $(find ./second_round -maxdepth 1 -name '*' -type d ); do cp -R $i ./third_round & done &
+
+#all third round samples
+for i in "./IDC_13" "./IDC_14" "./IDC_15" "./IDC_16" "./IDC_17" "./IDC_18" "./ILC_2" "./ILC_3" "./ILC_4" "./ILC_5"; do cp -R $i ./third_round & done & 
+```
+
+

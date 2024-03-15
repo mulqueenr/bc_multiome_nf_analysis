@@ -41,6 +41,8 @@ log.info """
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
 	 cpus 5
+	 label 'inhouse'
+	 containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		tuple val(sample_name), path(sample_dir)
@@ -49,12 +51,7 @@ process SCRUBLET_RNA {
 
 	script:
 		"""
-		if (test -e ${sample_dir}/outs/${sample_name}.scrublet.tsv) && (! ${params.force_rewrite}); then
-		echo "Using stored scrublet output: ${sample_dir}/outs/${sample_name}.scrublet.tsv"
-		else
-		python ${params.src_dir}/scrublet_per_sample.py \\
-		${sample_dir}
-		fi
+		python /src/scrublet_per_sample.py IDC_2/outs/filtered_feature_bc_matrix/barcodes.tsv.gz -m ${sample_dir}/outs/filtered_feature_bc_matrix.h5 -o ${sample_dir}/outs
 		"""
 
 }
@@ -63,12 +60,13 @@ process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
 	//TODO: Update with R getopts library
   cpus 5
+  label 'inhouse'
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
 		tuple val(sample_name), path(sample_dir)
 	output:
-		path(sample_dir)
+		tuple val(sample_name), path(sample_dir)
 
 	script:
 		"""
@@ -91,9 +89,9 @@ process MERGE_SAMPLES_CALLPEAKS {
 	//Initialize Seurat Object per sample.
 	publishDir "${params.outdir}", mode: 'copy', overwrite: true
 	cpus 20
-
+	label 'inhouse'
 	input:
-		path(sample_dir)
+		tuple val(sample_name), path(sample_dir)
 	output:
 		path("*.nf.bed")
 	script:
@@ -130,7 +128,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 process SUPPLIED_MERGED_PEAKS {
 		//Copy supplied bed file. If one is given to the --merged_peaks argument on initialization of pipeline.
 		publishDir "${params.outdir}", mode: 'copy', overwrite: true
-		
+		label 'inhouse'
 		input:
 			path(merged_bed)
 		output:
@@ -148,7 +146,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 	//Note at this stage the seurat object is unfiltered.
   cpus 5
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		tuple val(sample_name), path(sample_dir)
 		path(combined_peaks)
@@ -168,7 +166,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
   cpus 5
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		path(seurat_objects)
 		path(metadata)
@@ -191,7 +189,7 @@ process CISTOPIC_PER_SAMPLE {
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
   maxForks 1
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		tuple val(sample_name), path(merged_in)
 		path(final_object)
@@ -213,7 +211,7 @@ process TITAN_PER_SAMPLE {
 	publishDir "${params.outdir}/seurat_objects/titan", mode: 'copy', overwrite: true
   maxForks 1
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		tuple val(sample_name), path(merged_in)
 		path(final_object)
@@ -238,7 +236,7 @@ process MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
   cpus 5
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		path(merged_in)
 	output:
@@ -255,7 +253,7 @@ process MERGED_CLUSTER {
 process MERGED_CHROMVAR {	
 	//Run chromVAR on merged seurat object.
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		path(merged_in)
 	output:
@@ -272,7 +270,7 @@ process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-
+	label 'inhouse'
 	input:
 		path(merged_in)
 

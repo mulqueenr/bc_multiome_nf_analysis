@@ -64,13 +64,9 @@ fragpath <- paste0(wd,"/atac_fragments.tsv.gz") #atac fragments
 metadata_cellranger<-read.csv(paste0(wd,"/per_barcode_metrics.csv")) #metadata
 row.names(metadata_cellranger)<-metadata_cellranger$barcode
 soupx_output<-readRDS(paste0(wd,"/soupx_corrected_counts.rds")) #load SoupX contamination corrected output
-scrublet_output<-read.table(paste0(wd,"/",outname,".scrublet.tsv"),sep="\t",header=T) #load scrublet output for doublet detection
-#clean up scrublet output to add to metadata columns
-#just a hold over from a python output that I'm correcting.
-if(startsWith(scrublet_output$cellid[1],"b")){ 
-scrublet_output$cellID<-unlist(lapply(scrublet_output$cellid, function(x) substr(x,2,nchar(x))))}
-row.names(scrublet_output)<-scrublet_output$cellID
-scrublet_output<-scrublet_output[,c("doublet_scores","predicted_doublets")]
+#scrublet is broken due to an annoy versioning error interaction with docker/singularity. I'm just skipping for now
+#scrublet_output<-read.table(paste0(wd,"/","scrublet_results.tsv"),sep="\t",header=T) #load scrublet output for doublet detection
+#row.names(scrublet_output)<-scrublet_output$Barcode
 
 # create a Seurat object containing the RNA data
 dat <- CreateSeuratObject(
@@ -93,7 +89,7 @@ dat[["SoupXRNA"]]<-CreateAssayObject(
 #QC cells
 DefaultAssay(dat) <- "ATAC"
 dat<-AddMetaData(dat,metadata=metadata_cellranger)
-dat<-AddMetaData(dat,metadata=scrublet_output)
+#dat<-AddMetaData(dat,metadata=scrublet_output)
 
 # quantify counts in each peak (using merged peak set)
 macs2_counts <- FeatureMatrix(
@@ -182,20 +178,20 @@ dat <- RunUMAP(
   assay = "RNA",
   verbose = TRUE
 )
-p3<-DimPlot(dat,
-  reduction="multimodal_umap",
-  group.by="predicted_doublets")+ggtitle("Multimodal UMAP Doublets")
+#p3<-DimPlot(dat,
+#  reduction="multimodal_umap",
+#  group.by="predicted_doublets")+ggtitle("Multimodal UMAP Doublets")
 
 #Cluster on multimodal graph
 dat <- FindClusters(dat, resolution = 0.8, verbose = FALSE,graph="wknn")
-p4<-FeaturePlot(dat,
-  reduction="multimodal_umap",
-  features="doublet_scores")+ggtitle("Multimodal UMAP Scublet Scores")
+#p4<-FeaturePlot(dat,
+#  reduction="multimodal_umap",
+#  features="doublet_scores")+ggtitle("Multimodal UMAP Scublet Scores")
 
 #Finally Plot results
-plt<-(p1 | p2)/(p3 | p4)
+plt<-(p1 | p2)#/(p3 | p4)
 ggsave(plt,file=paste0(outdir,"/",outname,".umap.pdf"))
-table(dat$predicted_doublets)
+#table(dat$predicted_doublets)
 }
 
 saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))

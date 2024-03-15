@@ -17,7 +17,7 @@ chmod 400 ~/Downloads/newkey2.pem
 
 ssh -i <path to pem> ubuntu@<public ip4>
 ```bash
-ssh -i ~/Downloads/newkey2.pem ubuntu@54.187.193.117
+ssh -i ~/Downloads/newkey2.pem ubuntu@34.220.46.119
 ```
 
 
@@ -65,8 +65,6 @@ export VERSION=4.1.0 && \
     make -C builddir && \
     sudo make -C builddir install
 
-
-
 ## Install docker and use to pull the ubuntu image. ##
 #Convert ubuntu image to sif file for building our own SIFs
 cd 
@@ -108,7 +106,15 @@ From: ubuntu:latest
  
 	# update and install essential dependencies
 	apt-get -y update
-	apt-get update && apt-get install -y automake build-essential bzip2 wget git default-jre unzip
+	apt-get update && apt-get install -y automake \
+	build-essential \
+	bzip2 \
+	wget \
+	git \
+	default-jre \
+	unzip \
+	zlib1g-dev \
+	parallel
 
 	# download, install, and update miniconda3
 	wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -131,7 +137,10 @@ From: ubuntu:latest
 	pip install matplotlib # 
 	pip install numpy #
 	pip install pandas #
-
+	pip install h5py #
+	pip install tables #
+	pip install annoy==1.16.3 #
+	
 	# denotes installed in sandbox without error
 	#install additional tools
 	mamba install -y -f bioconda::bwa #
@@ -141,6 +150,7 @@ From: ubuntu:latest
 	mamba install -y -f bioconda::multiqc #
 	mamba install -y -f anaconda::graphviz #
 	mamba install -y -f conda-forge::parallel #
+	conda install -y -f conda-forge::ncurses #
 
 	#install R packages
 	conda install -y -f r-base=4.2 #
@@ -215,8 +225,10 @@ From: ubuntu:latest
 	R --slave -e 'install.packages("Matrix", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
 	R --slave -e 'install.packages("irlba", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
 	R --slave -e 'install.packages("SeuratObject", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
-	R --slave -e 'tools::package_dependencies("Matrix", which = "LinkingTo", reverse = TRUE)[[1L]]'
-	R --slave -e 'install.packages("lme4", type = "source")'
+	R --slave -e 'oo <- options(repos = "https://cran.r-project.org/");
+		tools::package_dependencies("Matrix", which = "LinkingTo", reverse = TRUE)[[1L]];
+		install.packages("lme4", type = "source",repos = "http://cran.us.r-project.org");
+		options(oo)'
 
 	#Add genefu
 	mamba install -y -f bioconda::bioconductor-genefu
@@ -245,6 +257,9 @@ Now test on exacloud
 sftp mulqueen@acc.ohsu.edu
 cd /home/groups/CEDAR/mulqueen/bc_multiome
 put multiome_bc.sif
+#also using Demuxafy.sif for scrublet
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+wget -O Demuxafy.sif 'https://www.dropbox.com/scl/fi/g0cuyjwomdavom6u6kb2v/Demuxafy.sif?rlkey=xfey1agg371jo4lubsljfavkh&'
 
 ```
 
