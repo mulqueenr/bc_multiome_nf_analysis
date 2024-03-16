@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("-m", "--counts_matrix", required = False, help = "cell ranger counts matrix directory containing matrix files or full path to matrix.mtx. Can also also provide the 10x h5.")
 parser.add_argument("-o", "--outdir", required = False, default = os.getcwd(), help = "The output directory")
 args = parser.parse_args()
-#args.counts_matrix="IDC_2/outs/filtered_feature_bc_matrix.h5"
+#args.counts_matrix="filtered_feature_bc_matrix.h5"
 #args.outdir="IDC_2/outs"
 import collections
 import scipy.sparse as sp_sparse
@@ -63,7 +63,8 @@ doublet_scores, predicted_doublets = scrub.scrub_doublets(min_counts=3,
 
 results = pd.Series(scrub.predicted_doublets_, name="scrublet_DropletType")
 scores = pd.Series(scrub.doublet_scores_obs_, name="scrublet_Scores")
-dataframe = pd.concat([barcodes_df, results, scores], axis=1)
+barc = pd.Series(filtered_matrix_h5[1],name="Barcode")
+dataframe = pd.concat([barc, results, scores], axis=1)
 dataframe.scrublet_DropletType = dataframe.scrublet_DropletType.replace(True, "doublet")
 dataframe.scrublet_DropletType = dataframe.scrublet_DropletType.replace(False, "singlet")
 print("Writing output.\n")

@@ -41,7 +41,7 @@ log.info """
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
 	 cpus 5
-	 label 'inhouse'
+	 label 'scrub'
 	 containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
 	input:
@@ -51,7 +51,9 @@ process SCRUBLET_RNA {
 
 	script:
 		"""
-		python /src/scrublet_per_sample.py IDC_2/outs/filtered_feature_bc_matrix/barcodes.tsv.gz -m ${sample_dir}/outs/filtered_feature_bc_matrix.h5 -o ${sample_dir}/outs
+		python /src/scrublet_per_sample.py \\
+		-m ${sample_dir}/outs/filtered_feature_bc_matrix.h5 \\
+		-o ${sample_dir}/outs
 		"""
 
 }
@@ -66,17 +68,13 @@ process SOUPX_RNA {
 	input:
 		tuple val(sample_name), path(sample_dir)
 	output:
-		tuple val(sample_name), path(sample_dir)
+		path(sample_dir)
 
 	script:
 		"""
-		if (test -e ${sample_dir}/outs/soupx_corrected_counts.rds) && (! ${params.force_rewrite}); then
-		echo "Using stored scrublet output: ${sample_dir}/outs/soupx_corrected_counts.rds"
-		else
 		Rscript /src/soupx_per_sample.R \\
 		${sample_name} \\
 		${sample_dir}
-		fi
 		"""
 }
 
@@ -88,10 +86,10 @@ process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
 	publishDir "${params.outdir}", mode: 'copy', overwrite: true
-	cpus 20
+	cpus 30
 	label 'inhouse'
 	input:
-		tuple val(sample_name), path(sample_dir)
+		path(sample_dir)
 	output:
 		path("*.nf.bed")
 	script:
@@ -304,7 +302,7 @@ workflow {
 	// DATA CORRECTION
 		merged_peaks_input=
 		SCRUBLET_RNA(sample_dir) \
-		| SOUPX_RNA 
+		| SOUPX_RNA
 		
 		if ( params.merged_bed ) {
 			//Merged bed file supplied
@@ -319,7 +317,6 @@ workflow {
 	  	| collect \
 	    | MERGE_SAMPLES_CALLPEAKS
   	}
-
 
 	// DATA PROCESSING 
 		seurat_object_list =
@@ -351,7 +348,7 @@ workflow {
 		titan_object_list =
 		TITAN_PER_SAMPLE(merged_object_sample_split,merged_out) \
 		| collect
-		
+
 }
 /*
 #Example running
@@ -360,11 +357,13 @@ git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github 
 
 module load singularity/3.8.0 #load singularity
 module load nextflow/21.10.1 #load nextflow
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+
 cd /home/groups/CEDAR/mulqueen/bc_multiome
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
--with-singularity $sif \
+--force_rewrite true \
+--outdir ${proj_dir}/nf_analysis_round3 \
+--sample_dir ${proj_dir}/cellranger_data/third_round \
 -resume
 
 
@@ -372,6 +371,9 @@ module load singularity/3.8.0 #load singularity
 module load nextflow/21.10.1 #load nextflow
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+bed="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/merged.nf.bed" #using established bed file
 
 */
 

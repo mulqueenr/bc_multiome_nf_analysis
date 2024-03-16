@@ -471,26 +471,33 @@ ${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB4823,A_5_CKDL240004758-1A_
 ${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB4823,TB4823_CKDL240004752-1A_22GVGKLT3,Gene Expression
 """ > IDC_14.csv
 
+
+
+##UPDATED THESE WITH NEW NUMBERS
+
 echo """fastqs,sample,library_type
 ${proj_dir}/sequencing_data/EXP240102/F1,EXP240102HM_ATAC_TB11591_F1,Chromatin Accessibility
 ${proj_dir}/sequencing_data/EXP240102/F1,EXP240102HM_RNA_TB11591_F1,Gene Expression
-""" > IDC_16.csv
+""" > IDC_15.csv
 
-echo """fastqs,sample,library_type
-${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB9540,A_3_CKDL240004756-1A_223K37LT4,Chromatin Accessibility
-${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB9540,TB9540_CKDL240004750-1A_22GVGKLT3,Gene Expression
-""" > IDC_15.csv 
-
-echo """fastqs,sample,library_type
-${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB13176F2,A_6_CKDL240004759-1A_223K37LT4,Chromatin Accessibility
-${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB13176F2,TB13176F2_CKDL240004753-1A_22GVGKLT3,Gene Expression
-""" > IDC_17.csv
 
 echo """fastqs,sample,library_type
 ${proj_dir}/sequencing_data/EXP240102/S4,EXP240102HM_ATAC_TB8562,Chromatin Accessibility
 ${proj_dir}/sequencing_data/EXP240102/S4,EXP240102HM_RNA_TB8562,Gene Expression
 ${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB8563,A_7_CKDL240004760-1A_223K37LT4,Chromatin Accessibility
-""" > IDC_18.csv #note this is the same as IDC_1
+""" > IDC_16.csv #note this is the same as IDC_1
+
+
+#echo """fastqs,sample,library_type
+#${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB9540,A_3_CKDL240004756-1A_223K37LT4,Chromatin Accessibility
+#${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB9540,TB9540_CKDL240004750-1A_22GVGKLT3,Gene Expression
+#""" > IDC_15.csv  #TB9540 FAILED REMOVED FROM NUMBER COUNTING
+
+
+#echo """fastqs,sample,library_type
+#${proj_dir}/sequencing_data/Novogene_2024/ATAC/ATAC/TB13176F2,A_6_CKDL240004759-1A_223K37LT4,Chromatin Accessibility
+#${proj_dir}/sequencing_data/Novogene_2024/RNA/RNA/TB13176F2,TB13176F2_CKDL240004753-1A_22GVGKLT3,Gene Expression
+#""" > IDC_16.csv #TB13176F2 FAILED
 ```
 
 ```bash
@@ -525,7 +532,7 @@ cellranger_processing_phase3.slurm
 ```bash
 #!/bin/bash
 #SBATCH --nodes=1 #request 10 nodes
-#SBATCH --array=0-9 #10 samples in new csv files
+#SBATCH --array=0-2 #10 samples in new csv files
 #SBATCH --tasks-per-node=1 ##we want our node to do N tasks at the same time
 #SBATCH --cpus-per-task=30 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
 #SBATCH --mem-per-cpu=3gb ## request gigabyte per cpu

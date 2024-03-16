@@ -20,20 +20,6 @@ option_list = list(
 
 ); 
 
-#######testing######
-#sample_in="IDC_4" 
-#outname<-sample_in
-#nf_dir=getwd()
-#wd=paste0(nf_dir,"/",outname,"/","outs")
-
-#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
-#peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
-#peaks<-peaks[peaks$start>0,]
-#peaks<-makeGRangesFromDataFrame(peaks)
-
-#outdir=paste0("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis","/plots")
-#system(paste0("mkdir -p ",outdir))
-####################
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
@@ -42,6 +28,15 @@ sample_in=opt$sample_dir
 outname<-sample_in
 nf_dir=getwd()
 wd=paste0(nf_dir,"/",outname,"/","outs")
+
+#######testing######
+#module load singularity/3.8.0 #load singularity
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome /home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif
+#proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+#opt$output_directory="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3"
+#opt$sample_dir="IDC_7"
+#opt$peaks_bed="/home/groups/CEDAR/mulqueen/bc_multiome/merged.nf.bed"
+####################
 
 #peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
 peaks=read.csv(file=opt$peaks_bed,sep="\t",col.names=c("chr","start","end"))
@@ -65,8 +60,9 @@ metadata_cellranger<-read.csv(paste0(wd,"/per_barcode_metrics.csv")) #metadata
 row.names(metadata_cellranger)<-metadata_cellranger$barcode
 soupx_output<-readRDS(paste0(wd,"/soupx_corrected_counts.rds")) #load SoupX contamination corrected output
 #scrublet is broken due to an annoy versioning error interaction with docker/singularity. I'm just skipping for now
-#scrublet_output<-read.table(paste0(wd,"/","scrublet_results.tsv"),sep="\t",header=T) #load scrublet output for doublet detection
-#row.names(scrublet_output)<-scrublet_output$Barcode
+scrublet_output<-read.table(paste0(wd,"/","scrublet_results.tsv"),sep="\t",header=T) #load scrublet output for doublet detection
+scrublet_output$Barcode<-substr(scrublet_output$Barcode,2,nchar(scrublet_output$Barcode))
+row.names(scrublet_output)<-scrublet_output$Barcode
 
 # create a Seurat object containing the RNA data
 dat <- CreateSeuratObject(
@@ -89,9 +85,10 @@ dat[["SoupXRNA"]]<-CreateAssayObject(
 #QC cells
 DefaultAssay(dat) <- "ATAC"
 dat<-AddMetaData(dat,metadata=metadata_cellranger)
-#dat<-AddMetaData(dat,metadata=scrublet_output)
+dat<-AddMetaData(dat,metadata=scrublet_output)
 
 # quantify counts in each peak (using merged peak set)
+#i actually used macs3
 macs2_counts <- FeatureMatrix(
   fragments = Fragments(dat),
   features = peaks,
@@ -178,20 +175,20 @@ dat <- RunUMAP(
   assay = "RNA",
   verbose = TRUE
 )
-#p3<-DimPlot(dat,
-#  reduction="multimodal_umap",
-#  group.by="predicted_doublets")+ggtitle("Multimodal UMAP Doublets")
+p3<-DimPlot(dat,
+  reduction="multimodal_umap",
+  group.by="scrublet_DropletType")+ggtitle("Multimodal UMAP Doublets")
 
 #Cluster on multimodal graph
 dat <- FindClusters(dat, resolution = 0.8, verbose = FALSE,graph="wknn")
-#p4<-FeaturePlot(dat,
-#  reduction="multimodal_umap",
-#  features="doublet_scores")+ggtitle("Multimodal UMAP Scublet Scores")
+p4<-FeaturePlot(dat,
+  reduction="multimodal_umap",
+  features="scrublet_Scores")+ggtitle("Multimodal UMAP Scublet Scores")
 
 #Finally Plot results
-plt<-(p1 | p2)#/(p3 | p4)
+plt<-(p1 | p2)/(p3 | p4)
 ggsave(plt,file=paste0(outdir,"/",outname,".umap.pdf"))
-#table(dat$predicted_doublets)
+table(dat$scrublet_DropletType)
 }
 
 saveRDS(dat,file=paste0(outname,".SeuratObject.rds"))

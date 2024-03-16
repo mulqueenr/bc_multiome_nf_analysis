@@ -139,7 +139,7 @@ From: ubuntu:latest
 	pip install pandas #
 	pip install h5py #
 	pip install tables #
-	pip install annoy==1.16.3 #
+	pip install annoy==1.15 #
 	
 	# denotes installed in sandbox without error
 	#install additional tools
@@ -263,6 +263,78 @@ wget -O Demuxafy.sif 'https://www.dropbox.com/scl/fi/g0cuyjwomdavom6u6kb2v/Demux
 
 ```
 
+
+
+## Building scrublet image
+multiome_scrub.def
+
 ```bash
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome /home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif
+Bootstrap: docker
+From: ubuntu:latest
+
+%environment
+    # set up all essential environment variables
+    export LC_ALL=C
+    export PATH=/opt/miniconda3/bin:$PATH
+	echo "set enable-bracketed-paste off" >> ~/.inputrc
+%post
+ 
+	# update and install essential dependencies
+	apt-get -y update
+	apt-get update && apt-get install -y automake \
+	build-essential \
+	bzip2 \
+	wget \
+	git \
+	default-jre \
+	unzip \
+	zlib1g-dev \
+	parallel
+
+	# download, install, and update miniconda3
+	wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+	bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /opt/miniconda3/
+	rm Miniconda3-latest-Linux-x86_64.sh
+	chmod --recursive a+rw /opt/miniconda3
+
+	# install dependencies via conda
+	export PATH="/opt/miniconda3/bin:$PATH"
+
+	#build full conda environment for sif
+	conda remove menuinst
+	conda install -y python=3.7
+
+	#install python libraries
+	pip install scipy #
+	pip install matplotlib # 
+	pip install numpy==1.19.4  #
+	pip install pandas #
+	pip install h5py #
+	pip install tables #
+	pip install argparse #
+	pip install scrublet # 
+	pip install annoy==1.15.2 #
+
+%labels
+    Author Ryan Mulqueen
+    Version v0.1
+    MyLabel Multiome Breast Cancer Processing Scrublet
+
+```
+```bash
+sudo singularity build multiome_scrub.sif multiome_scrub.def
+
+sudo singularity build --sandbox scrub docker://ubuntu:latest
+sudo singularity shell --writable scrub/
+```
+
+```bash
+sftp mulqueen@acc.ohsu.edu
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+put multiome_scrub.sif
+
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome multiome_scrub.sif
+cd /home/groups/CEDAR/mulqueen/bc_multiome/cellranger_data/third_round/IDC_4/outs
+#test run
+
 ```

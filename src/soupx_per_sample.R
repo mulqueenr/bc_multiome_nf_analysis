@@ -8,5 +8,3 @@ sc = autoEstCont(sc,tfidfMin=0.5,forceAccept=TRUE) #1 is default
 out = adjustCounts(sc)
 saveRDS(out,paste0(wd,"/soupx_corrected_counts.rds"))
 print(paste("Finished:",outname))
-
-
