@@ -301,55 +301,59 @@ workflow {
 		//Sample_dir finds all folders that start with I (IDC/ILC), N (NAT), or D (DCIS), but that regex filter can be removed//
 
 	// DATA CORRECTION
-		merged_peaks_input=
 		SCRUBLET_RNA(sample_dir) \
-		| SOUPX_RNA
+		| SOUPX_RNA \
+		| set { merged_peaks_input }
 		
 		if ( params.merged_bed ) {
 			//Merged bed file supplied, still take merged_peaks_input to ensure QC is done on all samples before proceeding
-	  	merged_peaks_input | collect
-			merged_peaks = Channel.fromPath("${params.merged_bed}") 
+	  	merged_peaks_input | collect | set { merged_peaks_input }
+			Channel.fromPath("${params.merged_bed}") | set { merged_peaks }
+
 			SUPPLIED_MERGED_PEAKS(merged_peaks,merged_peaks_input) \
-			| toList
+			| toList \
+			| set { merged_peaks }
+
   	} else {
   		//Make merged bed file of peaks
 	  	merged_peaks = 
 	  	merged_peaks_input \
 	  	| collect \
-	    | MERGE_SAMPLES_CALLPEAKS
+	    | MERGE_SAMPLES_CALLPEAKS \
+	    | set { merged_peaks }
   	}
 
 	// DATA PROCESSING 
-		seurat_object_list =
-		DIM_REDUCTION_PER_SAMPLE(sample_dir,merged_peaks) \
-		| collect
-
+		//Dim reduction,  and public data label transfer
+		DIM_REDUCTION_PER_SAMPLE(sample_dir, merged_peaks) \
+		| collect \
+		| set { seurat_object_list }
 		merged_seurat_object =
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
 
-		merged_out =
+		//Integrate and cluster data, run chromvar, run gene activity
 		MERGED_CLUSTER(merged_seurat_object)
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY \
-		| collect
+		| collect \
+		| set { merged_out }
 
-		//generate tuple of sample names with merged object 
-		//for splitting merged seurat object in parallel
-		merged_object_sample_split=
+		//generate tuple of sample names with merged object for splitting merged seurat object in parallel
 		seurat_object_list
-		.flatten()
-		.map{[it.name.toString().split("[.]")[0]]}
-		.combine(merged_seurat_object)
+		| flatten \
+		| map{[it.name.toString().split("[.]")[0]]} \
+		| combine(merged_seurat_object) \
+		| set { merged_object_sample_split }
 
-		//merged out is to serialize these		
-		cistopic_object_list=
+		//cistopic per sample for GRN via chromatin		
 		CISTOPIC_PER_SAMPLE(merged_object_sample_split,merged_out) \
-		| collect
+		| collect \
+		| set { cistopic_object_list }
 		
-		titan_object_list =
+		//titan per sample for GRN via rna
 		TITAN_PER_SAMPLE(merged_object_sample_split,merged_out) \
-		| collect
-
+		| collect \
+		| set { titan_object_list }
 }
 /*
 #Example running
