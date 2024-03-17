@@ -129,6 +129,7 @@ process SUPPLIED_MERGED_PEAKS {
 		label 'inhouse'
 		input:
 			path(merged_bed)
+			path(sample_dir)
 		output:
 			path("${merged_bed}")
 		script:
@@ -305,10 +306,10 @@ workflow {
 		| SOUPX_RNA
 		
 		if ( params.merged_bed ) {
-			//Merged bed file supplied
-			merged_peaks = 
-			Channel.fromPath("${params.merged_bed}") \
-			| SUPPLIED_MERGED_PEAKS \
+			//Merged bed file supplied, still take merged_peaks_input to ensure QC is done on all samples before proceeding
+	  	merged_peaks_input | collect
+			merged_peaks = Channel.fromPath("${params.merged_bed}") 
+			SUPPLIED_MERGED_PEAKS(merged_peaks,merged_peaks_input) \
 			| toList
   	} else {
   		//Make merged bed file of peaks

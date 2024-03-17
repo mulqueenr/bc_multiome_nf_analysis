@@ -202,14 +202,14 @@ plot_predictions<-function(dat=dat_in,ref_prefix){
 #subset to which protein coding gene is longest that has the same name
 #extend 2kb upstream for promoter inclusion
 feat=dat@assays$peaks@annotation[dat@assays$peaks@annotation$gene_biotype=="protein_coding",]
-feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=10) #collapse to longest transcripts
+feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=5) #collapse to longest transcripts
 feat<-unlist(as(feat, "GRangesList"))
 feat<-setNames(feat,feat$gene_name)#set row names as gene names
 feat<-feat[feat@ranges@width<500000,]#filter extra long transcripts
 transcripts <- Extend(x = feat,upstream = 2000,downstream = 0)# extend to include promoters
 feat_split<-split(transcripts, rep_len(1:300, length(transcripts)))#parallelize gene count to speed up feature matrix generation
 
-dat_atac_counts<-mclapply(1:length(feat_split),split_gene_count,mc.cores=10)
+dat_atac_counts<-mclapply(1:length(feat_split),split_gene_count,mc.cores=5)
 x<-do.call("rbind",dat_atac_counts)
 dat_atac_counts<-x
 saveRDS(dat_atac_counts,file=paste0(outdir,"/","merged.genecounts.rds"))
