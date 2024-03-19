@@ -3,7 +3,7 @@
 #SBATCH --tasks-per-node=1 ##we want our node to do N tasks at the same time
 #SBATCH --cpus-per-task=40 ##ask for CPUs per task (5 * 8 = 40 total requested CPUs)
 #SBATCH --partition=exacloud
-#SBATCH --mem-per-cpu=10gb ## request gigabyte per cpu
+#SBATCH --mem-per-cpu=12gb ## request gigabyte per cpu
 #SBATCH --time=36:00:00 ## ask for 3 hour on the node
 #SBATCH --chdir="/home/groups/CEDAR/mulqueen/bc_multiome" ## ask for 3 hour on the node
 #SBATCH --
