@@ -4,7 +4,6 @@ library(Seurat)
 library(EnsDb.Hsapiens.v86)
 library(BSgenome.Hsapiens.UCSC.hg38)
 library(GenomeInfoDb)
-set.seed(1234)
 library(stringr)
 library(ggplot2)
 library(infercnv)
@@ -12,10 +11,27 @@ library(ComplexHeatmap)
 library(circlize)
 library(patchwork)
 library(parallel)
-args = commandArgs(trailingOnly=TRUE)
+library(optparse)
+set.seed(1234)
 
-dat=readRDS(args[1]) #dat=readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
-sample_arr=as.numeric(as.character(args[2])) #sample_arr=as.numeric(as.character(8)) 
+option_list = list(
+  make_option(c("-i", "--object_input"), type="character", default=NULL, 
+              help="Merged RDS file seurat object", metavar="character"),
+  make_option(c("-n", "--sample_array"), type="character", default=NULL, 
+              help="Sample number for subsetting to run inferCNV (in order of unique(sample_IDs)", metavar="character")
+  make_option(c("-o", "--out_dir"), type="character", default=NULL, 
+              help="Output directory for InferCNV data", metavar="character")
+
+);
+
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+#opt$object_input<-"/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.public_transfer.SeuratObject.rds"
+#opt$sample_array<-"1"
+#out$out_dir<-"/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/inferCNV"
+dat=readRDS(opt$object_input) #dat=readRDS("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds")
+sample_arr=as.numeric(as.character(opt$sample_array)) #sample_arr=as.numeric(as.character(8)) 
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)

@@ -16,7 +16,7 @@ infercnv_slurm.sh
 #SBATCH --
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 seurat_obj="${proj_dir}/nf_analysis/seurat_objects/merged.geneactivity.SeuratObject.rds"
-srun Rscript ${proj_dir}/src/infercnv_per_sample.R \
+srun Rscript ${proj_dir}/bc_multiome_nf_analysis/src/infercnv_per_sample.R \
 $seurat_obj \
 $SLURM_ARRAY_TASK_ID
 ```
