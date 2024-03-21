@@ -1,18 +1,17 @@
+#module load singularity
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 library(Seurat)
 library(ggplot2)
 library(Signac)
 library(plyr)
 library(patchwork)
-library(EnsDb.Hsapiens.v86)
-library(BSgenome.Hsapiens.UCSC.hg38)
-library(GenomeInfoDb)
 set.seed(1234)
 library(stringr)
-library(ggplot2)
+library(dplyr)
 
-
-setwd("/home/groups/CEDAR/mulqueen/projects/multiome/220715_multiome_phase2")
-dat_merged<-readRDS("phase2.QC.filt.SeuratObject.rds")
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+dat<-readRDS("merged.chromvar.SeuratObject.rds")
 
 #snRNA markers
 hbca_snmarkers=list()
@@ -28,17 +27,15 @@ hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8"
 hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
 hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
 features<-llply(hbca_snmarkers, unlist)
-dat<-dat_merged
 
 #Idents(dat)<-factor(dat$EMBO_predicted.id,levels=rev(c("epithelial","cycling.epithelial","CAFs","Endothelial","Pericytes","Myeloid","TAMs","TAMs_2","Plasma.cells","B.cells","T.cells","NA")))
 Idents(dat)<-factor(dat$HBCA_predicted.id,levels=c("luminal epithelial cell of mammary gland",
   "basal cell","fibroblast","endothelial cell of lymphatic vessel",
   "endothelial cell of vascular tree","pericyte","myeloid cell","T cell","mast cell","adipocyte of breast" ))
 
-plt1<-DotPlot(dat,assay = "RNA",features, dot.scale = 10,cluster.idents = FALSE)+ RotatedAxis()+ scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))
+plt1<-DotPlot(dat,assay = "SCT",features, dot.scale = 10,cluster.idents = FALSE)+ RotatedAxis()+ scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))
 
 ggsave(plt1,file="hbca_markers.pdf",height=10,width=30,limitsize = FALSE)
-system("slack -F hbca_markers.pdf ryan_todo")
 #I dont see a AC044810.3 gene, so I'm assuming its a typo and its AC044810.2??
 
 #plt2<-DotPlot(dat,assay = "GeneActivity",features,cols=c("grey","blue"), dot.scale = 5,cluster.idents = FALSE,)+ RotatedAxis()
@@ -56,12 +53,15 @@ hbca_sctfs[["myeloid"]]=c("SP1","TFEC","NFKB1","RXRA","IRF5","MXD1","MAFB")
 hbca_sctfs[["tcells"]]=c("SNAI3","TBX21","EOMES","ZNF831","LEF1","PBX4","ETS1")
 hbca_sctfs[["bcells"]]=c("BCL11A","CREB3","POU2F2","CREB3L2","PAX5","IRF4","SPIB")
 features<-llply(hbca_sctfs, unlist)
-features_2<-ConvertMotifID(object=dat,name=unlist(features))
-Idents(dat)<-factor(dat$EMBO_predicted.id,levels=rev(c("epithelial","cycling.epithelial","CAFs","Endothelial","Pericytes","Myeloid","TAMs","TAMs_2","Plasma.cells","B.cells","T.cells","NA")))
+features_2<-llply(features,function(x)ConvertMotifID(object=dat,name=x))
+features_2<-features_2[!is.na(features_2)]
+
+Idents(dat)<-factor(dat$HBCA_predicted.id,levels=c("luminal epithelial cell of mammary gland",
+  "basal cell","fibroblast","endothelial cell of lymphatic vessel",
+  "endothelial cell of vascular tree","pericyte","myeloid cell","T cell","mast cell","adipocyte of breast" ))
 plt1<-DotPlot(dat,assay = "chromvar",features_2,cols=c("grey","red"), dot.scale = 5,cluster.idents = FALSE,)+ RotatedAxis()
-plt2<-DotPlot(dat,assay = "GeneActivity",features,cols=c("grey","blue"), dot.scale = 5,cluster.idents = FALSE,)+ RotatedAxis()
-ggsave(plt1/plt2,file="hbca_markers_sctfs.pdf",height=20,width=30,limitsize = FALSE)
-system("slack -F hbca_markers_sctfs.pdf ryan_todo")
+#plt2<-DotPlot(dat,assay = "GeneActivity",features,cols=c("grey","blue"), dot.scale = 5,cluster.idents = FALSE,)+ RotatedAxis()
+ggsave(plt1,file="hbca_markers_sctfs.pdf",height=20,width=30,limitsize = FALSE)
 
 hbca_sntfs=list()
 hbca_sntfs[["lumhr"]]=c("FOXA1","XBP1","MYB","SPDEF","GATA3","RUNX1","ESR1","KLF5")
@@ -82,27 +82,27 @@ Idents(dat)<-factor(dat$HBCA_predicted.id,levels=c("luminal epithelial cell of m
   "basal cell","fibroblast","endothelial cell of lymphatic vessel",
   "endothelial cell of vascular tree","pericyte","myeloid cell","T cell","mast cell","adipocyte of breast" ))
 plt1<-DotPlot(dat,assay = "chromvar",features_2, dot.scale = 10,cluster.idents = TRUE)+ RotatedAxis() + scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")
-plt2<-DotPlot(dat,assay = "GeneActivity",features, dot.scale = 10,cluster.idents = TRUE)+ RotatedAxis()+ scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")
-ggsave(plt1/plt2,file="hbca_markers_sntfs.pdf",height=20,width=30,limitsize = FALSE)
-system("slack -F hbca_markers_sntfs.pdf ryan_todo")
-
-
-
-
-
-
-#Running TFs deteremined through our data set
-chromvar_markers<-FindAllMarkers(dat,assay="chromvar", min.pct = 0.1)
-chromvar_markers_listed=list()
-for(x in unique(chromvar_markers$cluster)){
-  tmp<-head(chromvar_markers[chromvar_markers$cluster==x,],n=3)
-  chromvar_markers_listed[[x]]<-tmp$gene
-  }
-features_2<-llply(chromvar_markers_listed,function(x)ConvertMotifID(object=dat,id=x))
-
-plt1<-DotPlot(dat,assay = "chromvar",unique(chromvar_markers_listed), dot.scale = 10,cluster.idents = TRUE)+ RotatedAxis() + scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")+scale_x_discrete(labels=c(features_2))
+#plt2<-DotPlot(dat,assay = "GeneActivity",features, dot.scale = 10,cluster.idents = TRUE)+ RotatedAxis()+ scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")
 ggsave(plt1,file="hbca_markers_sntfs.pdf",height=20,width=30,limitsize = FALSE)
-system("slack -F hbca_markers_sntfs.pdf ryan_todo")
+
+
+#apriori chomvar markers
+Idents(dat)<-dat$HBCA_predicted.id
+tf_motifs<-FindAllMarkers(dat,
+assay="chromvar",    
+only.pos = TRUE,
+test.use = 'LR',
+latent.vars = 'nCount_peaks')
+
+#get top 5 per cluster
+top_5<-as.data.frame(tf_motifs %>% arrange(-desc(p_val_adj)) %>% group_by(cluster) %>% slice_head(n = 5) %>% ungroup)
+top_5$tf_gene<-unlist(llply(top_5$gene,function(x)ConvertMotifID(object=dat,id=x)))
+top_5<-top_5[which(!duplicated(top_5$gene)),]
+top_5_gene<-split(top_5$gene,f=top_5$cluster)
+top_5_genename<-split(top_5$tf_gene,f=top_5$cluster)
+
+plt1<-DotPlot(dat,assay = "chromvar",top_5_gene, dot.scale = 10,cluster.idents = TRUE)+ RotatedAxis() + scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")+scale_x_discrete(labels=top_5_genename)
+ggsave(plt1,file="apriori_chromvar_tfs.pdf",height=20,width=30,limitsize = FALSE)
 
 
 #Running TFs deteremined through our data set

@@ -6,7 +6,7 @@ library(Signac)
 library(Seurat)
 library(optparse)
 
-setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/seurat_objects")
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
 dat<-readRDS("merged.public_transfer.SeuratObject.rds")
 
 subject<-dat$sample
