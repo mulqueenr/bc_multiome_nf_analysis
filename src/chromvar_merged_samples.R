@@ -20,9 +20,11 @@ option_list = list(
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
+#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+#opt$object_input="merged.public_transfer.SeuratObject.rds"
 dat=readRDS(opt$object_input)
 
-DefaultAssay(dat)<-"ATAC"
+DefaultAssay(dat)<-"peaks"
 
 # Get a list of motif position frequency matrices from the JASPAR database
 pfm <- getMatrixSet(
@@ -31,11 +33,11 @@ pfm <- getMatrixSet(
 
 main.chroms <- standardChromosomes(BSgenome.Hsapiens.UCSC.hg38)
 main.chroms <- main.chroms[!(main.chroms %in% c("chrY","chrM"))] 
-keep.peaks <- which(as.character(seqnames(granges(dat[["ATAC"]]))) %in% main.chroms)
-dat[["ATAC"]] <- subset(dat[["ATAC"]], features = rownames(dat[["ATAC"]])[keep.peaks])
+keep.peaks <- which(as.character(seqnames(granges(dat[["peaks"]]))) %in% main.chroms)
+dat[["peaks"]] <- subset(dat[["peaks"]], features = rownames(dat[["peaks"]])[keep.peaks])
 
 # Scan the DNA sequence of each peak for the presence of each motif, using orgo_atac for all objects (shared peaks)
-peaks<-granges(dat[["ATAC"]])
+peaks<-granges(dat[["peaks"]])
 
 motif.matrix.hg38 <- CreateMotifMatrix(features = peaks, 
   pwm = pfm, 
@@ -46,17 +48,17 @@ motif.hg38 <- CreateMotifObject(data = motif.matrix.hg38,
   pwm = pfm)
 
 dat <- SetAssayData(object = dat, 
-  assay = 'ATAC', 
+  assay = 'peaks', 
   layer = 'motifs', 
   new.data = motif.hg38)
 
 dat <- RegionStats(object = dat, 
   genome = BSgenome.Hsapiens.UCSC.hg38,
-  assay="ATAC")
+  assay="peaks")
 
 dat <- RunChromVAR( object = dat,
   genome = BSgenome.Hsapiens.UCSC.hg38,
-  assay="ATAC")
+  assay="peaks")
 
 saveRDS(dat,file="merged.chromvar.SeuratObject.rds")
 
