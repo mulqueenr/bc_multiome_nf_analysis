@@ -12,6 +12,8 @@ option_list = list(
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
+#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+#opt$object_input="merged.chromvar.SeuratObject.rds"
 dat=readRDS(opt$object_input)
 
 gene_activity<-GeneActivity(dat,process_n=10000)
