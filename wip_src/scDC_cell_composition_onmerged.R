@@ -11,6 +11,10 @@ library(dplyr)
 library(reshape2)
 library(ggplot2)
 
+<<<<<<< HEAD
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+=======
+>>>>>>> 25b93b52fd242b9b8f1033657afee6234b9eacdf
 dat<-readRDS("merged.public_transfer.SeuratObject.rds")
 
 subject<-dat$sample

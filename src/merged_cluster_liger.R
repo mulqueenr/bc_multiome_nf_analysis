@@ -133,12 +133,12 @@ peak_liger<-function(nfeat=1000,dims=10,k_in=10){
 
 #http://htmlpreview.github.io/?https://github.com/welch-lab/liger/blob/master/vignettes/Integrating_scRNA_and_scATAC_data.html
 
-RNA_and_GA_liger<-function(dat=dat,outdir=outdir,nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epithelial_only=FALSE){
+RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epithelial_only=FALSE){
   if(epithelial_only){
     dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
     out_liger_umap<-paste0(outdir,"/","merged.liger.epithelial_only.RNA_and_GA.pdf")
   } else {
-    out_liger_umap<-paste0(outdir,"/","merged.liger.RNA_and_GA.pdf")
+    out_liger_umap<-paste0(outdir,"/","merged.liger.",as.character(dim_in),".",as.character(nfeat_peaks),".RNA_and_GA.pdf")
   }
 
   DefaultAssay(dat)<-"RNA"
@@ -215,16 +215,20 @@ dat_atac_counts<-x
 saveRDS(dat_atac_counts,file=paste0(outdir,"/","merged.genecounts.rds"))
 dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
 
+#for(i in c(10000)){
+#  for(k in c(20,30,50)){
+#    RNA_and_GA_liger(nfeat_rna=i,nfeat_peaks=i,dim_in=k,k_in=k,epithelial_only=FALSE)
+#    }
+#  }
 #loops for testing
 #rna liger: nfeat 5000, dim 30 and k 30 seems to have the best cell type separation
 #for(i in c(1000,2000,5000,10000)){for(j in c(10,20,30)){for(k in c(10,20,30,50)){if(k>=j){rna_liger(nfeat=i,dims=j,k_in=k)}}}}
 #ga liger: #nfeat 10000, dim 20 and k 20 seems to have the best cell type separation (not as good as RNA)
 #for(i in c(1000,2000,5000,10000)){for(j in c(10,20,30)){for(k in c(10,20,30,50)){if(k>=j){GA_liger(nfeat=i,dims=j,k_in=k)}}}}
 #for(i in c(1000,2000,5000,10000)){for(k in c(10,20,30,50)){peak_liger(nfeat=i,dims=k,k_in=k)}}
-#for(i in c(10000)){for(k in c(10,20,30,50)){RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k)}}
 
-k=30
-nfeat_rna=10000;nfeat_peaks=10000;dim_in=k;k_in=k;epithelial_only=FALSE
+
+k=50
 dat_in<-RNA_and_GA_liger(nfeat_rna=10000,nfeat_peaks=10000,dim_in=k,k_in=k,epithelial_only=FALSE)
 saveRDS(dat_in,file="merged.liger.SeuratObject.rds")
 lapply(c("swarbrick","EMBO","HBCA"), function(x) plot_predictions(dat_in,ref_prefix=x))
