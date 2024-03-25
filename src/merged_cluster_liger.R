@@ -24,7 +24,8 @@ option_list = list(
  
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-#opt$object_input<-"merged.public_transfer.SeuratObject.rds"
+#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+#opt$object_input<-"merged.geneactivity.SeuratObject.rds"
 #opt$plot_output_directory<-"."
 dat=readRDS(opt$object_input)
 outname<-strsplit(opt$object_input,"[.]")[1]
@@ -138,7 +139,7 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epi
     dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
     out_liger_umap<-paste0(outdir,"/","merged.liger.epithelial_only.RNA_and_GA.pdf")
   } else {
-    out_liger_umap<-paste0(outdir,"/","merged.liger.",as.character(dim_in),".",as.character(nfeat_peaks),".RNA_and_GA.pdf")
+    out_liger_umap<-paste0(outdir,"/","merged.liger.",as.character(dim_in),".",as.character(nfeat_peaks),".",as.character(nfeat_rna),".RNA_and_GA.pdf")
   }
 
   DefaultAssay(dat)<-"RNA"
@@ -146,13 +147,13 @@ RNA_and_GA_liger<-function(nfeat_rna=1000,nfeat_peaks=1000,dim_in=10,k_in=10,epi
   dat <- FindVariableFeatures(dat,nfeatures=nfeat_rna)
   dat <- ScaleData(dat, split.by = "sample", do.center = FALSE)
 
-  DefaultAssay(dat)<-"GeneCount"
+  DefaultAssay(dat)<-"GeneActivity"
   dat <- NormalizeData(dat)
   dat <- FindVariableFeatures(dat,nfeatures=nfeat_peaks)
   dat <- ScaleData(dat, split.by = "sample", do.center = FALSE)
 
   dat_in<-dat
-  ga<-dat@assays$GeneCount@scale.data
+  ga<-dat[["GeneActivity"]]@scale.data
   dat[["RNA"]] <- as(object = dat[["RNA"]], Class = "Assay")
   rna<-dat@assays$RNA$scale.data
   row.names(ga)<-paste0("GA_",row.names(ga))
@@ -201,25 +202,27 @@ plot_predictions<-function(dat=dat_in,ref_prefix){
 #filter to protein coding
 #subset to which protein coding gene is longest that has the same name
 #extend 2kb upstream for promoter inclusion
-feat=dat@assays$peaks@annotation[dat@assays$peaks@annotation$gene_biotype=="protein_coding",]
-feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=5) #collapse to longest transcripts
-feat<-unlist(as(feat, "GRangesList"))
-feat<-setNames(feat,feat$gene_name)#set row names as gene names
-feat<-feat[feat@ranges@width<500000,]#filter extra long transcripts
-transcripts <- Extend(x = feat,upstream = 2000,downstream = 0)# extend to include promoters
-feat_split<-split(transcripts, rep_len(1:300, length(transcripts)))#parallelize gene count to speed up feature matrix generation
+#feat=dat@assays$peaks@annotation[dat@assays$peaks@annotation$gene_biotype=="protein_coding",]
+#feat<-mclapply(unique(feat$gene_name),function(x) CollapseToLongestTranscript(feat[feat$gene_name==x,]),mc.cores=5) #collapse to longest transcripts
+#feat<-unlist(as(feat, "GRangesList"))
+#feat<-setNames(feat,feat$gene_name)#set row names as gene names
+#feat<-feat[feat@ranges@width<500000,]#filter extra long transcripts
+#transcripts <- Extend(x = feat,upstream = 2000,downstream = 0)# extend to include promoters
+#feat_split<-split(transcripts, rep_len(1:300, length(transcripts)))#parallelize gene count to speed up feature matrix generation
 
-dat_atac_counts<-mclapply(1:length(feat_split),split_gene_count,mc.cores=5)
-x<-do.call("rbind",dat_atac_counts)
-dat_atac_counts<-x
-saveRDS(dat_atac_counts,file=paste0(outdir,"/","merged.genecounts.rds"))
-dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
+#dat_atac_counts<-mclapply(1:length(feat_split),split_gene_count,mc.cores=5)
+#x<-do.call("rbind",dat_atac_counts)
+#dat_atac_counts<-x
+#saveRDS(dat_atac_counts,file=paste0(outdir,"/","merged.genecounts.rds"))
+#dat[['GeneCount']] <- CreateAssayObject(counts = dat_atac_counts)
 
-#for(i in c(10000)){
-#  for(k in c(20,30,50)){
-#    RNA_and_GA_liger(nfeat_rna=i,nfeat_peaks=i,dim_in=k,k_in=k,epithelial_only=FALSE)
-#    }
-#  }
+for(i in c(5000,10000)){
+  for(j in c(5000,10000)){
+   for(k in c(20,30,50)){
+    RNA_and_GA_liger(nfeat_rna=i,nfeat_peaks=j,dim_in=k,k_in=k,epithelial_only=FALSE)
+    }
+  }
+}
 #loops for testing
 #rna liger: nfeat 5000, dim 30 and k 30 seems to have the best cell type separation
 #for(i in c(1000,2000,5000,10000)){for(j in c(10,20,30)){for(k in c(10,20,30,50)){if(k>=j){rna_liger(nfeat=i,dims=j,k_in=k)}}}}
