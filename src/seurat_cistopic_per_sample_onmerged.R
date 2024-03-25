@@ -50,7 +50,7 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
       out_seurat_object<-paste0(outdir,"/",sample_in,".cistopic.SeuratObject.rds")
       model_selection_out<-paste0(outdir,"/",sample_in,".cistopic.model_selection.pdf")
       out_cistopic_obj<-paste0(outdir,"/",sample_in,".cistopic.cistopicObject.rds")
-      umap_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.umap.pdf")
+      umap_out<-paste0(outdir,"/",sample_in,".cistopic.umap.pdf")
 
     }
 
@@ -107,10 +107,12 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
 }
 
 
-#lapply(1:length(unique(dat$sample)), function(x) {
-#sample_in=unique(dat$sample)[x]
+lapply(15:length(unique(dat$sample)), function(x) {
+sample_in=unique(dat$sample)[x]
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
-#})
+})
+
+# running from IDC_1
 
 
