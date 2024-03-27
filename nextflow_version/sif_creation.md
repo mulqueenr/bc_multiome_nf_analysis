@@ -195,7 +195,7 @@ From: ubuntu:latest
 	mamba install -y -f bioconda::bioconductor-complexheatmap #
 	mamba install -y -f bioconda::bioconductor-biovizbase #
 	mamba install -y -f bioconductor-glmgampoi #
-
+'GenomeInfoDb', 'GenomicRanges', 'IRanges', 'Rsamtools', 'S4Vectors', 'BiocGenerics' 
 	#install cistopic
 	R --slave -e 'devtools::install_github("aertslab/RcisTarget")' #
 	R --slave -e 'install.packages("lda", repos="http://cran.us.r-project.org")' #
@@ -230,8 +230,9 @@ From: ubuntu:latest
 		install.packages("lme4", type = "source",repos = "http://cran.us.r-project.org");
 		options(oo)'
 
-	#Add genefu
-	mamba install -y -f bioconda::bioconductor-genefu
+
+
+
 
 #Changelog v0.2:
 #added changed r irlba and rmatrix installation due to an error in newer matrix installs. 
@@ -326,6 +327,92 @@ sudo singularity build multiome_scrub.sif multiome_scrub.def
 
 sudo singularity build --sandbox scrub docker://ubuntu:latest
 sudo singularity shell --writable scrub/
+```
+
+
+## Building Harmony Image
+
+```bash
+Bootstrap: docker
+From: ubuntu:latest
+
+%environment
+    # set up all essential environment variables
+    export LC_ALL=C
+    export PATH=/opt/miniconda3/bin:$PATH
+    export PYTHONPATH=/opt/miniconda3/lib/python3.9/:$PYTHONPATH
+
+%post
+ 
+	# update and install essential dependencies
+	apt-get -y update
+	apt-get update && apt-get install -y automake \
+	build-essential \
+	bzip2 \
+	wget \
+	git \
+	default-jre \
+	unzip \
+	zlib1g-dev \
+	parallel
+
+	# download, install, and update miniconda3
+	wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+	bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /opt/miniconda3/
+	rm Miniconda3-latest-Linux-x86_64.sh
+	chmod --recursive a+rw /opt/miniconda3
+
+	# install dependencies via conda
+	export PATH="/opt/miniconda3/bin:$PATH"
+
+	#build full conda environment for sif
+	conda install -y -c conda-forge mamba 
+	conda config --add channels bioconda
+	conda config --add channels conda-forge
+
+	#install R packages
+	mamba install -y -f conda-forge::parallel #
+	conda install -y -f conda-forge::ncurses #
+	conda install -y -f r-base #
+	mamba install -y -f conda-forge::r-devtools #
+	mamba install -y -f conda-forge::r-biocmanager#
+	mamba install -y -f conda-forge::r-rlang #
+	mamba install -y -f conda-forge::r-ggplot2 #
+	mamba install -y -f bioconda::bioconductor-genomeinfodb
+	mamba install -y -f bioconda::bioconductor-genomicranges
+	mamba install -y -f bioconda::bioconductor-iranges
+	mamba install -y -f bioconda::bioconductor-rsamtools
+	mamba install -y -f bioconda::bioconductor-s4vectors
+	mamba install -y -f bioconda::bioconductor-biocgenerics
+
+	R --slave -e 'install.packages("optparse", repos="http://cran.us.r-project.org")' #
+	R --slave -e 'install.packages("patchwork", repos="http://cran.us.r-project.org")' #
+	R --slave -e 'install.packages("Seurat", repos="http://cran.us.r-project.org")' #
+	R --slave -e 'devtools::install_github("stuart-lab/signac", "develop")' #
+	R --slave -e 'install.packages("harmony",repos = "http://cran.us.r-project.org")'
+	R --slave -e 'install.packages("ggalluvial",repos = "http://cran.us.r-project.org")'
+
+	#Correct matrix version
+	mamba install -y -f conda-forge::r-matrix=1.6_1 # set this version
+	mamba install -y -f r::r-irlba # set this version
+	R --slave -e 'install.packages("Matrix", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
+	R --slave -e 'install.packages("irlba", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
+	R --slave -e 'install.packages("SeuratObject", type = "source",repos="http://cran.us.r-project.org")' #reinstall from source
+	R --slave -e 'oo <- options(repos = "https://cran.r-project.org/");
+		tools::package_dependencies("Matrix", which = "LinkingTo", reverse = TRUE)[[1L]];
+		install.packages("lme4", type = "source",repos = "http://cran.us.r-project.org");
+		options(oo)'
+
+%labels
+    Author Ryan Mulqueen
+    Version v0.1
+    MyLabel Multiome Breast Cancer Processing Harmony
+
+```
+```bash
+sudo singularity build harmony.sif harmony.def
+
+sudo singularity shell harmony.sif
 ```
 
 ```bash

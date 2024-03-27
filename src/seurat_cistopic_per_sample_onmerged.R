@@ -70,8 +70,8 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
     nCores=1,
     addModels=FALSE) #using v2 of cistopic (we are only using single core anyway)
 
-  sub_cistopic_models<-addCellMetadata(sub_cistopic_models, cell.data =dat@meta.data)
-  sub_cistopic_models<- selectModel(sub_cistopic_models, type='derivative')
+  sub_cistopic_models<-cisTopic::addCellMetadata(sub_cistopic_models, cell.data =dat@meta.data)
+  sub_cistopic_models<- cisTopic::selectModel(sub_cistopic_models, type='derivative')
   
   print("Finshed running cistopic")
 
@@ -107,10 +107,11 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
 }
 
 
-#lapply(1:length(unique(dat$sample)), function(x) {
-#sample_in=unique(dat$sample)[x]
+lapply(15:length(unique(dat$sample)), function(x) {
+sample_in=unique(dat$sample)[x]
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
-#})
+})
 
+#IDC1
 
