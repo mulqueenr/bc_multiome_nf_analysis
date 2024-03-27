@@ -327,9 +327,9 @@ workflow {
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(seurat_object_list,sample_metadata)
 
 		//Integrate and cluster data, run chromvar, run gene activity
-		MERGED_CLUSTER(merged_seurat_object)
-		| MERGED_CHROMVAR \
+		MERGED_CHROMVAR(merged_seurat_object)
 		| MERGED_GENE_ACTIVITY \
+		|  MERGED_CLUSTER \
 		| collect \
 		| set { merged_out }
 

@@ -174,9 +174,10 @@ single_sample_titan_generation<- function(Object,
   }
 }
 
-lapply(1:length(unique(dat$sample)), function(x) {
+lapply(26:length(unique(dat$sample)), function(x) {
 sample_in=unique(dat$sample)[x]
 single_sample_titan_generation(Object=dat,outDir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
 single_sample_titan_generation(Object=dat,outDir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 })
 
+#IDC_10 failed?
