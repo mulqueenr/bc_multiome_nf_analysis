@@ -107,11 +107,11 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
 }
 
 
-lapply(15:length(unique(dat$sample)), function(x) {
+lapply(19:length(unique(dat$sample)), function(x) {
 sample_in=unique(dat$sample)[x]
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 })
 
-#IDC1
+#IDC3
 

@@ -7,6 +7,9 @@ library(Seurat)
 library(harmony)
 library(ggplot2)
 library(patchwork)
+library(stringr)
+library(ggalluvial)
+library(reshape2)
 library(optparse)
 
 
@@ -19,6 +22,16 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 #setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
 #opt$object_input="merged.geneactivity.SeuratObject.rds"
+
+
+#split by immune, epithelial, stromal
+#label transfer with more cell state refinement
+#https://www.nature.com/articles/s41588-024-01688-9/figures/2
+
+
+
+
+############PANEL B UMAP (TO BE UPDATED) #########################
 dat=readRDS(opt$object_input)
 DefaultAssay(dat)<-"peaks"
 dat <- RunTFIDF(dat)
@@ -59,8 +72,30 @@ dat <- RunUMAP(dat, dims = 1:30, reduction = 'harmony_rna')
 p4 <- DimPlot(dat, group.by = 'HBCA_predicted.id', pt.size = 0.5) + ggplot2::ggtitle("Harmony RNA")
 
 
-plt<-(p1 + p2)/(p3+p4)+ plot_layout(guides = "collect")
-ggsave(plt,file="harmony_integrations.pdf",height=10,width=20)
+plt<-(p1 + p2)/(p3+p4)
+ggsave(plt,file="harmony_integrations.pdf",height=20,width=20)
+
+dat <- FindMultiModalNeighbors(
+object = dat,
+reduction.list = list("harmony_rna", "harmony_atac"),
+dims.list = list(1:50, 2:30),
+modality.weight.name = "RNA.weight",
+verbose = TRUE
+)
 
 
-#cluster with/without epithelial cells
+dat <- RunUMAP(
+object = dat,
+nn.name = "weighted.nn",
+reduction.name = "wnn.umap",
+assay = "RNA",
+verbose = TRUE
+)
+
+dat$diag_moldiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis,sep="_")
+plt2<-DimPlot(dat,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'))
+
+ggsave(plt2,file="harmony_integration.coembedded.pdf",width=20,height=20)
+
+
+#########NONEPI###########
