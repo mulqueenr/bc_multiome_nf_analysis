@@ -69,14 +69,14 @@ p4 <- DimPlot(dat, group.by = 'HBCA_predicted.id', pt.size = 0.5) + ggplot2::ggt
 plt<-(p1 + p2)/(p3+p4)
 ggsave(plt,file="harmony_integrations.pdf",height=20,width=20)
 
+
 dat <- FindMultiModalNeighbors(
 object = dat,
 reduction.list = list("harmony_rna", "harmony_atac"),
 dims.list = list(1:50, 2:30),
-modality.weight.name = "RNA.weight",
+modality.weight.name = "SCT.weight",
 verbose = TRUE
 )
-
 
 dat <- RunUMAP(
 object = dat,
@@ -86,15 +86,85 @@ assay = "RNA",
 verbose = TRUE
 )
 
+
+dat <- FindNeighbors(dat,reduction='wnn.umap',dims=1:2,graph.name="umap.snn")
+dat <- FindClusters(dat,resolution=0.1,graph="umap.snn")
+
 dat$diag_moldiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis,sep="_")
-plt2<-DimPlot(dat,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'))
+dat$low_res_all_cells_cluster<-dat$seurat_clusters
+dat$epithelial<-"FALSE"
+dat@meta.data[dat$low_res_all_cells_cluster %in% c("0","1","2","3","4","5","7","8","9","10","13","14","17","19"),]$epithelial<-"TRUE"
 
-ggsave(plt2,file="harmony_integration.coembedded.pdf",width=20,height=20)
 
+#refine cell typing with marker genes
+#snRNA markers
+hbca_snmarkers=list()
+hbca_snmarkers[["lumhr"]]=c("ANKRD30A","AFF3","ERBB4","TTC6","MYBPC1","NEK10","THSD4")
+hbca_snmarkers[["lumsec"]]=c("AC011247.1","COBL","GABRP","ELF5","CCL28","KRT15","KIT")
+hbca_snmarkers[["basal"]]=c("AC044810.2","CARMN","LINC01060","ACTA2","KLHL29","DST","IL1RAPL2")
+hbca_snmarkers[["fibro"]]=c("LAMA2","DCLK1","NEGR1","LINC02511","ANK2","KAZN","SLIT2")
+hbca_snmarkers[["lymphatic"]]=c("AL357507.1","PKHD1L1","KLHL4","LINC02147","RHOJ","ST6GALNAC3","MMRN1")
+hbca_snmarkers[["vascular"]]=c("MECOM","BTNL9","MCTP1","PTPRB","VWF","ADGRL4","LDB2")
+hbca_snmarkers[["perivasc"]]=c("RGS6","KCNAB1","COL25A1","ADGRL3","PRKG1","NR2F2-AS1","AC012409.2")
+hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","RAB31")
+hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
+hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
+hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
+features<-llply(hbca_snmarkers, unlist)
+
+#Idents(dat)<-factor(dat$EMBO_predicted.id,levels=rev(c("epithelial","cycling.epithelial","CAFs","Endothelial","Pericytes","Myeloid","TAMs","TAMs_2","Plasma.cells","B.cells","T.cells","NA")))
+#Idents(dat)<-factor(dat$low_res_all_cells_cluster,levels=c("luminal epithelial cell of mammary gland","basal cell","fibroblast","endothelial cell of lymphatic vessel", "endothelial cell of vascular tree","pericyte","myeloid cell","T cell","mast cell","adipocyte of breast" ))
+Idents(dat)<-dat$low_res_all_cells_cluster
+plt1<-DotPlot(dat,assay = "SCT",features, dot.scale = 10,cluster.idents = TRUE)+ RotatedAxis()+ scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))
+
+ggsave(plt1,file="hbca_snRNA_markers.low_res.pdf",height=10,width=30,limitsize = FALSE)
+
+met<-as.data.frame(dat@meta.data)
+met_celltypes<-melt(as.data.frame(table(
+  met$HBCA_predicted.id,
+  met$low_res_all_cells_cluster)))
+met_celltypes$Var1<-gsub(met_celltypes$Var1,pattern="\\.",replace="-")
+
+hbca_order<-c("luminal epithelial cell of mammary gland","basal cell",
+  "fibroblast","pericyte","adipocyte of breast",
+  "endothelial cell of vascular tree","endothelial cell of lymphatic vessel",
+  "T cell","myeloid cell","mast cell")
+
+cluster_order<-c("0","1","2","3","4","5","7","8","9","10","13","14","17","19","16","6","15","12","18","11")
+
+met_celltypes$Var1<-factor(met_celltypes$Var1,levels=hbca_order)
+met_celltypes$Var2<-factor(met_celltypes$Var2,levels=cluster_order)
+
+plt1<-ggplot(as.data.frame(met_celltypes),
+       aes(y = value, axis1 = Var1, axis2 = Var2)) +
+  geom_alluvium(aes(fill = Var1), width = 1/12) +
+  geom_stratum(width = 1/12, aes(fill = Var1)) +
+  ggrepel::geom_text_repel(
+    aes(label =Var1),
+    stat = "stratum", size = 4, direction = "y", nudge_x = -.5
+  ) +
+  ggrepel::geom_text_repel(
+    aes(label = Var2),
+    stat = "stratum", size = 4, direction = "y", nudge_x = .5
+  ) +
+  scale_x_discrete(limits = c("Var1", "Var2"), expand = c(.05, .05)) 
+ggsave(plt1,file="cell_type_assignment.alluvial.low_res.pdf",width=25,limitsize=F)
+#cluster with/without epithelial cells
+
+dat$lineage<-"epithelial"
+dat@meta.data[dat$low_res_all_cells_cluster %in% c("6","15"),]$lineage<-"stromal"
+dat@meta.data[dat$low_res_all_cells_cluster %in% c("12","18","11"),]$lineage<-"immune"
+
+
+plt2<-DimPlot(dat,reduction = "wnn.umap", group.by = c('sample','seurat_clusters','HBCA_predicted.id','diag_moldiag','epithelial','lineage'),raster=FALSE,ncol=2)
+
+ggsave(plt2,file="harmony_integration.coembedded.pdf",width=20,height=30)
+
+saveRDS(dat,file="merged.clustered.SeuratObject.rds")
 
 #########NONEPI###########
 
-nonepi<-subset(dat,cell=row.names(dat@meta.data)[!(dat$HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))])
+nonepi<-subset(dat,cell=row.names(dat@meta.data)[dat$epithelial=="FALSE"])
 DefaultAssay(nonepi)<-"peaks"
 nonepi <- RunTFIDF(nonepi)
 nonepi <- FindTopFeatures(nonepi, min.cutoff = 50)
@@ -142,7 +212,7 @@ nonepi <- FindMultiModalNeighbors(
 object = nonepi,
 reduction.list = list("harmony_rna", "harmony_atac"),
 dims.list = list(1:50, 2:30),
-modality.weight.name = "RNA.weight",
+modality.weight.name = "SCT.weight",
 verbose = TRUE
 )
 
@@ -155,12 +225,14 @@ assay = "RNA",
 verbose = TRUE
 )
 
+
+nonepi <- FindNeighbors(nonepi)
+nonepi <- FindClusters(nonepi,graph.name='wsnn',resolution=0.1)
+
 nonepi$diag_moldiag<-paste(nonepi$Diagnosis,nonepi$Mol_Diagnosis,sep="_")
-plt2<-DimPlot(nonepi,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'))
+plt2<-DimPlot(nonepi,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag','seurat_clusters'),ncol=2)
 
 ggsave(plt2,file="harmony_integration.coembedded.nonepi.pdf",width=20,height=20)
-
-
 
 ############PANEL C ALLUVIAL PLOTS#########################
 
@@ -169,12 +241,14 @@ embo_cell_cols<-c("epithelial"="#DC3977","T.cells"="#003147","TAMs"="#E9E29C","P
 met<-as.data.frame(dat@meta.data)
 met_celltypes<-melt(as.data.frame(table(met$EMBO_predicted.id,
   met$HBCA_predicted.id,
-  met$swarbrick_predicted.id)))
+  met$swarbrick_predicted.id,
+  met$seurat_clusters)))
 met_celltypes$Var1<-gsub(met_celltypes$Var1,pattern="\\.",replace="-")
 
 met_celltypes$Var1<-paste("pal_",met_celltypes$Var1)
 met_celltypes$Var2<-paste("hbca_",met_celltypes$Var2)
 met_celltypes$Var3<-paste("wu_",met_celltypes$Var3)
+
 pal_order<-paste("pal_",c("cycling epithelial","epithelial",
   "NA","CAFs","Pericytes","Endothelial",
   "T cells","B cells","Plasma cells","Myeloid","TAMs_2","TAMs"))
@@ -189,32 +263,19 @@ met_celltypes$Var1<-factor(met_celltypes$Var1,levels=pal_order)
 met_celltypes$Var2<-factor(met_celltypes$Var2,levels=hbca_order)
 met_celltypes$Var3<-factor(met_celltypes$Var3,levels=wu_order)
 plt1<-ggplot(as.data.frame(met_celltypes),
-       aes(y = value, axis1 = Var1, axis2 = Var2)) +
+       aes(y = value, axis1 = Var4, axis2 = Var2)) +
   geom_alluvium(aes(fill = Var2), width = 1/12) +
   geom_stratum(width = 1/12, aes(fill = Var2)) +
   ggrepel::geom_text_repel(
-    aes(label =Var1),
+    aes(label =Var4),
     stat = "stratum", size = 4, direction = "y", nudge_x = -.5
   ) +
   ggrepel::geom_text_repel(
     aes(label = Var2),
     stat = "stratum", size = 4, direction = "y", nudge_x = .5
   ) +
-  scale_x_discrete(limits = c("Var1", "Var2"), expand = c(.05, .05)) 
-plt2<-ggplot(as.data.frame(met_celltypes),
-       aes(y = value, axis1 = Var2, axis2 = Var3)) +
-  geom_alluvium(aes(fill = Var2), width = 1/12) +
-  geom_stratum(width = 1/12, aes(fill = Var2)) +
-  ggrepel::geom_text_repel(
-    aes(label =Var2),
-    stat = "stratum", size = 4, direction = "y", nudge_x = -.5
-  ) +
-  ggrepel::geom_text_repel(
-    aes(label = Var3),
-    stat = "stratum", size = 4, direction = "y", nudge_x = .5
-  ) +
-  scale_x_discrete(limits = c("Var2", "Var3"), expand = c(.05, .05)) 
-ggsave(plt1|plt2,file="cell_type_assignment.alluvial.pdf",width=25,limitsize=F)
+  scale_x_discrete(limits = c("Var4", "Var2"), expand = c(.05, .05)) 
+ggsave(plt1,file="cell_type_assignment.alluvial.pdf",width=25,limitsize=F)
 #cluster with/without epithelial cells
 
 
