@@ -353,6 +353,12 @@ workflow {
 }
 /*
 #Example running
+
+srun --pty --time=36:00:00 --cpus-per-task=30 --ntasks-per-node=1 -p exacloud --mem 400000 --pty bash
+cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
 

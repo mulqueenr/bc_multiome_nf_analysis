@@ -86,10 +86,31 @@ assay = "RNA",
 verbose = TRUE
 )
 
-dat$diag_moldiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis,sep="_")
-plt2<-DimPlot(dat,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'))
+#generate nonharmony integrated multiomics clustering
+dat <- FindMultiModalNeighbors(
+object = dat,
+reduction.list = list("pca", "lsi"),
+dims.list = list(1:50, 2:30),
+modality.weight.name = "RNA.weight",
+weighted.nn.name = "weighted.nn.unintegrated",
+verbose = TRUE
+)
 
+dat <- RunUMAP(
+object = dat,
+nn.name = "weighted.nn.unintegrated",
+reduction.name = "wnn.umap.unintegrated",
+assay = "RNA",
+verbose = TRUE
+)
+
+dat$diag_moldiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis,sep="_")
+plt2<-DimPlot(dat,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'),raster=FALSE)
 ggsave(plt2,file="harmony_integration.coembedded.pdf",width=20,height=20)
+
+plt3<-DimPlot(dat,reduction = "wnn.umap.unintegrated", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'),raster=FALSE)
+ggsave(plt3,file="multiome_unintegrated.coembedded.pdf",width=20,height=20)
+#ended up using multiome_unintegrated.coembedded.pdf for final figure.
 
 
 #########NONEPI###########
@@ -155,10 +176,34 @@ assay = "RNA",
 verbose = TRUE
 )
 
+
+#generate nonharmony integrated multiomics clustering
+nonepi <- FindMultiModalNeighbors(
+object = nonepi,
+reduction.list = list("pca", "lsi"),
+dims.list = list(1:50, 2:30),
+modality.weight.name = "RNA.weight",
+weighted.nn.name = "weighted.nn.unintegrated",
+verbose = TRUE
+)
+
+nonepi <- RunUMAP(
+object = nonepi,
+nn.name = "weighted.nn.unintegrated",
+reduction.name = "wnn.umap.unintegrated",
+assay = "RNA",
+verbose = TRUE
+)
+
+
 nonepi$diag_moldiag<-paste(nonepi$Diagnosis,nonepi$Mol_Diagnosis,sep="_")
 plt2<-DimPlot(nonepi,reduction = "wnn.umap", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'))
-
 ggsave(plt2,file="harmony_integration.coembedded.nonepi.pdf",width=20,height=20)
+
+
+plt3<-DimPlot(nonepi,reduction = "wnn.umap.unintegrated", group.by = c('sample','Diagnosis','HBCA_predicted.id','diag_moldiag'),raster=FALSE)
+ggsave(plt3,file="multiome_unintegrated.coembedded.nonepi.pdf",width=20,height=20)
+#ended up using multiome_unintegrated.coembedded.pdf for final figure.
 
 
 
@@ -267,6 +312,7 @@ ggsave(plt1,file="hbca_barplot_qc_celltype_nonepi.pdf")
 
 ############PANEL E MARKER GENES#########################
 library(plyr)
+library(dplyr) 
 
 #snRNA markers
 hbca_snmarkers=list()
@@ -302,7 +348,7 @@ latent.vars = 'nCount_peaks')
 
 #get top 5 per cluster
 DefaultAssay(dat)<-"peaks"
-top_5<-as.data.frame(tf_motifs %>% arrange(-desc(p_val_adj)) %>% group_by(cluster) %>% slice_head(n = 7) %>% ungroup)
+top_5<-as.data.frame(tf_motifs %>% arrange(-desc(p_val_adj)) %>% group_by(cluster) %>% slice_head(n = 10) %>% ungroup)
 top_5$tf_gene<-unlist(llply(top_5$gene,function(x)ConvertMotifID(object=dat,id=x)))
 top_5<-top_5[which(!duplicated(top_5$gene)),]
 top_5_gene<-split(top_5$gene,f=top_5$cluster)
@@ -311,34 +357,32 @@ top_5$cluster<-factor(top_5$cluster,levels=c("luminal epithelial cell of mammary
   "basal cell","fibroblast","endothelial cell of lymphatic vessel",
   "endothelial cell of vascular tree","pericyte","myeloid cell","T cell","mast cell","adipocyte of breast" ))
 top_5<-top_5[order(top_5$cluster),]
+top_5<-top_5[top_5$tf_gene %in% row.names(GetAssayData(dat,"SCT")),]
 
-GetAssayData(dat,"GeneActivity") %>%  as.data.frame %>% filter(row.names(GetAssayData(dat,"GeneActivity")) %in% top_5$tf_gene) %>% group_by(setNames(nm=row.names(dat@meta.data),dat@meta.data$HBCA_predicted.id))
-
-plt1<-DotPlot(dat,assay = "chromvar",top_5$gene,dot.scale = 10,cluster.idents = FALSE)+ RotatedAxis() + scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")+scale_x_discrete(labels=top_5$tf_gene)+geom_point(aes(size=))
+pltrna<-DotPlot(dat,assay = "SCT",top_5$tf_gene,dot.scale = 20,cluster.idents = FALSE)+ RotatedAxis() + scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")+scale_x_discrete(labels=top_5$tf_gene)
+plt1<-DotPlot(dat,assay = "chromvar",top_5$gene,dot.scale = 20,cluster.idents = FALSE)+ RotatedAxis() + scale_color_gradient2(low="#7f3b08",mid="white",high="#542788")+scale_x_discrete(labels=top_5$tf_gene)+scale_y_discrete()
+plt1$data$pct.exp<-pltrna$data$pct.exp
 ggsave(plt1,file="apriori_chromvar_tfs.pdf",height=20,width=30,limitsize = FALSE)
 
-
-#apriori chomvar markers
-Idents(dat)<-dat$HBCA_predicted.id
-diff_ga<-FindAllMarkers(dat,
+DefaultAssay(dat)<-"peaks"
+ga_markers<-FindAllMarkers(dat,
 assay="GeneActivity",    
 only.pos = TRUE,
 test.use = 'LR',
 latent.vars = 'nCount_peaks')
 
-top_5<-as.data.frame(diff_ga %>% arrange(-desc(p_val_adj)) %>% group_by(cluster) %>% slice_head(n = 3) %>% ungroup)
-
-for(i in unique$top_5$gene){
+for(i in unlist(ga_markers$gene)){
 plt<-CoveragePlot(
   object = dat,
-  features = "CD8A",
+  region=i,
   extend.upstream=5000,
-  expression.assay="RNA",
+  expression.assay="SCT",
   extend.downstream=5000,
   annotation = TRUE,
   peaks = TRUE,
   tile = FALSE,
   links = TRUE)
+ggsave(plt,file="feature.pdf")
 }
 
 
