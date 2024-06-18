@@ -1,18 +1,25 @@
-#module load singularity
-#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+```bash
+module load singularity
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+```
 
-library(Signac)
+
+```R
+
+library(GeneNMF)
 library(Seurat)
-library(SeuratWrappers)
-library(cisTopic)
-library(TITAN)
-library(ComplexHeatmap)
-library(reshape2)
+library(Signac)
+library(ggplot2)
+library(UCell)
+library(patchwork)
+library(Matrix)
+library(RcppML)
+library(viridis)
 library(optparse)
-library(circlize)
-library(dendextend)
-library(RColorBrewer)
+library(msigdbr)
+library(fgsea)
+library(dplyr)
 
 option_list = list(
   make_option(c("-c", "--cistopic"), type="character", default=NULL, 
@@ -26,16 +33,108 @@ opt = parse_args(opt_parser);
 #cistopic=readRDS(opt$cistopic)
 #titan=readRDS(opt$titan)
 setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
-opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.chromvar.SeuratObject.rds"
+opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
 dat=readRDS(opt$object_input)
-met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
-row.names(met)<-met$sample
-met$full_diag<-paste(met$Diagnosis,met$Mol_Diagnosis)
+
+inmf<-function(dat,assay="SCT",ndim=15,prefix="allcells"){
+  DefaultAssay(dat)<-assay
+  seu.list <- SplitObject(dat, split.by = "sample")
+  geneNMF.programs <- multiNMF(seu.list, assay=assay,  k=10:25, slot="data", min.cells.per.sample = 100)
+  geneNMF.metaprograms <- getMetaPrograms(geneNMF.programs,
+                                          nprograms=20,
+                                          max.genes=100,
+                                          hclust.method="ward.D2",
+                                          min.confidence=0.3)
+  t(as.data.frame(lapply(geneNMF.metaprograms$metaprograms.genes, function(x) head(x,n=10))))
+
+  ph <- plotMetaPrograms(geneNMF.metaprograms, jaccard.cutoff = c(0,0.8))
+  ggsave(ph,file=paste0(prefix,"_metaprograms",assay,".pdf"))
+
+  #find enrichment in c8 signatures
+  top_p_C8 <- do.call("rbind",
+    lapply(1:length(geneNMF.metaprograms$metaprograms.genes), 
+    function(i) {
+    program_name=names(geneNMF.metaprograms$metaprograms.genes)[i]
+    program_genes=unlist(geneNMF.metaprograms$metaprograms.genes[program_name])
+    out<-runGSEA(program_genes, universe=rownames(dat), category = "C8")
+    out$program<-paste0(program_name,"_",assay)
+    return(out)
+    }
+    ))
+  pltdat<-top_p_C8 %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
+
+  plt<-ggplot(pltdat,aes(x=program,y=pathway))+
+  geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
+  theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_c8","_",assay,".pdf"),width=20)
+
+  #find cancer hallmark signatures
+  top_p_H <- do.call("rbind",
+    lapply(1:length(geneNMF.metaprograms$metaprograms.genes), 
+    function(i) {
+    program_name=names(geneNMF.metaprograms$metaprograms.genes)[i]
+    program_genes=unlist(geneNMF.metaprograms$metaprograms.genes[program_name])
+    out<-runGSEA(program_genes, universe=rownames(dat), category = "H")
+    out$program<-paste0(program_name,"_",assay)
+    return(out)
+    }
+    ))
+  pltdat<-top_p_H %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
+  
+  plt<-ggplot(pltdat,aes(x=program,y=pathway))+
+  geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
+  theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_hallmark","_",assay,".pdf"),width=20)
+
+  #Add module scores
+  mp.genes <- geneNMF.metaprograms$metaprograms.genes
+  dat <- AddModuleScore_UCell(dat, features = mp.genes, assay=assay, ncores=1, name = paste0("_",assay))
+
+  #plot per cell type
+  plt<-VlnPlot(dat, features=paste0(names(mp.genes),"_",assay), group.by = "HBCA_predicted.id",pt.size = 0, stack=TRUE)
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_bycelltype","_",assay,".pdf"),width=20)
+
+  #plot per diagnosis
+  dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
+  plt<-VlnPlot(dat, features=paste0(names(mp.genes),"_",assay), group.by = "Diag_MolDiag",pt.size = 0, stack=TRUE)
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_bydiagnosis","_",assay,".pdf"),width=20)
+  return(dat)
+}
+
+inmf(dat,assay="SCT")
+inmf(dat,assay="GeneActivity")
+#inmf(dat,assay="chromvar")
+
+dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+dat<-inmf(dat,assay="SCT",prefix="epi")
+dat<-inmf(dat,assay="GeneActivity",prefix="epi")
+#dat<-inmf(dat,assay="chromvar",prefix="epi")
+
+```
+
+Run on cisTopic and TITAN methods
+```R
+library(GeneNMF)
+library(Seurat)
+library(Signac)
+library(ggplot2)
+library(UCell)
+library(patchwork)
+library(Matrix)
+library(RcppML)
+library(viridis)
+library(optparse)
+library(msigdbr)
+library(fgsea)
+library(dplyr)
+library(TITAN)
+library(cisTopic)
+
 
 titan_top_genes<-function(x){
   titan<-readRDS(x)
   sample_name=strsplit(basename(x),"[.]")[[1]][1]
-  TitanTopicGenes <- TopTopicGenes(titan, ngenes = 50)
+  TitanTopicGenes <- TopTopicGenes(titan, ngenes = 100)
   return(TitanTopicGenes)
 }
 
@@ -255,3 +354,15 @@ process_cistopic_topics(cistopic_objs=cistopic_objs,met=met,out_prefix="cistopic
 
 cistopic_epi_objs<-list.files(path=cistopic_path,pattern="*cistopic_epithelial.cistopicObject.rds$",full.names=TRUE)
 process_cistopic_topics(cistopic_objs=cistopic_epi_objs,met=met,out_prefix="cistopic_epithelial",cistopic_path=cistopic_path)
+
+
+```
+
+```R
+
+
+
+met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
+row.names(met)<-met$sample
+met$full_diag<-paste(met$Diagnosis,met$Mol_Diagnosis)
+
