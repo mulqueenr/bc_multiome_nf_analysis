@@ -232,5 +232,6 @@ run_top_TFs<-function(obj=stromal,prefix="stromal",i="predicted.id",n_markers=5,
 #install.packages("seriation")
 #install.packages('ggseqlogo')
 x="test"
-dat$cell_diag<-paste(dat$Diagnosis,dat$HBCA_predicted.id,sep="|")
-run_top_TFs(obj=dat,prefix=x,i="cell_diag",n_markers=10,plot_height=15)
+dat$cell_diag<-paste(dat$HBCA_predicted.id,dat$Diagnosis,dat$Mol_Diagnosis,sep="|")
+dat_epi<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+run_top_TFs(obj=dat_epi,prefix=x,i="cell_diag",n_markers=3,plot_height=15)
