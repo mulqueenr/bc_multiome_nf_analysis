@@ -26,6 +26,8 @@ opt = parse_args(opt_parser);
 setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
 opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
 dat=readRDS(opt$object_input)
+#correct dat cell names
+dat<-RenameCells(dat,new.names=paste0(dat$sample,"_",unlist(lapply(strsplit(dat$cellID,"_"),"[",3))))
 
 cluster_idents_samples<-lapply(
     list.files(path="/home/groups/CEDAR/scATACcnv/Hisham_data/new_seq/1MB/consensus",pattern="*_consensus6_clust.csv",full.names=T), 
