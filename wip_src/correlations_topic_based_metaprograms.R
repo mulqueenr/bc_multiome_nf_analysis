@@ -23,6 +23,7 @@ library(cistopic)
 library(ComplexHeatmap)
 library(reshape2)
 library(dendextend)
+library(purrr)
 library(circlize)
 
 
@@ -65,15 +66,23 @@ titan_genescores<-function(x){
   return(titan_in)
 }
 
-prerun_topic_correlations<-function(titan_objs,col_in=c("#CAC1B6","#FDF8C1","#A91E2C"),prefix="all_cells_titan_cor"){
+prerun_topic_correlations<-function(titan_objs,dat,col_in=c("#CAC1B6","#FDF8C1","#A91E2C"),prefix="all_cells_titan_cor"){
   #run correlations on pairwise gene lists
   titan_gs<-lapply(titan_objs,titan_genescores)
   titan_gs<-purrr::reduce(map(titan_gs, ~ as_tibble(.x, rownames = "rn")), full_join, by = "rn")
   titan_gs<-titan_gs[,colnames(titan_gs)!="rn"]
+  topic_gene_overlap<-lapply(colnames(titan_gs),function(x) {
+    lapply(colnames(titan_gs), function(y) {
+        sum(complete.cases(titan_gs[c(x,y)]))
+     })})
+  summary(colSums(!is.na(titan_gs)))
   cor_topics<-cor(titan_gs,use="pairwise.complete.obs",method="spearman")
   sum_da_dend <- cor_topics %>% dist() %>% hclust() %>% as.dendrogram 
+  saveRDS(sum_da_dend,file=paste0(prefix,"_metaprograms.COR_TITAN.dend.rds"))
   k_in<-find_k(sum_da_dend,krange=5:15)
   sum_da_dend<-sum_da_dend %>% set("branches_k_color", k = k_in$k)
+  member_split<-cutree(sum_da_dend,k_in$k)
+  saveRDS(member_split,file=paste0(prefix,"_metaprograms.COR_TITAN.members.rds"))
 
   #set up metadata
   program_samples<-unlist(lapply(strsplit(row.names(cor_topics),"_Topic"),"[",1))
@@ -103,137 +112,6 @@ prerun_topic_correlations<-function(titan_objs,col_in=c("#CAC1B6","#FDF8C1","#A9
     col=colorRamp2(quantile(unlist(cor_topics),c(0.01,0.5,0.99)),col_in))
   print(ph)
   dev.off()
-}
-
-titan_top_genes<-function(x){
-  titan<-readRDS(x)
-  titan_topic_genes <- TopTopicGenes(titan, ngenes = 100)
-  topic_genes_gene_score<-GeneScores(titan)
-  out_genes<-lapply(1:ncol(titan_topic_genes), function(i){
-    tmp<-titan_topic_genes[,i]
-    tmp<-as.data.frame(row.names=tmp,cbind(tmp,topic_genes_gene_score[tmp,i]))
-  })
-  names(out_genes)<-colnames(titan_topic_genes)
-  return(out_genes)
-}
-
-jaccard_similarity <- function(A, B) { 
-  intersection = length(intersect(A, B)) 
-  union = length(A) + length(B) - intersection 
-  return (intersection/union) 
-} 
-
-cosine_similarity <- function(A, B) {
-  gene_list<-unique(c(A,B))
-  gene.table<-cbind(gene_list %in% A, gene_list %in% B)
-  row.names(gene.table)<-unique(c(A,B)); colnames(gene.table)<-c("A","B")
-  cosine <- lsa::cosine(gene.table)[1,2]
-  return (cosine) 
-} 
-
-compare_topics<-function(x_name,y_name){
-  x=titan_topic_genes[[x_name]]
-  y=titan_topic_genes[[y_name]]
-  
-  lapply(names(x),function(xi){
-    lapply(names(y),function(yj){
-      genes_x<-row.names(x[[xi]])
-      genes_y=row.names(y[[yj]])
-      c(x_name,y_name,xi,yj,
-      length(intersect(genes_x,genes_y)),
-      cosine_similarity(genes_x,genes_y),
-      jaccard_similarity(genes_x,genes_y))
-      })})
-}
-
-
-#change this to read in gene scores for each topic
-report_genes<-function(i,titan_objs,member_split_df){
-  print("Calculating top gene scores for",i)
-  tmp=member_split_df[member_split_df$cluster==i,]
-  genes<-lapply(1:nrow(tmp), function(x){
-      sample=tmp[x,"sample"]
-      sample<-gsub("_0","_",sample) #uncorrect sample names for reading in file
-      topic=tmp[x,"topic"]
-      print(paste("Reading in ",sample,topic))
-      titan<-readRDS(titan_objs[grep(pattern=paste0(sample,"[.]"),x=titan_objs)])
-      topic_genes_gene_score<-as.data.frame(GeneScores(titan))
-      colnames(topic_genes_gene_score)<-paste(sample,"Topic",1:ncol(topic_genes_gene_score),sep="_")
-      topic_genes_gene_score<-as.data.frame(topic_genes_gene_score[paste(sample,topic,sep="_")])
-      colnames(topic_genes_gene_score)<-c("gene_score")
-      topic_genes_gene_score$genes<-row.names(topic_genes_gene_score)
-      topic_genes_gene_score$topic<-paste(sample,topic,sep="_")
-      return(topic_genes_gene_score)
-      })
-  genes<-do.call("rbind",genes)
-    genes$gene_score<-as.numeric(genes$gene_score)
-  genes_out<- genes %>% group_by(genes) %>% dplyr::summarize(count=n(),mean_genescore=mean(gene_score),median_genescore=median(gene_score))
-  genes_out$metaprogram_cluster<-i
-  genes_out<-genes_out %>% arrange(desc(mean_genescore)) %>% head(n=100)
-  return(genes_out)
-}
- 
-process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="cosine",col_in=c("black","pink","white")){
-  titan_full_cor<-lapply(titan_objs,function(x) titan_top_genes(x))
-  titan_topic_genes<-lapply(titan_objs,function(x) titan_top_genes(x))
-  names(titan_topic_genes)<-unlist(lapply(titan_objs,function(x) strsplit(basename(x),"[.]")[[1]][1]))
-  #correct names
-  names(titan_topic_genes)<-unlist(lapply(names(titan_topic_genes),
-  function(x){
-    if(nchar(strsplit(x,"_")[[1]][2])==2){
-      return(x)
-    }else {
-      x<-paste0(strsplit(x,"_")[[1]][1],"_0",strsplit(x,"_")[[1]][2])
-      return(x)
-    }
-  }))
-
-  #calculate similarity matrix among lists of top genes per topic
-  out<-lapply(names(titan_topic_genes),function(x){lapply(names(titan_topic_genes),function(y){compare_topics(x,y)})})
-  df<-as.data.frame(matrix(unlist(out),ncol=7,byrow=T))
-  colnames(df)<-c("dat1","dat2","topic_dat1","topic_dat2","overlap","cosine","jaccard")
-  df$overlap<-as.numeric(df$overlap); df$cosine<-as.numeric(df$cosine); df$jaccard<-as.numeric(df$jaccard)
-  sim_mat<-as.data.frame(dcast(dat1+topic_dat1~dat2+topic_dat2,data=df,value.var=sim_method))
-  row.names(sim_mat)<-unique(paste(sim_mat$dat1,sim_mat$topic_dat1,sep="_"))
-  sim_mat<-sim_mat[,3:ncol(sim_mat)]
-  
- #cluster by all marker genes
-  sum_da_dend <- as.matrix(1-sim_mat) %>% as.dist %>% hclust(method="ward.D2") %>% as.dendrogram 
-  k_in<-find_k(sum_da_dend,krange=5:15)
-  sum_da_dend<-sum_da_dend %>% set("branches_k_color", k = k_in$k)
-  saveRDS(sum_da_dend,file=paste0(prefix,"_metaprograms.TITAN.dend.rds"))
-  member_split<-cutree(sum_da_dend,k_in$k)
-  saveRDS(member_split,file=paste0(prefix,"_metaprograms.TITAN.members.rds"))
-
-  #set up metadata
-  program_samples<-unlist(lapply(strsplit(row.names(sim_mat),"_Topic"),"[",1))
-  sample_metadata<-dat@meta.data[!duplicated(dat@meta.data$sample),]
-  sample_metadata$Mol_Diagnosis<-paste(sample_metadata$Diagnosis,sample_metadata$Mol_Diagnosis)
-  sample_metadata$sampled_site<-unlist(lapply(strsplit(sample_metadata$sampled_site," "),"[",1))
-  row.names(sample_metadata)=sample_metadata$sample
-  ha = rowAnnotation(
-                        histological_type=sample_metadata[program_samples,]$Diagnosis,
-                        molecular_type=sample_metadata[program_samples,]$Mol_Diagnosis,
-                        sampled_site=sample_metadata[program_samples,]$sampled_site,
-                        col = list(
-                                      histological_type =hist_col,
-                                      molecular_type=clin_col,
-                                      sampled_site=sampled_col))
-
-
-  pdf(paste0(prefix,"_metaprograms_heatmap_TITAN.pdf"))
-  ph<-Heatmap(as.matrix(sim_mat),
-    cluster_columns=sum_da_dend,
-    cluster_rows=sum_da_dend,
-    row_split=k_in$k,column_split=k_in$k,
-    left_annotation=ha,
-    show_row_names=FALSE,
-    show_column_names=FALSE,
-    name = "TITAN Topics",
-    col=colorRamp2(c(0,0.5,1),col_in))
-  print(ph)
-  dev.off()
-
 
   #then make gene list per topic cluster and output (with weights (i.e. how often they occur))
   member_split_df<-data.frame(
@@ -301,18 +179,58 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
   plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "Diag_MolDiag",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bydiagnosis","_",assay,".pdf"),width=20)
   return(dat)
-  }
+}
+
+#change this to read in gene scores for each topic
+report_genes<-function(i,titan_objs,member_split_df){
+  print("Calculating top gene scores for",i)
+  tmp=member_split_df[member_split_df$cluster==i,]
+  genes<-lapply(1:nrow(tmp), function(x){
+      sample=tmp[x,"sample"]
+      sample<-gsub("_0","_",sample) #uncorrect sample names for reading in file
+      topic=tmp[x,"topic"]
+      print(paste("Reading in ",sample,topic))
+      titan<-readRDS(titan_objs[grep(pattern=paste0(sample,"[.]"),x=titan_objs)])
+      topic_genes_gene_score<-as.data.frame(GeneScores(titan))
+      colnames(topic_genes_gene_score)<-paste(sample,"Topic",1:ncol(topic_genes_gene_score),sep="_")
+      topic_genes_gene_score<-as.data.frame(topic_genes_gene_score[paste(sample,topic,sep="_")])
+      colnames(topic_genes_gene_score)<-c("gene_score")
+      topic_genes_gene_score$genes<-row.names(topic_genes_gene_score)
+      topic_genes_gene_score$topic<-paste(sample,topic,sep="_")
+      return(topic_genes_gene_score)
+      })
+  genes<-do.call("rbind",genes)
+    genes$gene_score<-as.numeric(genes$gene_score)
+  genes_out<- genes %>% group_by(genes) %>% dplyr::summarize(count=n(),mean_genescore=mean(gene_score),median_genescore=median(gene_score))
+  genes_out$metaprogram_cluster<-i
+  genes_out<-genes_out %>% arrange(desc(mean_genescore)) %>% head(n=100)
+  return(genes_out)
+}
+ 
 
 titan_path="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/titan_objects"
 
 
 #titan all cells
 titan_objs<-list.files(path=titan_path, pattern="*titan.titanObject.rds$",full.names=TRUE)
-titan_cluster_genes<-process_titan_topics(dat=dat,titan_objs=titan_objs,met=met,prefix="allcells",titan_path=titan_path,col_in=c("black","pink","white"))
+titan_cluster_genes<-prerun_topic_correlations(dat=dat,
+                                                titan_objs=titan_objs,
+                                                prefix="allcells_cor")
 
 #titan epithelial
+dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
+
 titan_objs<-list.files(path=titan_path, pattern="*titan_epithelial.titanObject.rds$",full.names=TRUE)
-titan_epi_cluster_genes<-process_titan_topics(titan_objs=titan_objs,met=met,out_prefix="titan_epithelial",titan_path=titan_path)
+titan_cluster_genes<-prerun_topic_correlations(dat=dat,
+                                                titan_objs=titan_objs,
+                                                prefix="epithelial_cor")
+
+
+
+
+
+
 
 
 #add clustering and k selection for output
@@ -437,7 +355,4 @@ process_cistopic_topics(cistopic_objs=cistopic_epi_objs,met=met,out_prefix="cist
 
 
 
-met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
-row.names(met)<-met$sample
-met$full_diag<-paste(met$Diagnosis,met$Mol_Diagnosis)
 
