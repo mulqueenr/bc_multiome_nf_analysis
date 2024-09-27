@@ -40,7 +40,7 @@ opt = parse_args(opt_parser);
 #cistopic=readRDS(opt$cistopic)
 #titan=readRDS(opt$titan)
 setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
-opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
+opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/epi_cistopic_SeuratObject.Rds"
 dat=readRDS(opt$object_input)
 met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
 
@@ -167,9 +167,10 @@ prerun_topic_correlations<-function(titan_objs,dat,col_in=c("#CAC1B6","#FDF8C1",
     metaprogram_genes[[paste0("MetaTopic_",i)]]<-unlist(genes_out[genes_out$metaprogram_cluster==i,]$genes)
   }
   dat <- AddModuleScore_UCell(dat, features = metaprogram_genes, assay="SoupXRNA", ncores=1, name = paste0("_","TITAN_metaprogram"))
+  assay="TITAN_metaprogram"
+  dat[["TITAN_metaprogram"]]<-CreateAssayObject(data=t(dat@meta.data[colnames(dat@meta.data) %in% paste0(names(metaprogram_genes),"_",assay)]))
 
   #plot per cell type
-  assay="TITAN_metaprogram"
   plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "HBCA_predicted.id",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bycelltype","_",assay,".pdf"),width=20)
 
@@ -204,24 +205,53 @@ report_genes<-function(i,titan_objs,member_split_df){
   genes_out$metaprogram_cluster<-i
   genes_out<-genes_out %>% arrange(desc(mean_genescore)) %>% head(n=100)
   return(genes_out)
+  
 }
  
 
 titan_path="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/titan_objects"
 
 
-#titan all cells
-titan_objs<-list.files(path=titan_path, pattern="*titan.titanObject.rds$",full.names=TRUE)
-titan_cluster_genes<-prerun_topic_correlations(dat=dat,
-                                                titan_objs=titan_objs,
-                                                prefix="allcells_cor")
-
 #titan epithelial
 dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
 met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
 
 titan_objs<-list.files(path=titan_path, pattern="*titan_epithelial.titanObject.rds$",full.names=TRUE)
-titan_cluster_genes<-prerun_topic_correlations(dat=dat,
-                                                titan_objs=titan_objs,
-                                                prefix="epithelial_cor")
+out<-prerun_topic_correlations(dat=dat,titan_objs=titan_objs,prefix="epithelial_cor")
 
+saveRDS(dat,file="epi_topicmetaprograms_SeuratObject.Rds")
+
+
+
+colnames(titan)==colnames(cistopic)
+
+cor_out<-list()
+for (i in rownames(dat@assays$TITAN_metaprogram@data)){
+    c(cor_out,list(i,j,cor(unlist(dat@assays$TITAN_metaprogram@data[i,]),unlist(dat@assays$cistopic_metaprograms@data[j,]),method="spearman")))
+  }
+}
+
+out_df<-list()
+
+out_df<-lapply(rownames(dat@assays$TITAN_metaprogram@data), function(i){return(data.frame(titan=i,cistopic=rownames(dat@assays$cistopic_metaprograms@data)))})
+out_df<-do.call("rbind",out_df)
+
+
+out_df$cor<-unlist(lapply(1:nrow(out_df), function(i) {
+  cor(
+    unlist(dat@assays$TITAN_metaprogram@data[out_df[i,"titan"],]),
+    unlist(dat@assays$cistopic_metaprograms@data[out_df[i,"cistopic",],]),
+    method="spearman")
+  }
+))
+
+library(reshape2)
+
+out_mat<-dcast(out_df,titan~cistopic,value.var="cor")
+row.names(out_mat)<-out_mat[,1]
+out_mat<-out_mat[2:ncol(out_mat)]
+library(ComplexHeatmap)
+
+pdf("test_metaprogram_cor.pdf")
+Heatmap(out_mat)
+dev.off()

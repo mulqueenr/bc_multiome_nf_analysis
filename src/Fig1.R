@@ -1,5 +1,5 @@
 #module load singularity
-#sif="/home/groups/CEDAR/mulqueen/bc_multiome/harmony.sif"
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 library(Signac)
@@ -20,9 +20,48 @@ option_list = list(
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
-#opt$object_input="merged.geneactivity.SeuratObject.rds"
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+opt$object_input="merged.geneactivity.SeuratObject.rds"
 
+###########PANEL B UPDATE ################
+dat<-readRDS(opt$object_input)
+
+# Perform standard analysis of each modality independently 
+#RNA analysis
+dat[["RNA"]] <- as(dat[["RNA"]], Class = "Assay5")
+DefaultAssay(dat) <- 'RNA'
+dat<-NormalizeData(dat) %>%  FindVariableFeatures() %>% ScaleData() %>% RunPCA()
+dat <- RunUMAP(dat, reduction="pca", dims = 1:30, reduction.name = "umap.rna",reduction.key = "rnaUMAP_")
+
+#ATAC analysis
+DefaultAssay(dat)<- 'peaks'
+dat<-RunTFIDF(dat) %>%  FindTopFeatures() %>% RunSVD()
+dat <- RunUMAP(dat, reduction = "lsi", dims = 2:30, reduction.name = "umap.atac", reduction.key = "atacUMAP_")
+
+# build a joint neighbor graph using both assays
+dat <- FindMultiModalNeighbors(
+  object = dat,
+  reduction.list = list("pca", "lsi"), 
+  dims.list = list(1:50, 2:40),
+  modality.weight.name = "RNA.weight",
+  verbose = TRUE
+)
+
+dat <- RunUMAP(dat, nn.name = "weighted.nn", reduction.name = "wnn.umap", reduction.key = "wnnUMAP_")
+dat <- FindClusters(dat, graph.name = "wsnn", algorithm = 3, resolution = 0.5, verbose = FALSE)
+
+
+p1<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = "umap.rna") + NoLegend()
+p2<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = "umap.atac") + NoLegend()
+p3<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = "wnn.umap") + NoLegend()
+
+p4<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = "umap.rna") + NoLegend()
+p5<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = "umap.atac") + NoLegend()
+p6<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = "wnn.umap") + NoLegend()
+
+
+plt<-(p1 + p2 + p3)/(p4 + p5 + p6)
+ggsave(plt,file="umap.pdf",height=20,width=30)
 
 
 ############PANEL B UMAP #########################

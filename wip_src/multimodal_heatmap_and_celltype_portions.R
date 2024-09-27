@@ -35,8 +35,8 @@ table(dat$sample)
 
 #Grab top overlapping TFs
 topTFs <- function(markers_list,celltype, padj.cutoff = 1e-2,rna=NA,ga=NA,motifs=NA) {
-  ctmarkers_rna <- dplyr::filter(rna, SoupXRNA.group == celltype) %>% 
-    arrange(-SoupXRNA.auc)
+  ctmarkers_rna <- dplyr::filter(rna, RNA.group == celltype) %>% 
+    arrange(-RNA.auc)
 
     if(is.data.frame(motifs)) {
     ctmarkers_motif <- dplyr::filter(motifs, chromvar.group == celltype) %>% 
@@ -77,7 +77,7 @@ topTFs <- function(markers_list,celltype, padj.cutoff = 1e-2,rna=NA,ga=NA,motifs
 
 
 #Identify top markers
-Identify_Marker_TFs<-function(x,group_by.="predicted.id",assay.="SoupXRNA",prefix.,pval_filt=1){
+Identify_Marker_TFs<-function(x,group_by.="predicted.id",assay.="RNA",prefix.,pval_filt=1){
     #x[[assay.]]<-as(object = x[[assay.]], Class = "Assay")
     markers <- presto:::wilcoxauc.Seurat(X = x, group_by = group_by., 
       groups_use=unname(unlist(unique(x@meta.data[group_by.]))),
@@ -112,7 +112,7 @@ average_features<-function(x=hg38_atac,features=da_tf_markers$motif.feature,assa
 
 #Make a heatmap of aligned multiple modalities
 plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group_by.="predicted.id",CHROMVAR=TRUE,GA=TRUE,height.){
-    tf_rna<-average_features(x=x,features=tf_markers$gene,assay="SoupXRNA",group_by.=group_by.)
+    tf_rna<-average_features(x=x,features=tf_markers$gene,assay="RNA",group_by.=group_by.)
     tf_rna<-tf_rna[row.names(tf_rna) %in% tf_markers$gene,]
 
     tf_motif<-average_features(x=x,features=tf_markers$chromvar.feature,assay="chromvar",group_by.=group_by.)
@@ -136,7 +136,7 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
     #set up heatmap seriation and order by RNA
     o = seriate(max(tf_rna) - tf_rna, method = "BEA_TSP")
     saveRDS(o,file=paste0(prefix,".geneactivity.dend.rds")) 
-    side_ha_rna<-data.frame(ga_motif=tf_markers[get_order(o,1),]$SoupXRNA.auc)
+    side_ha_rna<-data.frame(ga_motif=tf_markers[get_order(o,1),]$RNA.auc)
     colfun_rna=colorRamp2(quantile(unlist(tf_rna), probs=c(0.5,0.80,0.95)),plasma(3))
 
     side_ha_motif<-data.frame(chromvar_motif=tf_markers[get_order(o,1),]$chromvar.auc)
@@ -163,8 +163,8 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
     rna_plot<-Heatmap(tf_rna,
         row_order = get_order(o,1),
         column_order = get_order(o,2),
-        name="SoupX",
-        column_title="SoupX",
+        name="RNA",
+        column_title="RNA",
         col=colfun_rna,
         column_names_gp = gpar(fontsize = 8),
         show_row_names=FALSE,
@@ -215,9 +215,9 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
 
 #Final wrapper function
 run_top_TFs<-function(obj=stromal,prefix="stromal",i="predicted.id",n_markers=5,plot_height=10){
-  markers<-lapply(c("SoupXRNA","GeneActivity","chromvar"),function(assay) Identify_Marker_TFs(x=obj,group_by.=i,assay.=assay,prefix.=prefix))
-  names(markers)<-c("SoupXRNA","GeneActivity","chromvar")
-  markers_out<-do.call("rbind",lapply(unique(obj@meta.data[,i]),function(x) head(topTFs(markers_list=markers,celltype=x,rna=markers$SoupXRNA,ga=markers$GeneActivity,motifs=markers$chromvar),n=n_markers))) #grab top 5 TF markers per celltype
+  markers<-lapply(c("RNA","GeneActivity","chromvar"),function(assay) Identify_Marker_TFs(x=obj,group_by.=i,assay.=assay,prefix.=prefix))
+  names(markers)<-c("RNA","GeneActivity","chromvar")
+  markers_out<-do.call("rbind",lapply(unique(obj@meta.data[,i]),function(x) head(topTFs(markers_list=markers,celltype=x,rna=markers$RNA,ga=markers$GeneActivity,motifs=markers$chromvar),n=n_markers))) #grab top 5 TF markers per celltype
   dim(markers_out)
   markers_out<-markers_out[!duplicated(markers_out$gene),]
   dim(markers_out)
@@ -233,5 +233,19 @@ run_top_TFs<-function(obj=stromal,prefix="stromal",i="predicted.id",n_markers=5,
 #install.packages('ggseqlogo')
 x="test"
 dat$cell_diag<-paste(dat$HBCA_predicted.id,dat$Diagnosis,dat$Mol_Diagnosis,sep="|")
+DefaultAssay(dat)<-"RNA"
+dat<-NormalizeData(dat)
+dat <- FindVariableFeatures(dat)
+dat <- ScaleData(dat)
+dat [["RNA"]] <- as(object = dat[["RNA"]], Class = "Assay")
+
+run_top_TFs(obj=dat,prefix=x,i="HBCA_predicted.id",n_markers=5,plot_height=15)
+
+#plot sample composition heatmap
+
+pdf("test_sample_comp.pdf")
+Heatmap(t(proportions(t(table(dat$sample,dat$HBCA_predicted.id)),2)*100),col=colorRamp2(c(0,25,100),c("white","grey","black")))
+dev.off()
+
 dat_epi<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
 run_top_TFs(obj=dat_epi,prefix=x,i="cell_diag",n_markers=3,plot_height=15)
