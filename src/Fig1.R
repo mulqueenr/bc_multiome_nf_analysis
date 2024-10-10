@@ -12,6 +12,8 @@ library(ggalluvial)
 library(reshape2)
 library(optparse)
 library(plyr)
+library(dplyr)
+library(ComplexHeatmap)
 set.seed(123)
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default=NULL, 
@@ -25,80 +27,84 @@ opt$object_input="merged.geneactivity.SeuratObject.rds"
 
 ###########PANEL B UPDATE ################
 dat<-readRDS(opt$object_input)
+dat[["RNA"]] <- as(dat[["RNA"]], Class = "Assay5")
 
 #clustering function for processing stuff
-multimodal_cluster<-function(dat=dat,prefix="allcells"){
+multimodal_cluster<-function(dat=dat,prefix="allcells",res=0.5,dotsize=5){
   # Perform standard analysis of each modality independently 
   #RNA analysis
-  dat[["RNA"]] <- as(dat[["RNA"]], Class = "Assay5")
   DefaultAssay(dat) <- 'RNA'
   dat<-NormalizeData(dat) %>%  FindVariableFeatures() %>% ScaleData() %>% RunPCA()
-  dat <- RunUMAP(dat, reduction="pca", dims = 1:30, reduction.name = paste(prefix,"umap","rna",sep="."),reduction.key = "rnaUMAP_")
+  dat <- RunUMAP(dat, 
+    reduction="pca", 
+    dims = 1:30, 
+    reduction.name = paste(prefix,"umap","rna",sep="."),
+    reduction.key = "rnaUMAP_")
 
   #ATAC analysis
   DefaultAssay(dat)<- 'peaks'
   dat<-RunTFIDF(dat) %>%  FindTopFeatures() %>% RunSVD()
-  dat <- RunUMAP(dat, reduction = "lsi", dims = 2:30, reduction.name=paste(prefix,"umap","atac",sep="."), reduction.key = "atacUMAP_")
+  dat <- RunUMAP(dat, 
+    reduction = "lsi", 
+    dims = 2:30, 
+    reduction.name=paste(prefix,"umap","atac",sep="."), 
+    reduction.key = "atacUMAP_")
 
   # build a joint neighbor graph using both assays
-  dat <- FindMultiModalNeighbors(
-    object = dat,
+  dat <- FindMultiModalNeighbors(object = dat,
     reduction.list = list("pca", "lsi"), 
     dims.list = list(1:50, 2:40),
     modality.weight.name = "RNA.weight",
     weighted.nn.name=paste(prefix,"weighted.nn",sep="."),
     snn.graph.name=paste(prefix,"wsnn",sep="."),
-    verbose = TRUE
-  )
+    verbose = TRUE)
 
-  dat <- RunUMAP(dat, nn.name = paste(prefix,"weighted.nn",sep="."), reduction.name = paste(prefix,"wnn.umap",sep="."), reduction.key = "wnnUMAP_")
-  dat <- FindClusters(dat, graph.name = paste(prefix,"wsnn",sep="."), algorithm = 3, resolution = 0.5, verbose = FALSE)
-  return(dat)
+  dat <- RunUMAP(dat, 
+    nn.name = paste(prefix,"weighted.nn",sep="."), 
+    reduction.name = paste(prefix,"wnn.umap",sep="."), 
+    reduction.key = "wnnUMAP_")
+
+  dat <- FindClusters(dat, 
+    graph.name = paste(prefix,"wsnn",sep="."), 
+    algorithm = 3, 
+    resolution = res, 
+    verbose = FALSE)
+  p1<-DimPlot(dat, pt.size=dotsize,group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
+  p2<-DimPlot(dat, pt.size=dotsize,group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
+  p3<-DimPlot(dat, pt.size=dotsize,group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+
+  p4<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
+  p5<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
+  p6<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+  return(c(dat,list(p1,p2,p3,p4,p5,p6)))
   }
 
-dat<-multimodal_cluster(dat,prefix="allcells")
-
-prefix="allcells"
-p1<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p2<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p3<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-p4<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p5<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p6<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-p7<-FeaturePlot(dat,features=c("scrublet_Scores","nCount_RNA","nCount_peaks"),reduction = "allcells.wnn.umap",ncol=3)+ NoLegend()
+#initial run before qc filtering
 #set filters for all cells scrublet score <0.35, ncount_RNA>1000, ncount_ATAC>1000
+prefix="allcells"
+out<-multimodal_cluster(dat,prefix=prefix,res=0.5)
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
+p7<-FeaturePlot(dat,features=c("scrublet_Scores","nCount_RNA","nCount_peaks"),reduction = "allcells.wnn.umap",ncol=3)+ NoLegend()
 dat$scrublet_DropletType<-ifelse(as.numeric(dat$scrublet_Scores)<0.35,"singlet","doublet")
 p8<-DimPlot(dat,group.by="scrublet_DropletType",reduction = "allcells.wnn.umap")+ NoLegend()
 dat$passqc<-ifelse(as.numeric(dat$scrublet_Scores)<0.35 & as.numeric(dat$nCount_RNA)>1000 & as.numeric(dat$nCount_peaks)>1000,"PASS","FAIL")
 p9<-DimPlot(dat,group.by="passqc",reduction = "allcells.wnn.umap")+ NoLegend()
-plt<-(p1 + p2 + p3)/(p4 + p5 + p6)/(p7 )/(p8+p9)
+plt<-plt_out/(p7 )/(p8+p9)
 ggsave(plt,file="allcells.umap.pdf",height=40,width=30)
-
 saveRDS(dat,file="merged.geneactivity.SeuratObject.rds")
 
 #subset to cells passing qc.
-dat<-subset(dat,passqc=="PASS")
-dat<-multimodal_cluster(dat,prefix="allcells_passqc")
-
 prefix="allcells_passqc"
-p1<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p2<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p3<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-p4<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p5<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p6<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
+dat<-subset(dat,passqc=="PASS")
+out<-multimodal_cluster(dat,prefix="allcells_passqc")
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
 p7<-FeaturePlot(dat,features=c("scrublet_Scores","nCount_RNA","nCount_peaks"),reduction = paste(prefix,"wnn.umap",sep="."),ncol=3,raster=T)+ NoLegend()
-
-plt<-(p1 + p2 + p3)/(p4 + p5 + p6)/(p7 )
+plt<-plt_out/(p7 )
 ggsave(plt,file="allcells.umap.passqc.pdf",height=40,width=30)
 
 
-library(dplyr)
-library(ComplexHeatmap)
 #Make stacked barplot on identities per cluster
 DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,HBCA_predicted.id) %>% tally())
 clus_by_celltype<-reshape2::dcast(DF,seurat_clusters~HBCA_predicted.id,value.var="n",fill=0)
@@ -136,83 +142,158 @@ p10<-DimPlot(dat,group.by="reclust",reduction = "allcells_passqc.wnn.umap")
 ggsave(p10,file="umap_reclust.pdf",width=10,height=10)
 
 saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
-#up to here
+
 #replot with no epi
 dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
 dat<-subset(dat,cell=row.names(dat@meta.data)[!(dat$reclust %in% c("luminal_epithelial","basal_epithelial"))])
-dat<-multimodal_cluster(dat,prefix="nonepi_passqc")
 
 prefix="nonepi_passqc"
-p1<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p2<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p3<-DimPlot(dat, group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-p4<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p5<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p6<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+out<-multimodal_cluster(dat,prefix="nonepi_passqc")
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
 
 p7<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
 p8<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
 p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-
-plt<-(p1 + p2 + p3)/(p4 + p5 + p6)/(p7 +p8 + p9)
+plt<-plt_out/(p7 +p8 + p9)
 ggsave(plt,file="nonepi.umap.passqc.pdf",height=40,width=30)
 
-
-dat$non_epi_passqc<-ifelse(dat$seurat_clusters %in% c("8","13","11","3","23","9"),"FAIL","PASS")
+dat$non_epi_passqc<-ifelse(dat$seurat_clusters %in% c("14","15","8","1","17"),"FAIL","PASS")
 dotsize=2
 p10<-DimPlot(dat, pt.size=dotsize,group.by='non_epi_passqc',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
 p11<-FeaturePlot(dat,pt.size=dotsize,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
 p12<-DimPlot(dat, pt.size=dotsize,group.by='sample',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-plt<-(p1 + p2 + p3)/(p4 + p5 + p6)/(p7+ p8+p9)/(p10+ p11+p12)
-ggsave(plt,file="umap_passqc_noepi.pdf",height=20,width=20)
+plt<-plt_out/(p7+ p8+p9)/(p10+ p11+p12)
+ggsave(plt,file="umap_passqc_noepi.pdf",height=40,width=20)
 
-dat<-subset(dat,non_epi_passqc=="PASS") #remove suspected doublet or lum epi enriched clusters
-dat<-multimodal_cluster(dat,prefix="nonepi_passqc2")
-
+#replotting filtering out the doublets
 prefix="nonepi_passqc2"
+dat<-subset(dat,non_epi_passqc=="PASS") #remove suspected doublet or lum epi enriched clusters
+out<-multimodal_cluster(dat,prefix="nonepi_passqc2")
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
+
 dotsize=3
-p1<-DimPlot(dat, pt.size=dotsize,group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p2<-DimPlot(dat, pt.size=dotsize,group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p3<-DimPlot(dat, pt.size=dotsize,group.by='HBCA_predicted.id',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-p4<-DimPlot(dat,pt.size=dotsize, group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p5<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p6<-DimPlot(dat,pt.size=dotsize, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
 p7<-DimPlot(dat,pt.size=dotsize, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
 p8<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
 p9<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
-
-plt<-(p1 + p2 + p3)/(p4 + p5 + p6)/(p7 +p8 + p9)
+p10<-DimPlot(dat, pt.size=dotsize,group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+p11<-ggplot()
+plt<-plt_out/(p7 +p8 + p9)/(p10+p11+p11)
 ggsave(plt,file="nonepi.umap.passqc2.pdf",height=40,width=30)
+saveRDS(dat,file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
+dat<-readRDS(file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
+
+# #snRNA markers
+# hbca_snmarkers=list()
+# hbca_snmarkers[["fibro"]]=c("LAMA2","DCLK1","NEGR1","LINC02511","ANK2","KAZN","SLIT2")
+# hbca_snmarkers[["lymphatic"]]=c("AL357507.1","PKHD1L1","KLHL4","LINC02147","RHOJ","ST6GALNAC3","MMRN1")
+# hbca_snmarkers[["vascular"]]=c("MECOM","BTNL9","MCTP1","PTPRB","VWF","ADGRL4","LDB2")
+# hbca_snmarkers[["perivasc"]]=c("RGS6","KCNAB1","COL25A1","ADGRL3","PRKG1","NR2F2-AS1","AC012409.2")
+# hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","RAB31")
+# hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
+# hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
+# hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
+# features<-llply(hbca_snmarkers, unlist)
+
+# Idents(dat)<-dat$nonepi_passqc2.wsnn_res.0.5
+# DefaultAssay(dat)<-"RNA"
+# p10<-DotPlot(dat,features=features,cluster.idents=TRUE)+scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))
+
+# ggsave(p10,file="nonepi.umap.passqc2.features.pdf",height=10,width=50,limitsize=F)
 
 
-#snRNA markers
-hbca_snmarkers=list()
-hbca_snmarkers[["lumhr"]]=c("ANKRD30A","AFF3","ERBB4","TTC6","MYBPC1","NEK10","THSD4")
-hbca_snmarkers[["lumsec"]]=c("AC011247.1","COBL","GABRP","ELF5","CCL28","KRT15","KIT")
-hbca_snmarkers[["basal"]]=c("AC044810.2","CARMN","LINC01060","ACTA2","KLHL29","DST","IL1RAPL2")
-hbca_snmarkers[["fibro"]]=c("LAMA2","DCLK1","NEGR1","LINC02511","ANK2","KAZN","SLIT2")
-hbca_snmarkers[["lymphatic"]]=c("AL357507.1","PKHD1L1","KLHL4","LINC02147","RHOJ","ST6GALNAC3","MMRN1")
-hbca_snmarkers[["vascular"]]=c("MECOM","BTNL9","MCTP1","PTPRB","VWF","ADGRL4","LDB2")
-hbca_snmarkers[["perivasc"]]=c("RGS6","KCNAB1","COL25A1","ADGRL3","PRKG1","NR2F2-AS1","AC012409.2")
-hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","RAB31")
-hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
-hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
-hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
-features<-llply(hbca_snmarkers, unlist)
+# ref_markers<-read.csv("/home/groups/CEDAR/mulqueen/bc_multiome/ref/hbca_marker_genes.tsv",header=T,sep="\t")
+# for(i in unique(ref_markers$broad_celltype)){
+#   markers<-ref_markers[ref_markers$broad_celltype==i,]
+#   markers<-markers[!duplicated(markers$geneid),]
+#   celltype_markers<-list()
+#   for(j in unique(markers$cell.state)){
+#     celltype_markers[[j]]<-markers[markers$cell.state==j,]$geneid
+#       }
+#   p11<-DotPlot(dat,features=celltype_markers,cluster.idents=TRUE)+scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))+ggtitle(i)
+#   ggsave(p11,file=paste0("nonepi.umap.passqc2.features.",i,".pdf"),height=10,width=50,limitsize=F)
+# }
 
-Idents(dat)<-dat$nonepi_passqc2.wsnn_res.0.5
-DefaultAssay(dat)<-"RNA"
-p10<-DotPlot(dat,features=features)
-ggsave(p10,file="nonepi.umap.passqc2.features.pdf",height=10,width=50,limitsize=F)
+#assign clusters by predicted ID to start
+dotsize=3
+p9<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+p10<-DimPlot(dat, pt.size=dotsize,group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+p11<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+ggsave((p9/p10/p11),file="nonepi.umap.pdf",height=30,width=10)
+
+dat$nonepi_reclust<-"immune"
+dat@meta.data[dat$seurat_clusters %in% c("11","13","10"),]$nonepi_reclust<-"immune" #bcells
+dat@meta.data[dat$seurat_clusters %in% c("3","5","6","12","18"),]$nonepi_reclust<-"immune" #myeloid and mast
+dat@meta.data[dat$seurat_clusters %in% c("17"),]$nonepi_reclust<-"stromal"#adipocyte
+dat@meta.data[dat$seurat_clusters %in% c("8","7","14","16"),]$nonepi_reclust<-"stromal"#"endothelial"
+dat@meta.data[dat$seurat_clusters %in% c("10"),]$nonepi_reclust<-"stromal"#"perivascular"
+dat@meta.data[dat$seurat_clusters %in% c("1","2","4","15"),]$nonepi_reclust<-"stromal"#"fibroblast"
+
+saveRDS(dat,file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
+
+dat_epi<-readRDS(file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
+dat_epi[["RNA"]] <- as(object = dat_epi[["RNA"]], Class = "Assay")
+
+subcluster_nonepi<-function(broad_celltype="immune",res=0.5,dotsize=5){
+  #marker_genes="bcells"
+  dat<-subset(dat_epi,cells=row.names(dat_epi@meta.data[dat_epi@meta.data$nonepi_reclust==broad_celltype,]))
+  if(length(Cells(dat))>200){
+  prefix=paste0("nonepi_passqc2_",broad_celltype)
+  out<-multimodal_cluster(dat,prefix=paste0("nonepi_passqc2_",broad_celltype),res=res,dotsize=dotsize)
+
+  dat<-out[[1]]
+  plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
+  dat <- FindNeighbors(dat,dims=1:10,reduction="pca")
+  dat <- FindClusters(dat,
+    algorithm = 3, 
+    graph.name="RNA_snn",
+    resolution = res, 
+    verbose = FALSE)
+
+  dotsize=5
+  p7<-DimPlot(dat,pt.size=dotsize, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
+  p8<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
+  p9<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+  p10<-DimPlot(dat, pt.size=dotsize,group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+  p11<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
+  plt<-plt_out/(p7 +p8 + p9)/(p10+p11+p11)
+  ggsave(plt,file=paste0(prefix,".umap.pdf"),height=40,width=30)
+
+  # markers<-ref_markers[ref_markers$broad_celltype==marker_genes,]
+  # markers<-markers[!duplicated(markers$geneid),]
+  # celltype_markers<-list()
+  # for(j in unique(markers$cell.state)){
+  #   celltype_markers[[j]]<-markers[markers$cell.state==j,]$geneid
+  #     }
+  # p11<-DotPlot(dat,features=celltype_markers,cluster.idents=TRUE,assay="RNA")+scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))+ggtitle(i)
+  # ggsave(p11,file=paste0(prefix,".",marker_genes,".pdf"),height=10,width=50,limitsize=F)
+  # }
+  saveRDS(dat,file=paste0("merged.geneactivity.",prefix,"_SeuratObject.rds"))
+  cluster_markers<-FindAllMarkers(dat,assay="RNA",group_by="seurat_clusters",only.pos=T)
+  write.table(cluster_markers,file=paste0(prefix,".markers.tsv"),col.names=T,row.names=T,sep="\t")
+  return(data.frame(nonepi_reclust=dat@meta.data$nonepi_reclust,nonepi_subcluster=dat@meta.data$seurat_clusters,row.names=row.names(dat@meta.data)))
+  }
+}
+
+tcells<-subcluster_nonepi("tnk_cells",res=0.2,dotsize=3)
+bcells<-subcluster_nonepi("bcells",res=0.5,dotsize=3)
+myeloid<-subcluster_nonepi("myeloid",res=0.5,dotsize=3)
+endo<-subcluster_nonepi("endothelial",res=0.5,dotsize=3)
+fibro<-subcluster_nonepi("fibroblast",res=0.5,dotsize=3)
+perivasc<-subcluster_nonepi("perivascular",res=0.5,dotsize=5)
+
+out<-lapply(unique(dat_epi$nonepi_reclust),subcluster_nonepi)
+
+#apriori genes don't work well since reference data is scRNA instead of snRNA, so using findallmarkers instead
+subclus<-do.call("rbind",out)
 
 
-hbca_tcell_markers<-list()
-hbca_tcell_markers[[""]]=c("ANKRD30A","AFF3","ERBB4","TTC6","MYBPC1","NEK10","THSD4")
+
+
+
+
+
 
 
 ############PANEL B UMAP #########################
