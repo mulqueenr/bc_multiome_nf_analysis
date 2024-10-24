@@ -104,7 +104,6 @@ p7<-FeaturePlot(dat,features=c("scrublet_Scores","nCount_RNA","nCount_peaks"),re
 plt<-plt_out/(p7 )
 ggsave(plt,file="allcells.umap.passqc.pdf",height=40,width=30)
 
-
 #Make stacked barplot on identities per cluster
 DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,HBCA_predicted.id) %>% tally())
 clus_by_celltype<-reshape2::dcast(DF,seurat_clusters~HBCA_predicted.id,value.var="n",fill=0)
@@ -122,11 +121,16 @@ pdf("allcells.cluster_by_sample.pdf")
 Heatmap(scale(t(as.matrix(clus_by_sample))))
 dev.off()
 
+DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,sample,HBCA_predicted.id) %>% tally())
+plt1<-ggplot(DF,aes(x=seurat_clusters,fill=HBCA_predicted.id,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
+plt2<-ggplot(DF,aes(x=seurat_clusters,fill=sample,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
+ggsave(plt1/plt2,file="allcells.cluster_barplots.pdf",width=50,limitsize=F)
+
 #assign clusters by predicted ID to start
 dat$reclust<-"luminal_epithelial"
-dat@meta.data[dat$seurat_clusters=="34",]$reclust<-"pericyte"
+dat@meta.data[dat$seurat_clusters=="33",]$reclust<-"pericyte"
 dat@meta.data[dat$seurat_clusters %in% c("14","18","15"),]$reclust<-"fibroblast"
-dat@meta.data[dat$seurat_clusters %in% c("31","23","8"),]$reclust<-"myeloid"
+dat@meta.data[dat$seurat_clusters %in% c("30","23","8"),]$reclust<-"myeloid"
 dat@meta.data[dat$seurat_clusters %in% c("11","26"),]$reclust<-"basal_epithelial"
 dat@meta.data[dat$seurat_clusters %in% c("13"),]$reclust<-"tcell"
 dat@meta.data[dat$seurat_clusters %in% c("12"),]$reclust<-"endothelial_vascular"
@@ -134,92 +138,91 @@ dat@meta.data[dat$seurat_clusters %in% c("41"),]$reclust<-"adipocyte"
 dat@meta.data[dat$seurat_clusters %in% c("38"),]$reclust<-"endothelial_lymphatic"
 
 p10<-DimPlot(dat,group.by="reclust",reduction = "allcells_passqc.wnn.umap")
-p11<-DimPlot(dat,group.by="HBCA_predicted.id",reduction = "allcells_passqc.wnn.umap")
-p12<-DimPlot(dat,group.by="seurat_clusters",reduction = "allcells_passqc.wnn.umap")
-p13<-FeaturePlot(dat,feature="scrublet_Scores",reduction = "allcells_passqc.wnn.umap")
-ggsave((p10+p11)/(p12+p13),file="umap_reclust.pdf",width=20,height=20)
-
-DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,sample,HBCA_predicted.id,reclust) %>% tally())
-plt1<-ggplot(DF,aes(x=seurat_clusters,fill=HBCA_predicted.id,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
-plt2<-ggplot(DF,aes(x=seurat_clusters,fill=reclust,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
-plt3<-ggplot(DF,aes(x=seurat_clusters,fill=sample,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
-ggsave(plt1/plt2/plt3,file="allcells.cluster_barplots.pdf",width=50,limitsize=F)
-
-saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
-
-
+ggsave(p10,file="umap_reclust.pdf",width=10,height=10)
 
 #replot with no epi
-dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
+saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
+dat_allcells<-dat
+#dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
+
 dat<-subset(dat,cell=row.names(dat@meta.data)[!(dat$reclust %in% c("luminal_epithelial","basal_epithelial"))])
 
 prefix="nonepi_passqc"
-out<-multimodal_cluster(dat,prefix="nonepi_passqc")
+out<-multimodal_cluster(dat,prefix="nonepi_passqc",res=0.8)
 dat<-out[[1]]
 plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
 
 p7<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
 p8<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
 p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p10<-FeaturePlot(dat,pt.size=1,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p11<-DimPlot(dat, pt.size=1,group.by='sample',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p12<-DimPlot(dat, pt.size=1,group.by='seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-plt<-plt_out/(p7 +p8 + p9)/(p10+p11+p12)
-ggsave(plt,file="nonepi.umap.passqc.pdf",height=60,width=30,limitsize=F)
+p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+plt<-(p9+p10+p11)
+ggsave(plt,file="nonepi.umap.passqc.pdf",height=10,width=30)
 
-dat$non_epi_passqc<-ifelse(dat$seurat_clusters %in% c("14","15","8","11","24","21"),"FAIL","PASS") #maybe add 13?
+dat$non_epi_passqc<-ifelse(dat$scrublet_Scores>0.1,"FAIL","PASS")
 dotsize=1
-p8<-FeaturePlot(dat,pt.size=1,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-
 p10<-DimPlot(dat, pt.size=dotsize,group.by='non_epi_passqc',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-plt<-plt_out/(p7+ p8+p9)/(p10+p11+p12)
+p11<-FeaturePlot(dat,pt.size=dotsize,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+p12<-DimPlot(dat, pt.size=dotsize,group.by='sample',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
+plt<-plt_out/(p7+ p8+p9)/(p10+ p11+p12)
 ggsave(plt,file="umap_passqc_noepi.pdf",height=40,width=20)
 
-dat$qc_clusters<-dat$seurat_clusters
+p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+plt<-(p9+p10+p11)
+ggsave(plt,file="nonepi.umap.passqc.pdf",height=10,width=30)
+
 #replotting filtering out the doublets
 prefix="nonepi_passqc2"
 dat<-subset(dat,non_epi_passqc=="PASS") #remove suspected doublet or lum epi enriched clusters
-out<-multimodal_cluster(dat,prefix="nonepi_passqc2",res=0.8)
+out<-multimodal_cluster(dat,prefix="nonepi_passqc2",res=0.9)
 dat<-out[[1]]
 plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
 
 dotsize=1
-p7<-DimPlot(dat,pt.size=dotsize, group.by = 'qc_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p8<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p9<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p10<-DimPlot(dat, pt.size=dotsize,group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p11<-ggplot()
-plt<-plt_out/(p7 +p8 + p9)/(p10+p11+p11)
+p7<-DimPlot(dat,pt.size=dotsize, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
+p8<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
+
+p9<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p10<-DimPlot(dat, pt.size=dotsize,group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p11<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p12<-FeaturePlot(dat, pt.size=dotsize,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+dat$non_epi_passqc<-ifelse(dat$scrublet_Scores<0.1,"PASS","FAIL")
+p13<-DimPlot(dat, pt.size=dotsize,group.by = 'non_epi_passqc',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+
+plt<-plt_out/(p13 +p8 + p9)/(p10+p11+p12)
 ggsave(plt,file="nonepi.umap.passqc2.pdf",height=40,width=30)
+dat$nonepi_clusters<-dat$seurat_clusters
 saveRDS(dat,file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
 dat<-readRDS(file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
 
+Idents(dat)<-dat$seurat_clusters
 dat2<-JoinLayers(dat,assay="RNA")
-cluster_markers<-FindAllMarkers(dat2,assay="RNA",group_by="seurat_clusters",only.pos=T)
-write.table(cluster_markers,file=paste0(prefix,".markers.tsv"),col.names=T,row.names=T,sep="\t")
+marker_sets<-FindAllMarkers(dat2,assay="RNA",only.pos=T,logfc.threashold=1,method="roc")
+write.table(marker_sets,file="nonepi_subcluster_passqc2.markers.tsv",sep="\t",col.names=T)
 
 
-
-
-
+###########UP TO HERE##############
 
 # #snRNA markers
-# hbca_snmarkers=list()
-# hbca_snmarkers[["fibro"]]=c("LAMA2","DCLK1","NEGR1","LINC02511","ANK2","KAZN","SLIT2")
-# hbca_snmarkers[["lymphatic"]]=c("AL357507.1","PKHD1L1","KLHL4","LINC02147","RHOJ","ST6GALNAC3","MMRN1")
-# hbca_snmarkers[["vascular"]]=c("MECOM","BTNL9","MCTP1","PTPRB","VWF","ADGRL4","LDB2")
-# hbca_snmarkers[["perivasc"]]=c("RGS6","KCNAB1","COL25A1","ADGRL3","PRKG1","NR2F2-AS1","AC012409.2")
-# hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","RAB31")
-# hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
-# hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
-# hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
-# features<-llply(hbca_snmarkers, unlist)
+hbca_snmarkers=list()
+hbca_snmarkers[["fibro"]]=c("LAMA2","DCLK1","NEGR1","LINC02511","ANK2","KAZN","SLIT2")
+hbca_snmarkers[["lymphatic"]]=c("AL357507.1","PKHD1L1","KLHL4","LINC02147","RHOJ","ST6GALNAC3","MMRN1")
+hbca_snmarkers[["vascular"]]=c("MECOM","BTNL9","MCTP1","PTPRB","VWF","ADGRL4","LDB2")
+hbca_snmarkers[["perivasc"]]=c("RGS6","KCNAB1","COL25A1","ADGRL3","PRKG1","NR2F2-AS1","AC012409.2")
+hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","RAB31")
+hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
+hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
+hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
+features<-llply(hbca_snmarkers, unlist)
 
-# Idents(dat)<-dat$nonepi_passqc2.wsnn_res.0.5
-# DefaultAssay(dat)<-"RNA"
-# p10<-DotPlot(dat,features=features,cluster.idents=TRUE)+scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))
+Idents(dat)<-dat$nonepi_passqc2.wsnn_res.0.8
+DefaultAssay(dat)<-"RNA"
+p10<-DotPlot(dat,features=features,cluster.idents=TRUE)+scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))
 
-# ggsave(p10,file="nonepi.umap.passqc2.features.pdf",height=10,width=50,limitsize=F)
+ggsave(p10,file="nonepi.umap.passqc2.features.pdf",height=10,width=50,limitsize=F)
 
 
 # ref_markers<-read.csv("/home/groups/CEDAR/mulqueen/bc_multiome/ref/hbca_marker_genes.tsv",header=T,sep="\t")
@@ -295,17 +298,16 @@ subcluster_nonepi<-function(broad_celltype="immune",res=0.5,dotsize=5){
   }
 }
 
-tcells<-subcluster_nonepi("tnk_cells",res=0.2,dotsize=3)
-bcells<-subcluster_nonepi("bcells",res=0.5,dotsize=3)
-myeloid<-subcluster_nonepi("myeloid",res=0.5,dotsize=3)
-endo<-subcluster_nonepi("endothelial",res=0.5,dotsize=3)
-fibro<-subcluster_nonepi("fibroblast",res=0.5,dotsize=3)
-perivasc<-subcluster_nonepi("perivascular",res=0.5,dotsize=5)
+stromal<-subcluster_nonepi("stromal",res=0.5,dotsize=3)
+immune<-subcluster_nonepi("immune",res=0.5,dotsize=3)
+
 
 out<-lapply(unique(dat_epi$nonepi_reclust),subcluster_nonepi)
 
 #apriori genes don't work well since reference data is scRNA instead of snRNA, so using findallmarkers instead
 subclus<-do.call("rbind",out)
+
+
 
 
 
