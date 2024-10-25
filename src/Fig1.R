@@ -177,47 +177,10 @@ p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduct
 plt<-(p9+p10+p11)
 ggsave(plt,file="nonepi.umap.passqc.pdf",height=10,width=30)
 
-dotsize=1
-p10<-DimPlot(dat, pt.size=dotsize,group.by='non_epi_passqc',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p11<-FeaturePlot(dat,pt.size=dotsize,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-p12<-DimPlot(dat, pt.size=dotsize,group.by='sample',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
-plt<-plt_out/(p7+ p8+p9)/(p10+ p11+p12)
-ggsave(plt,file="umap_passqc_noepi.pdf",height=40,width=20)
-
-p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-plt<-(p9+p10+p11)
-ggsave(plt,file="nonepi.umap.passqc.pdf",height=10,width=30)
-
-#replotting filtering out the doublets
-prefix="nonepi_passqc2"
-dat<-subset(dat,non_epi_passqc=="PASS") #remove suspected doublet or lum epi enriched clusters
-out<-multimodal_cluster(dat,prefix="nonepi_passqc2",res=0.9)
-dat<-out[[1]]
-plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
-
-dotsize=1
-p7<-DimPlot(dat,pt.size=dotsize, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p8<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-
-p9<-DimPlot(dat, pt.size=dotsize,group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p10<-DimPlot(dat, pt.size=dotsize,group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p11<-DimPlot(dat, pt.size=dotsize,group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p12<-FeaturePlot(dat, pt.size=dotsize,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-dat$non_epi_passqc<-ifelse(dat$scrublet_Scores<0.1,"PASS","FAIL")
-p13<-DimPlot(dat, pt.size=dotsize,group.by = 'non_epi_passqc',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-
-plt<-plt_out/(p13 +p8 + p9)/(p10+p11+p12)
-ggsave(plt,file="nonepi.umap.passqc2.pdf",height=40,width=30)
-dat$nonepi_clusters<-dat$seurat_clusters
-saveRDS(dat,file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
-dat<-readRDS(file="merged.geneactivity.passqc2.nonepi.SeuratObject.rds")
-
 Idents(dat)<-dat$seurat_clusters
 dat2<-JoinLayers(dat,assay="RNA")
 marker_sets<-FindAllMarkers(dat2,assay="RNA",only.pos=T,logfc.threashold=1,method="roc")
-write.table(marker_sets,file="nonepi_subcluster_passqc2.markers.tsv",sep="\t",col.names=T)
+write.table(marker_sets,file="nonepi_subcluster_passqc.markers.tsv",sep="\t",col.names=T)
 
 
 ###########UP TO HERE##############
