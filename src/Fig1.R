@@ -143,7 +143,24 @@ ggsave(p10,file="umap_reclust.pdf",width=10,height=10)
 #replot with no epi
 saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
 dat_allcells<-dat
-#dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
+dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
+dat$passqc<-ifelse(dat$scrublet_Scores>0.1,"FAIL","PASS")
+dat<-subset(dat,cell=row.names(dat@meta.data[dat$passqc=="PASS",]))
+prefix="allcells_passqc"
+out<-multimodal_cluster(dat,prefix="allcells_passqc",res=0.5,dotsize=1)
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
+
+p7<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
+p8<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
+p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+plt<-(p7+p8+p9)/(p9+p10+p11)
+ggsave(plt,file="allcells_passqc.umap.passqc.pdf",height=20,width=30)
+saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
+
+###UP TO HERE###
 
 dat<-subset(dat,cell=row.names(dat@meta.data)[!(dat$reclust %in% c("luminal_epithelial","basal_epithelial"))])
 
@@ -160,7 +177,6 @@ p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduct
 plt<-(p9+p10+p11)
 ggsave(plt,file="nonepi.umap.passqc.pdf",height=10,width=30)
 
-dat$non_epi_passqc<-ifelse(dat$scrublet_Scores>0.1,"FAIL","PASS")
 dotsize=1
 p10<-DimPlot(dat, pt.size=dotsize,group.by='non_epi_passqc',label = TRUE, repel = TRUE, reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
 p11<-FeaturePlot(dat,pt.size=dotsize,feature="scrublet_Scores",reduction = paste(prefix,"wnn.umap",sep="."),raster=T) + NoLegend()
