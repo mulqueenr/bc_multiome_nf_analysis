@@ -24,13 +24,13 @@ option_list = list(
  
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
-#opt$object_input="merged.geneactivity.SeuratObject.rds"
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+opt$object_input="merged.geneactivity.passqc.SeuratObject.rds"
 dat<-readRDS(file=opt$object_input)
-#opt$output_directory="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3"
+opt$output_directory="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3"
 outdir=paste0(opt$output_directory,"/cistopic_objects") #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3
 system(paste0("mkdir -p ",outdir))
-#opt$sample_array_in<-1
+opt$sample_array_in<-1
 sample_in=unique(dat$sample)[opt$sample_array_in]
 
 #filter to cells with ATAC features > 1000
@@ -39,7 +39,7 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
   print(paste0("Running cistopic on ",sample_in," ..."))
   if(epithelial_only){
       dat<-subset(Object,sample==sample_in)
-      dat<-subset(datreclust %in% c("luminal_epithelial","basal_epithelial"))
+      dat<-subset(dat,reclust %in% c("luminal_epithelial","basal_epithelial"))
       out_seurat_object<-paste0(outdir,"/",sample_in,".cistopic_epithelial.SeuratObject.rds")
       model_selection_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.model_selection.pdf")
       out_cistopic_obj<-paste0(outdir,"/",sample_in,".cistopic_epithelial.cistopicObject.rds")
@@ -107,7 +107,7 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
 }
 
 
-lapply(19:length(unique(dat$sample)), function(x) {
+lapply(1:length(unique(dat$sample)), function(x) {
 sample_in=unique(dat$sample)[x]
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
