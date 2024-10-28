@@ -44,7 +44,7 @@ model_maker <- function(topics,outDir,cellList,Genes,iterations,burnin,alpha,bet
       saveRDS(selected.Model, paste0(outDir, "/Model_", as.character(topics), "topics.rds"))
     }
 
-RPC_calculation<-function(model_file,outDir,data.use) {
+RPC_calculation<-function(model_file,outDir,data.use,topic_numbers) {
     topic_num <- as.numeric(gsub("[^0-9]+([0-9]+).*", "\\1", model_file))
     topic_numbers <- c(topic_numbers, topic_num)
     model <- readRDS(paste0(outDir, "/", model_file))
@@ -91,7 +91,7 @@ single_sample_titan_generation<- function(Object,
   }
 
   #skip titan if cell count too low
-  if(sum(Object$nCount_RNA>500)<500){
+  if(sum(Object$nCount_RNA>500)<200){
     print("Cell count for RNA seq is too low...")
     saveRDS(Object,file=out_seurat_object)
 
@@ -138,7 +138,7 @@ single_sample_titan_generation<- function(Object,
 
     print(paste0("Generating perplexity estimate for model selection..."))
     perp_out<-as.data.frame(do.call("rbind",
-      lapply(files,function(x) RPC_calculation(model_file=x,outDir=model_outdir,data.use=data.use))))
+      lapply(files,function(x) RPC_calculation(model_file=x,outDir=model_outdir,data.use=data.use,topic_numbers=topic_numbers))))
     colnames(perp_out) <- c("Topics", "RPC")
     perp_out$Topics<-as.numeric(as.character(perp_out$Topics))
     perp_out$RPC<-as.numeric(as.character(perp_out$RPC))
