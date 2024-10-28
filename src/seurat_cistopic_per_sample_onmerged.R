@@ -39,7 +39,7 @@ single_sample_cistopic_generation<-function(Object,sample_in,outdir,epithelial_o
   print(paste0("Running cistopic on ",sample_in," ..."))
   if(epithelial_only){
       dat<-subset(Object,sample==sample_in)
-      dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+      dat<-subset(datreclust %in% c("luminal_epithelial","basal_epithelial"))
       out_seurat_object<-paste0(outdir,"/",sample_in,".cistopic_epithelial.SeuratObject.rds")
       model_selection_out<-paste0(outdir,"/",sample_in,".cistopic_epithelial.model_selection.pdf")
       out_cistopic_obj<-paste0(outdir,"/",sample_in,".cistopic_epithelial.cistopicObject.rds")

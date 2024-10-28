@@ -24,10 +24,10 @@ option_list = list(
  
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
-#opt$object_input="merged.geneactivity.SeuratObject.rds"
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+opt$object_input="merged.geneactivity.passqc.SeuratObject.rds"
 dat<-readRDS(file=opt$object_input)
-#opt$output_directory="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3"
+opt$output_directory="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3"
 outdir=paste0(opt$output_directory,"/titan_objects") #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3
 system(paste0("mkdir -p ",outdir))
 #opt$sample_array_in<-1
@@ -57,7 +57,7 @@ RPC_calculation<-function(model_file,outDir,data.use) {
 }
    
 single_sample_titan_generation<- function(Object,
-  assay="SCT",
+  assay="RNA",
   seed.number=123,
   iterations=500,
   burnin=250,
@@ -74,7 +74,7 @@ single_sample_titan_generation<- function(Object,
   print(paste0("Setting ",assay," as assay..."))
   if(epithelial_only){
     Object<-subset(Object,sample==sample_in)
-    Object<-subset(Object,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
+    Object<-subset(Object,reclust %in% c("luminal_epithelial","basal_epithelial"))
     out_seurat_object<-paste0(outDir,"/",sample_in,".titan_epithelial.SeuratObject.rds")
     out_titan_obj<-paste0(outDir,"/",sample_in,".titan_epithelial.titanObject.rds")
     elbow_out<-paste0(outDir,"/",sample_in,".titan_epithelial.elbow.pdf")
@@ -174,7 +174,7 @@ single_sample_titan_generation<- function(Object,
   }
 }
 
-lapply(26:length(unique(dat$sample)), function(x) {
+lapply(1:length(unique(dat$sample)), function(x) {
 sample_in=unique(dat$sample)[x]
 single_sample_titan_generation(Object=dat,outDir=outdir,sample_in=sample_in,epithelial_only=TRUE) #only epithelial cells per sample
 single_sample_titan_generation(Object=dat,outDir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample

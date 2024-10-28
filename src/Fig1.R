@@ -94,15 +94,61 @@ plt<-plt_out/(p7 )/(p8+p9)
 ggsave(plt,file="allcells.umap.pdf",height=40,width=30)
 saveRDS(dat,file="merged.geneactivity.SeuratObject.rds")
 
+
+scrublet_filter_check<-function(scrublet_score){
+  dat$passqc<-ifelse(as.numeric(dat$scrublet_Scores)<scrublet_score & as.numeric(dat$nCount_RNA)>1000 & as.numeric(dat$nCount_peaks)>1000,"PASS","FAIL")
+  dat2<-subset(dat,passqc=="PASS")
+  cell_count=nrow(dat2@meta.data)
+  out<-multimodal_cluster(dat2,prefix=prefix,res=0.5)
+  dat2<-out[[1]]
+  plt<-DimPlot(dat2,group.by="HBCA_predicted.id",reduction = "allcells.wnn.umap")+ NoLegend()+ggtitle(paste("Scrublet:",scrublet_score,"Cells:",cell_count))
+  return(plt)
+
+}
+
+plt_list<-lapply(c(0.35,0.2,0.1),scrublet_filter_check)
+plt_out<-patchwork::wrap_plots(plt_list, nrow = 3, ncol = 1)
+ggsave(plt_out,file="allcells.umap.passqc.pdf",height=30,width=10)
+
 #subset to cells passing qc.
 prefix="allcells_passqc"
 dat<-subset(dat,passqc=="PASS")
 out<-multimodal_cluster(dat,prefix="allcells_passqc")
 dat<-out[[1]]
 plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
-p7<-FeaturePlot(dat,features=c("scrublet_Scores","nCount_RNA","nCount_peaks"),reduction = paste(prefix,"wnn.umap",sep="."),ncol=3,raster=T)+ NoLegend()
-plt<-plt_out/(p7 )
-ggsave(plt,file="allcells.umap.passqc.pdf",height=40,width=30)
+dat$log10_nCount_RNA<-log10(dat$nCount_RNA)
+dat$log10_nCount_peaks<-log10(dat$nCount_peaks)
+
+p7<-FeaturePlot(dat,features=c("scrublet_Scores","log10_nCount_RNA","log10_nCount_peaks"),reduction = paste(prefix,"wnn.umap",sep="."),ncol=3,raster=T)+ NoLegend()
+dat$high_cell_count_sample<-ifelse(dat@meta.data$sample %in% names(which(table(dat$sample)>10000)),"TRUE","FALSE")
+dat$sample_cell_count<-table(dat$sample)[dat@meta.data$sample]
+
+p8<-DimPlot(dat,group.by="high_cell_count_sample",reduction = "allcells.wnn.umap")+ggtitle("High Cell Count Sample")
+p9<-FeaturePlot(dat,features=c("sample_cell_count"),reduction = "allcells.wnn.umap")+ggtitle("Sample Cell Count")
+
+plt<-(p7/p8 /p9)
+ggsave(plt,file="allcells.umap.passqc_cellcountsamples.pdf",height=40,width=30)
+
+plt<-ggplot(dat@meta.data,aes(x=high_cell_count_sample,y=scrublet_Scores))+geom_jitter(aes(color=as.numeric(dat$sample_cell_count)))+geom_violin()
+ggsave(plt,file="cellcountsamples_scrublet_scores.pdf",height=40,width=30)
+
+#Based on this using scrublet cutoff of 0.2
+#initial run before qc filtering
+#set filters for all cells scrublet score <0.35, ncount_RNA>1000, ncount_ATAC>1000
+prefix="allcells"
+dat$passqc<-ifelse(as.numeric(dat$scrublet_Scores)<0.2 & as.numeric(dat$nCount_RNA)>1000 & as.numeric(dat$nCount_peaks)>1000,"PASS","FAIL")
+dat<-subset(dat,cell=row.names(dat@meta.data[dat$passqc=="PASS",]))
+
+out<-multimodal_cluster(dat,prefix=prefix,res=0.5)
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
+p7<-FeaturePlot(dat,features=c("scrublet_Scores","log10_nCount_RNA","log10_nCount_peaks"),reduction = "allcells.wnn.umap",ncol=3)+ NoLegend()
+dat$scrublet_DropletType<-ifelse(as.numeric(dat$scrublet_Scores)<0.2,"singlet","doublet")
+p8<-DimPlot(dat,group.by="scrublet_DropletType",reduction = "allcells.wnn.umap")+ NoLegend()
+p9<-DimPlot(dat,group.by="passqc",reduction = "allcells.wnn.umap")+ NoLegend()
+plt<-plt_out/(p7 )/(p8+p9)
+ggsave(plt,file="allcells.umap.pdf",height=40,width=30)
+saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
 
 #Make stacked barplot on identities per cluster
 DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,HBCA_predicted.id) %>% tally())
@@ -124,63 +170,82 @@ dev.off()
 DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,sample,HBCA_predicted.id) %>% tally())
 plt1<-ggplot(DF,aes(x=seurat_clusters,fill=HBCA_predicted.id,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
 plt2<-ggplot(DF,aes(x=seurat_clusters,fill=sample,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
-ggsave(plt1/plt2,file="allcells.cluster_barplots.pdf",width=50,limitsize=F)
+plt3<-ggplot(dat@meta.data,aes(x=seurat_clusters,y=scrublet_Scores))+geom_violin()+theme_minimal()
+ggsave(plt1/plt2/plt3,file="allcells.cluster_barplots.pdf",width=50,limitsize=F)
+
+scrublet_scores<-dat@meta.data %>% group_by(seurat_clusters) %>% summarize(mean=mean(scrublet_Scores))
+#42 43 35 5 doublet clusters (>0.15 score mean for cluster)
+prefix="allcells"
+dat$passqc<-ifelse(dat$seurat_clusters %in% c("42","43","35","5"),"FAIL","PASS")
+dat<-subset(dat,cell=row.names(dat@meta.data[dat$passqc=="PASS",]))
+
+out<-multimodal_cluster(dat,prefix=prefix,res=0.5)
+dat<-out[[1]]
+plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
+p7<-FeaturePlot(dat,features=c("scrublet_Scores","log10_nCount_RNA","log10_nCount_peaks"),reduction = "allcells.wnn.umap",ncol=3)+ NoLegend()
+dat$scrublet_DropletType<-ifelse(as.numeric(dat$scrublet_Scores)<0.2,"singlet","doublet")
+p8<-DimPlot(dat,group.by="scrublet_DropletType",reduction = "allcells.wnn.umap")+ NoLegend()
+p9<-DimPlot(dat,group.by="passqc",reduction = "allcells.wnn.umap")+ NoLegend()
+plt<-plt_out/(p7 )/(p8+p9)
+ggsave(plt,file="allcells.umap.pdf",height=40,width=30)
+saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
+
+
+#Make stacked barplot on identities per cluster
+DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,HBCA_predicted.id) %>% tally())
+clus_by_celltype<-reshape2::dcast(DF,seurat_clusters~HBCA_predicted.id,value.var="n",fill=0)
+row.names(clus_by_celltype)<-paste0("cluster_",clus_by_celltype[,1])
+clus_by_celltype<-clus_by_celltype[,2:ncol(clus_by_celltype)]
+pdf("allcells.cluster_by_celltype.pdf")
+Heatmap(scale(t(as.matrix(clus_by_celltype))))
+dev.off()
+
+DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,sample) %>% tally())
+clus_by_sample<-reshape2::dcast(DF,seurat_clusters~sample,value.var="n",fill=0)
+row.names(clus_by_sample)<-paste0("cluster_",clus_by_sample[,1])
+clus_by_sample<-clus_by_sample[,2:ncol(clus_by_sample)]
+pdf("allcells.cluster_by_sample.pdf")
+Heatmap(scale(t(as.matrix(clus_by_sample))))
+dev.off()
+
+DF<-as.data.frame(dat@meta.data %>% group_by(seurat_clusters,sample,HBCA_predicted.id) %>% tally())
+plt1<-ggplot(DF,aes(x=seurat_clusters,fill=HBCA_predicted.id,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
+plt2<-ggplot(DF,aes(x=seurat_clusters,fill=sample,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
+plt3<-ggplot(dat@meta.data,aes(x=seurat_clusters,y=scrublet_Scores))+geom_violin()+theme_minimal()
+ggsave(plt1/plt2/plt3,file="allcells.cluster_barplots.pdf",width=50,limitsize=F)
 
 #assign clusters by predicted ID to start
 dat$reclust<-"luminal_epithelial"
-dat@meta.data[dat$seurat_clusters=="33",]$reclust<-"pericyte"
-dat@meta.data[dat$seurat_clusters %in% c("14","18","15"),]$reclust<-"fibroblast"
-dat@meta.data[dat$seurat_clusters %in% c("30","23","8"),]$reclust<-"myeloid"
-dat@meta.data[dat$seurat_clusters %in% c("11","26"),]$reclust<-"basal_epithelial"
-dat@meta.data[dat$seurat_clusters %in% c("13"),]$reclust<-"tcell"
+dat@meta.data[dat$seurat_clusters=="35",]$reclust<-"pericyte"
+dat@meta.data[dat$seurat_clusters %in% c("13","16","19","41"),]$reclust<-"fibroblast"
+dat@meta.data[dat$seurat_clusters %in% c("5","18","31"),]$reclust<-"myeloid"
+dat@meta.data[dat$seurat_clusters %in% c("17","21","29","34"),]$reclust<-"basal_epithelial"
+dat@meta.data[dat$seurat_clusters %in% c("8"),]$reclust<-"tcell"
 dat@meta.data[dat$seurat_clusters %in% c("12"),]$reclust<-"endothelial_vascular"
-dat@meta.data[dat$seurat_clusters %in% c("41"),]$reclust<-"adipocyte"
-dat@meta.data[dat$seurat_clusters %in% c("38"),]$reclust<-"endothelial_lymphatic"
+dat@meta.data[dat$seurat_clusters %in% c("40"),]$reclust<-"adipocyte"
+dat@meta.data[dat$seurat_clusters %in% c("36"),]$reclust<-"endothelial_lymphatic"
 
-p10<-DimPlot(dat,group.by="reclust",reduction = "allcells_passqc.wnn.umap")
-ggsave(p10,file="umap_reclust.pdf",width=10,height=10)
+p1<-DimPlot(dat,group.by="seurat_clusters",reduction = "allcells.wnn.umap")
+p2<-DimPlot(dat,group.by="HBCA_predicted.id",reduction = "allcells.wnn.umap")
+p3<-DimPlot(dat,group.by="reclust",reduction = "allcells.wnn.umap")
+ggsave(p1/p2/p3,file="umap_reclust.pdf",width=10,height=30)
 
-#replot with no epi
-saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
-dat_allcells<-dat
-dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
-dat$passqc<-ifelse(dat$scrublet_Scores>0.1,"FAIL","PASS")
-dat<-subset(dat,cell=row.names(dat@meta.data[dat$passqc=="PASS",]))
-prefix="allcells_passqc"
-out<-multimodal_cluster(dat,prefix="allcells_passqc",res=0.5,dotsize=1)
-dat<-out[[1]]
-plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
-
-p7<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p8<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-plt<-(p7+p8+p9)/(p9+p10+p11)
-ggsave(plt,file="allcells_passqc.umap.passqc.pdf",height=20,width=30)
 saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
 
-###UP TO HERE###
-
-dat<-subset(dat,cell=row.names(dat@meta.data)[!(dat$reclust %in% c("luminal_epithelial","basal_epithelial"))])
-
+dat_nonepi<-subset(dat,cell=row.names(dat@meta.data)[!(dat$reclust %in% c("luminal_epithelial","basal_epithelial"))])
 prefix="nonepi_passqc"
-out<-multimodal_cluster(dat,prefix="nonepi_passqc",res=0.8)
-dat<-out[[1]]
-plt_out<-patchwork::wrap_plots(out[2:length(out)], nrow = 2, ncol = 3)
-
-p7<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.rna",sep="."),raster=T) + NoLegend()
-p8<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE, reduction = paste(prefix,"umap.atac",sep="."),raster=T) + NoLegend()
-p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
-p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+out<-multimodal_cluster(dat_nonepi,prefix="nonepi_passqc",res=0.8)
+dat_nonepi<-out[[1]]
+p9<-DimPlot(dat_nonepi, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p10<-DimPlot(dat_nonepi, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
+p11<-DimPlot(dat_nonepi, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) + NoLegend()
 plt<-(p9+p10+p11)
 ggsave(plt,file="nonepi.umap.passqc.pdf",height=10,width=30)
-
-Idents(dat)<-dat$seurat_clusters
-dat2<-JoinLayers(dat,assay="RNA")
-marker_sets<-FindAllMarkers(dat2,assay="RNA",only.pos=T,logfc.threashold=1,method="roc")
+Idents(dat_nonepi)<-dat_nonepi$seurat_clusters
+dat_nonepi<-JoinLayers(dat_nonepi,assay="RNA")
+marker_sets<-FindAllMarkers(dat_nonepi,assay="RNA",only.pos=T,logfc.threashold=1,method="roc")
 write.table(marker_sets,file="nonepi_subcluster_passqc.markers.tsv",sep="\t",col.names=T)
+saveRDS(dat_nonepi,file="merged.geneactivity.passqc.nonepi.SeuratObject.rds")
 
 
 ###########UP TO HERE##############
