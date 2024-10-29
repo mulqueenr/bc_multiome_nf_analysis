@@ -247,35 +247,77 @@ marker_sets<-FindAllMarkers(dat_nonepi,assay="RNA",only.pos=T,logfc.threashold=1
 write.table(marker_sets,file="nonepi_subcluster_passqc.markers.tsv",sep="\t",col.names=T)
 saveRDS(dat_nonepi,file="merged.geneactivity.passqc.nonepi.SeuratObject.rds")
 
-
+dat<-readRDS(file="merged.geneactivity.passqc.SeuratObject.rds")
+dat_nonepi<-readRDS(file="merged.geneactivity.passqc.nonepi.SeuratObject.rds")
 #assign clusters by predicted ID to start
-dat$assigned_celltype<-"macro_mono"
-dat@meta.data[dat$seurat_clusters %in% c("10","17"),]$assigned_celltype<-"plasma"
-dat@meta.data[dat$seurat_clusters %in% c("13"),]$assigned_celltype<-"low_quality"
-dat@meta.data[dat$seurat_clusters %in% c("18"),]$assigned_celltype<-"bcell"
-dat@meta.data[dat$seurat_clusters %in% c("27"),]$assigned_celltype<-"pDC"
-dat@meta.data[dat$seurat_clusters %in% c("28"),]$assigned_celltype<-"mast"
-dat@meta.data[dat$seurat_clusters %in% c("16","1"),]$assigned_celltype<-"cd4_8_tcell"
-dat@meta.data[dat$seurat_clusters %in% c("19"),]$assigned_celltype<-"treg"
-dat@meta.data[dat$seurat_clusters %in% c("9"),]$assigned_celltype<-"natural_killer_t"
-dat@meta.data[dat$seurat_clusters %in% c("23"),]$assigned_celltype<-"endothelial_lymphatic"
-dat@meta.data[dat$seurat_clusters %in% c("5","8","20"),]$assigned_celltype<-"endothelial_vascular"
-dat@meta.data[dat$seurat_clusters %in% c("25"),]$assigned_celltype<-"adipocyte"
-dat@meta.data[dat$seurat_clusters %in% c("21"),]$assigned_celltype<-"pericyte"
+dat_nonepi$assigned_celltype<-"macro_mono"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("10","17"),]$assigned_celltype<-"plasma"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("13"),]$assigned_celltype<-"low_quality"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("18"),]$assigned_celltype<-"bcell"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("27"),]$assigned_celltype<-"pDC"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("28"),]$assigned_celltype<-"mast"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("16","1"),]$assigned_celltype<-"cd4_8_tcell"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("19"),]$assigned_celltype<-"treg"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("9"),]$assigned_celltype<-"natural_killer_t"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("23"),]$assigned_celltype<-"endothelial_lymphatic"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("5","8","20"),]$assigned_celltype<-"endothelial_vascular"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("25"),]$assigned_celltype<-"adipocyte"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("21"),]$assigned_celltype<-"pericyte"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("24","11","15","4","12","24","0","26","2"),]$assigned_celltype<-"fibroblast"
 
 
+p9<-DimPlot(dat_nonepi, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+p10<-DimPlot(dat_nonepi, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+p11<-DimPlot(dat_nonepi, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+p12<-DimPlot(dat_nonepi, group.by = 'assigned_celltype',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+p13<-DimPlot(dat_nonepi, group.by = 'Diagnosis',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+p14<-DimPlot(dat_nonepi, group.by = 'Mol_Diagnosis',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+
+plt<-(p9+p10+p11+p12+p13+p14)
+ggsave(plt,file="nonepi.umap.passqc.pdf",height=30,width=50,limitsize=F)
+
+dat$assigned_celltype<-dat$reclust
+dat<-AddMetaData(dat,col.name="assigned_celltype",dat_nonepi$assigned_celltype)
+
+
+p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p12<-DimPlot(dat, group.by = 'assigned_celltype',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p13<-DimPlot(dat, group.by = 'Diagnosis',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p14<-DimPlot(dat, group.by = 'Mol_Diagnosis',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+plt<-(p9+p10+p11+p12+p13+p14)
+ggsave(plt,file="allcells.umap.passqc.pdf",height=30,width=50,limitsize=F)
+
+saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
+saveRDS(dat_nonepi,file="merged.geneactivity.passqc.nonepi.SeuratObject.rds")
 ###########UP TO HERE##############
 
 # #snRNA markers
 hbca_snmarkers=list()
+
+
+hbca_snmarkers[["lumhr"]]=c("ANKRD30A","AFF3","ERBB4","TTC6","MYBPC1","NEK10","THSD4")
+hbca_snmarkers[["lumsec"]]=c("AC011247.1","COBL","GABRP","ELF5","CCL28","KRT15","KIT")
+hbca_snmarkers[["basal"]]=c("AC044810.2","CARMN","LINC01060","ACTA2","KLHL29","DST","IL1RAPL2")
 hbca_snmarkers[["fibro"]]=c("LAMA2","DCLK1","NEGR1","LINC02511","ANK2","KAZN","SLIT2")
 hbca_snmarkers[["lymphatic"]]=c("AL357507.1","PKHD1L1","KLHL4","LINC02147","RHOJ","ST6GALNAC3","MMRN1")
 hbca_snmarkers[["vascular"]]=c("MECOM","BTNL9","MCTP1","PTPRB","VWF","ADGRL4","LDB2")
 hbca_snmarkers[["perivasc"]]=c("RGS6","KCNAB1","COL25A1","ADGRL3","PRKG1","NR2F2-AS1","AC012409.2")
 hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","RAB31")
-hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
 hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
+hbca_snmarkers[["macro_mono"]]=c()
+hbca_snmarkers[["plasma"]]=c()
+hbca_snmarkers[["bcell"]]=c()
+hbca_snmarkers[["pdc"]]=c()
+hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
+hbca_snmarkers[["cd4_8_tcell"]]=c()
+hbca_snmarkers[["treg"]]=c()
+hbca_snmarkers[["nkt"]]=c()
+
 hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
+
+
 features<-llply(hbca_snmarkers, unlist)
 
 Idents(dat)<-dat$nonepi_passqc2.wsnn_res.0.8
@@ -487,6 +529,8 @@ hbca_snmarkers[["myeloid"]]=c("F13A1","MRC1","RBPJ","TBXAS1","FRMD4B","CD163","R
 hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
 hbca_snmarkers[["mast"]]=c("NTM","IL18R1","SYTL3","SLC24A3","HPGD","TPSB2","HDC")
 hbca_snmarkers[["adipo"]]=c("PDE3B","ACACB","WDPCP","PCDH9","CLSTN2","ADIPOQ","TRHDE")
+
+
 features<-llply(hbca_snmarkers, unlist)
 
 #Idents(dat)<-factor(dat$EMBO_predicted.id,levels=rev(c("epithelial","cycling.epithelial","CAFs","Endothelial","Pericytes","Myeloid","TAMs","TAMs_2","Plasma.cells","B.cells","T.cells","NA")))

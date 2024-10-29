@@ -113,5 +113,5 @@ single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,e
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 })
 
-#IDC_09
+#IDC_08
 
