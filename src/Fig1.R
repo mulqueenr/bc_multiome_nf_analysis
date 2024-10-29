@@ -248,6 +248,22 @@ write.table(marker_sets,file="nonepi_subcluster_passqc.markers.tsv",sep="\t",col
 saveRDS(dat_nonepi,file="merged.geneactivity.passqc.nonepi.SeuratObject.rds")
 
 
+#assign clusters by predicted ID to start
+dat$assigned_celltype<-"macro_mono"
+dat@meta.data[dat$seurat_clusters %in% c("10","17"),]$assigned_celltype<-"plasma"
+dat@meta.data[dat$seurat_clusters %in% c("13"),]$assigned_celltype<-"low_quality"
+dat@meta.data[dat$seurat_clusters %in% c("18"),]$assigned_celltype<-"bcell"
+dat@meta.data[dat$seurat_clusters %in% c("27"),]$assigned_celltype<-"pDC"
+dat@meta.data[dat$seurat_clusters %in% c("28"),]$assigned_celltype<-"mast"
+dat@meta.data[dat$seurat_clusters %in% c("16","1"),]$assigned_celltype<-"cd4_8_tcell"
+dat@meta.data[dat$seurat_clusters %in% c("19"),]$assigned_celltype<-"treg"
+dat@meta.data[dat$seurat_clusters %in% c("9"),]$assigned_celltype<-"natural_killer_t"
+dat@meta.data[dat$seurat_clusters %in% c("23"),]$assigned_celltype<-"endothelial_lymphatic"
+dat@meta.data[dat$seurat_clusters %in% c("5","8","20"),]$assigned_celltype<-"endothelial_vascular"
+dat@meta.data[dat$seurat_clusters %in% c("25"),]$assigned_celltype<-"adipocyte"
+dat@meta.data[dat$seurat_clusters %in% c("21"),]$assigned_celltype<-"pericyte"
+
+
 ###########UP TO HERE##############
 
 # #snRNA markers
