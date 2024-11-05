@@ -243,21 +243,21 @@ dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("18"),]$assigned_celltype
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("27"),]$assigned_celltype<-"pDC"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("28"),]$assigned_celltype<-"mast"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("16","1"),]$assigned_celltype<-"tcell"#"cd4_8_tcell"
-dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("19"),]$assigned_celltype<-"tcell"#"treg"
-dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("9"),]$assigned_celltype<-"nk_tcell"#"natural_killer_t"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("19","9"),]$assigned_celltype<-"tcell"#"treg"
+dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("9"),]$assigned_celltype<-"tcell"#"natural_killer_t"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("23"),]$assigned_celltype<-"endothelial_lymphatic"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("5","8","20"),]$assigned_celltype<-"endothelial_vascular"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("25"),]$assigned_celltype<-"adipocyte"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("21"),]$assigned_celltype<-"pericyte"
 dat_nonepi@meta.data[dat_nonepi$seurat_clusters %in% c("24","11","15","4","12","24","0","26","2"),]$assigned_celltype<-"fibroblast"
 
-
+dat_nonepi$Diag_MolDiag<-paste(dat_nonepi$Diagnosis,dat_nonepi$Mol_Diagnosis)
 p9<-DimPlot(dat_nonepi, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
 p10<-DimPlot(dat_nonepi, group.by = 'sample',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
 p11<-DimPlot(dat_nonepi, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
 p12<-DimPlot(dat_nonepi, group.by = 'assigned_celltype',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
 p13<-DimPlot(dat_nonepi, group.by = 'Diagnosis',label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
-p14<-DimPlot(dat_nonepi, group.by = paste('Diagnosis','Mol_Diagnosis'),label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
+p14<-DimPlot(dat_nonepi, group.by = "Diag_MolDiag",label = TRUE, repel = TRUE,reduction = paste(prefix,"wnn.umap",sep="."),raster=F) 
 
 plt<-(p9+p10+p11+p12+p13+p14)
 ggsave(plt,file="nonepi.umap.passqc.pdf",height=30,width=50,limitsize=F)
@@ -265,13 +265,14 @@ ggsave(plt,file="nonepi.umap.passqc.pdf",height=30,width=50,limitsize=F)
 dat$assigned_celltype<-dat$reclust
 dat<-AddMetaData(dat,col.name="assigned_celltype",dat_nonepi$assigned_celltype)
 
+dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 
 p9<-DimPlot(dat, group.by = 'reclust',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
 p10<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
 p11<-DimPlot(dat, group.by = 'seurat_clusters',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
 p12<-DimPlot(dat, group.by = 'assigned_celltype',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
 p13<-DimPlot(dat, group.by = 'Diagnosis',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
-p14<-DimPlot(dat, group.by = paste('Diagnosis','Mol_Diagnosis'),label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p14<-DimPlot(dat, group.by = 'Diag_MolDiag',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
 plt<-(p9+p10+p11+p12+p13+p14)
 ggsave(plt,file="allcells.umap.passqc.pdf",height=30,width=50,limitsize=F)
 
@@ -294,13 +295,13 @@ hbca_snmarkers[["pdc"]]=c("IGKC","PTGDS","IRF8","DNASE1L3","LGALS2","C1orf54","C
 hbca_snmarkers[["tcells"]]=c("SKAP1","ARHGAP15","PTPRC","THEMIS","IKZF1","PARP8","CD247")
 #hbca_snmarkers[["treg"]]=c("TIGIT","TBC1D4","BATF","CARD16")
 #hbca_snmarkers[["cd4_8_tcell"]]=c("HSPA1A","HSPA1B","DNAJB1","HSPA6","CCL5","ZNF683","TRAF3IP3")
-hbca_snmarkers[["nkt"]]=c("GNLY","NKG7","FGFBP2","CCL3","GZMH","CCL4")
+#hbca_snmarkers[["nkt"]]=c("GNLY","NKG7","FGFBP2","CCL3","GZMH","CCL4")
 features<-llply(hbca_snmarkers, unlist)
 
 Idents(dat)<-factor(dat$assigned_celltype,levels=c("luminal_epithelial","basal_epithelial",
 "adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
 "mast","myeloid","bcell","plasma","pDC",
-"tcell","nk_tcell"
+"tcell"
 ))
 DefaultAssay(dat)<-"RNA"
 p10<-DotPlot(subset(dat,cells=names(Idents(dat))[!is.na(Idents(dat))]),features=features,cluster.idents=FALSE,dot.scale=8)+
@@ -315,16 +316,6 @@ saveRDS(dat,file="merged.geneactivity.passqc.SeuratObject.rds")
 saveRDS(dat_nonepi,file="merged.geneactivity.passqc.nonepi.SeuratObject.rds")
 
 
-DF<-as.data.frame(dat@meta.data %>% group_by(assigned_celltype,sample) %>% tally())
-plt1<-ggplot(DF,aes(x=sample,fill=assigned_celltype,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()
-ggsave(plt1,file="allcells.cluster_barplots.pdf",width=50,limitsize=F)
-
-DF<-as.data.frame(dat@meta.data %>% group_by(sample) %>% tally())
-DF$log_count<-log10(DF$n)
-plt1<-ggplot(DF)+geom_bar(aes(x=sample,y=log_count),stat="identity")+theme_minimal()
-ggsave(plt1,file="allcells.cellcount_barplots.pdf",width=50,limitsize=F)
-
-
 Idents(dat)<-dat$sample
 DefaultAssay(dat)<-"RNA"
 p10<-DotPlot(subset(dat,cells=names(dat$assigned_celltype=="basal_epithelial")),features=c("AC044810.2","CARMN","LINC01060","ACTA2","KLHL29","DST","IL1RAPL2"),cluster.idents=FALSE,dot.scale=8)+
@@ -333,5 +324,4 @@ p10<-DotPlot(subset(dat,cells=names(dat$assigned_celltype=="basal_epithelial")),
 p11<-FeaturePlot(dat,features=c("AC044810.2","CARMN","LINC01060","ACTA2","KLHL29","DST","IL1RAPL2"),reduction = "allcells.wnn.umap",raster=T)
 ggsave(p10/p11,file="basal.features_by_sample.pdf",limitsize=F,height=30,width=30)
 
-###########UP TO HERE##############
 

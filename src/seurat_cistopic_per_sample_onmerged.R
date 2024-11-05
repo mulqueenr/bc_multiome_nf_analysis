@@ -1,3 +1,7 @@
+module load singularity
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
 library(Signac)
 library(Seurat)
 library(SeuratWrappers)
@@ -113,5 +117,4 @@ single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,e
 single_sample_cistopic_generation(Object=dat,outdir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 })
 
-#IDC_08
-
+#ILC_04

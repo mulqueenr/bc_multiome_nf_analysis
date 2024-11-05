@@ -44,8 +44,10 @@ opt = parse_args(opt_parser);
 #cistopic=readRDS(opt$cistopic)
 #titan=readRDS(opt$titan)
 setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
-opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
+opt$object_input="./seurat_objects/merged.geneactivity.passqc.SeuratObject.rds"
 dat=readRDS(opt$object_input)
+dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$reclust %in% c("luminal_epithelial","basal_epithelial")])
+
 met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
 
 hist_col=c("NAT"="#99CCFF","DCIS"="#CCCCCC","IDC"="#FF9966","ILC"="#006633")
@@ -84,11 +86,11 @@ report_peaks<-function(i,cistopic_objs,member_split_df){
   tmp=member_split_df[member_split_df$cluster==i,]
   peaks<-lapply(1:nrow(tmp), function(x){
       sample=tmp[x,"sample"]
-      sample_cistopic<-gsub("_0","_",sample) #uncorrect sample names for reading in file
       topic=tmp[x,"topic"]
+      topic<-unlist(lapply(strsplit(topic,"[.]"),"[",1))
       topic_cistopic<-gsub("_","",topic)
       print(paste("Reading in ",sample,topic))
-      cistopic_file<-cistopic_objs[grep(cistopic_objs,pattern=paste0(sample_cistopic,".cistopic"))]
+      cistopic_file<-cistopic_objs[grep(cistopic_objs,pattern=paste0(sample,".cistopic"))]
       topic_peaks_score<-as.data.frame(cistopic_peakscores(cistopic_file,topic_cistopic))
       topic_peaks_score$peaks<-row.names(topic_peaks_score)
       topic_peaks_score$topic<-paste(sample,topic,sep="_")
@@ -206,11 +208,10 @@ prerun_cistopic_correlations<-function(cistopic_objs,dat,col_in=cividis(3),prefi
   dat[["cistopic_metaprograms"]]<-CreateAssayObject(data=t(dat@meta.data[colnames(dat@meta.data) %in% paste0(names(metaprogram_peaks),"_",assay)]))
   #plot per cell type
   assay="cistopic_metaprogram"
-  plt<-VlnPlot(dat, features=paste0(names(metaprogram_peaks),"_",assay), group.by = "HBCA_predicted.id",pt.size = 0, stack=TRUE)
+  plt<-VlnPlot(dat, features=paste0(names(metaprogram_peaks),"_",assay), group.by = "assigned_celltype",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bycelltype","_",assay,".pdf"),width=20)
 
   #plot per diagnosis
-  dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
   plt<-VlnPlot(dat, features=paste0(names(metaprogram_peaks),"_",assay), group.by = "Diag_MolDiag",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bydiagnosis","_",assay,".pdf"),width=20)
 
@@ -224,13 +225,13 @@ prerun_cistopic_correlations<-function(cistopic_objs,dat,col_in=cividis(3),prefi
 
 
 cistopic_path="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/cistopic_objects"
-#cistopic_objs<-list.files(path=cistopic_path,pattern="*cistopic.cistopicObject.rds$",full.names=TRUE)
-#process_cistopic_topics(cistopic_objs=cistopic_objs,met=met,out_prefix="cistopic_allcells",cistopic_path=cistopic_path)
-
+cistopic_objs<-list.files(path=cistopic_path,pattern="*cistopic.cistopicObject.rds$",full.names=TRUE)
+out<-prerun_cistopic_correlations(cistopic_objs=cistopic_objs,prefix="allcells_cistopic_cor",col_in=cividis(3))
+saveRDS(dat,file="merged.cistopic_metaprograms.passqc.SeuratObject.rds")
 
 cistopic_epi_objs<-list.files(path=cistopic_path,pattern="*cistopic_epithelial.cistopicObject.rds$",full.names=TRUE)
 out<-prerun_cistopic_correlations(cistopic_objs=cistopic_epi_objs,prefix="epi_cistopic_cor",col_in=cividis(3))
-saveRDS(dat,file="epi_cistopic_SeuratObject.Rds")
+saveRDS(dat_epi,file="epi_cistopic_SeuratObject.Rds")
 
 
 

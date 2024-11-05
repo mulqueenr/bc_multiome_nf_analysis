@@ -42,7 +42,9 @@ opt = parse_args(opt_parser);
 #titan=readRDS(opt$titan)
 setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
 opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
-dat=readRDS(opt$object_input)
+dat_epi<-readRDS(file="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/epi_cistopic_SeuratObject.Rds")
+dat<-readRDS(file="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/merged.cistopic_metaprograms.passqc.SeuratObject.rds")
+
 met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
 
 hist_col=c("NAT"="#99CCFF","DCIS"="#CCCCCC","IDC"="#FF9966","ILC"="#006633")
@@ -57,10 +59,7 @@ sampled_col=c("Primary"="#8A4C80","Metastasis"="#4c9173","NAT"="#99CCFF")
 
 titan_genescores<-function(x){
   titan_in<-readRDS(x)
-  sample_name<-strsplit(basename(x),"[.]")[[1]][1]
-  if(nchar(strsplit(sample_name,"_")[[1]][2])!=2){
-        sample_name<-gsub("_","_0",sample_name) #uncorrect sample names for reading in file
-  }
+  sample_name<-basename(x)
   titan_in<-GeneScores(titan_in)
   colnames(titan_in)<-paste(sample_name,colnames(titan_in),sep="_")
   return(titan_in)
@@ -79,13 +78,13 @@ prerun_topic_correlations<-function(titan_objs,dat,col_in=c("#CAC1B6","#FDF8C1",
   cor_topics<-cor(titan_gs,use="pairwise.complete.obs",method="spearman")
   sum_da_dend <- cor_topics %>% dist() %>% hclust() %>% as.dendrogram 
   saveRDS(sum_da_dend,file=paste0(prefix,"_metaprograms.COR_TITAN.dend.rds"))
-  k_in<-find_k(sum_da_dend,krange=5:15)
+  k_in<-find_k(sum_da_dend,krange=10:20)
   sum_da_dend<-sum_da_dend %>% set("branches_k_color", k = k_in$k)
   member_split<-cutree(sum_da_dend,k_in$k)
   saveRDS(member_split,file=paste0(prefix,"_metaprograms.COR_TITAN.members.rds"))
 
   #set up metadata
-  program_samples<-unlist(lapply(strsplit(row.names(cor_topics),"_Topic"),"[",1))
+  program_samples<-unlist(lapply(strsplit(row.names(cor_topics),"[.]"),"[",1))
   sample_metadata<-dat@meta.data[!duplicated(dat@meta.data$sample),]
   sample_metadata$Mol_Diagnosis<-paste(sample_metadata$Diagnosis,sample_metadata$Mol_Diagnosis)
   sample_metadata$sampled_site<-unlist(lapply(strsplit(sample_metadata$sampled_site," "),"[",1))
@@ -187,16 +186,16 @@ report_genes<-function(i,titan_objs,member_split_df){
   tmp=member_split_df[member_split_df$cluster==i,]
   genes<-lapply(1:nrow(tmp), function(x){
       sample=tmp[x,"sample"]
-      sample<-gsub("_0","_",sample) #uncorrect sample names for reading in file
+      sample_name<-unlist(strsplit(sample,"[.]")[[1]][1])
       topic=tmp[x,"topic"]
       print(paste("Reading in ",sample,topic))
-      titan<-readRDS(titan_objs[grep(pattern=paste0(sample,"[.]"),x=titan_objs)])
+      titan<-readRDS(titan_objs[grep(pattern=sample,x=titan_objs)])
       topic_genes_gene_score<-as.data.frame(GeneScores(titan))
-      colnames(topic_genes_gene_score)<-paste(sample,"Topic",1:ncol(topic_genes_gene_score),sep="_")
-      topic_genes_gene_score<-as.data.frame(topic_genes_gene_score[paste(sample,topic,sep="_")])
+      colnames(topic_genes_gene_score)<-paste(sample_name,"Topic",1:ncol(topic_genes_gene_score),sep="_")
+      topic_genes_gene_score<-as.data.frame(topic_genes_gene_score[paste(sample_name,topic,sep="_")])
       colnames(topic_genes_gene_score)<-c("gene_score")
       topic_genes_gene_score$genes<-row.names(topic_genes_gene_score)
-      topic_genes_gene_score$topic<-paste(sample,topic,sep="_")
+      topic_genes_gene_score$topic<-paste(sample_name,topic,sep="_")
       return(topic_genes_gene_score)
       })
   genes<-do.call("rbind",genes)
@@ -218,10 +217,10 @@ titan_cluster_genes<-prerun_topic_correlations(dat=dat,
                                                 prefix="allcells_cor")
 
 #titan epithelial
-dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
-met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
+met<-dat_epi@meta.data[!duplicated(dat_epi@meta.data$sample),]
 
 titan_objs<-list.files(path=titan_path, pattern="*titan_epithelial.titanObject.rds$",full.names=TRUE)
+dat<-readRDS(file="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/epi_cistopic_SeuratObject.Rds")
 titan_cluster_genes<-prerun_topic_correlations(dat=dat,
                                                 titan_objs=titan_objs,
                                                 prefix="epithelial_cor")
