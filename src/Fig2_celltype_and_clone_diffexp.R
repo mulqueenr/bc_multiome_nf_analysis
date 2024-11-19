@@ -5,7 +5,6 @@ sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 ```
 
-
 ```R
 
 library(Signac)
@@ -27,23 +26,24 @@ library(presto)
 library(seriation)
 library(org.Hs.eg.db)
 library(ggtern)
+library(dendextend)
 library(optparse)
-
+library(msigdbr) #local
+library(fgsea) #local
+library(GeneNMF,lib="/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3") #local
 
 option_list = list(
-  make_option(c("-c", "--cistopic"), type="character", default=NULL, 
-              help="List of sample cisTopic RDS files", metavar="character"),
-  make_option(c("-t", "--titan"), type="character", default=NULL, 
-              help="List of sample TITAN RDS files", metavar="character")
+  make_option(c("-i", "--object_input"), type="character", default=NULL, 
+              help="List of sample RDS files", metavar="character")
 );
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-#cistopic=readRDS(opt$cistopic)
-#titan=readRDS(opt$titan)
-setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
-opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+opt$object_input="merged.clone_annot.passqc.SeuratObject.rds"
 dat=readRDS(opt$object_input)
+dat[["RNA"]]<-as(object = dat[["RNA"]], Class = "Assay")
+dat<-subset(dat,assigned_celltype!="low_quality")
 
 hist_col=c("NAT"="#99CCFF","DCIS"="#CCCCCC","IDC"="#FF9966","ILC"="#006633")
 clin_col=c("IDC ER+/PR-/HER2-"="#f9bdbd",
@@ -58,8 +58,8 @@ sampled_col=c("Primary"="#8A4C80","Metastasis"="#4c9173","NAT"="#99CCFF")
 
 #Grab top overlapping TFs
 topTFs <- function(markers_list,celltype, padj.cutoff = 1e-2,rna=NA,ga=NA,motifs=NA) {
-  ctmarkers_rna <- dplyr::filter(rna, SoupXRNA.group == celltype) %>% 
-    arrange(-SoupXRNA.auc)
+  ctmarkers_rna <- dplyr::filter(rna, RNA.group == celltype) %>% 
+    arrange(-RNA.auc)
 
     if(is.data.frame(motifs)) {
     ctmarkers_motif <- dplyr::filter(motifs, chromvar.group == celltype) %>% 
@@ -100,8 +100,8 @@ topTFs <- function(markers_list,celltype, padj.cutoff = 1e-2,rna=NA,ga=NA,motifs
 
 
 #Identify top markers
-Identify_Marker_TFs<-function(x,group_by.="predicted.id",assay.="SoupXRNA",prefix.,pval_filt=1){
-    #x[[assay.]]<-as(object = x[[assay.]], Class = "Assay")
+Identify_Marker_TFs<-function(x,group_by.="predicted.id",assay.="RNA",prefix.,pval_filt=1){
+    x[[assay.]]<-as(object = x[[assay.]], Class = "Assay")
     markers <- presto:::wilcoxauc.Seurat(X = x, group_by = group_by., 
       groups_use=unname(unlist(unique(x@meta.data[group_by.]))),
       y=unname(unlist(unique(x@meta.data[group_by.]))), 
@@ -126,7 +126,6 @@ average_features<-function(x=hg38_atac,features=da_tf_markers$motif.feature,assa
     sum_motif<-split(dat_motif,x@meta.data[,group_by.]) #group by rows to seurat clusters
     sum_motif<-lapply(sum_motif,function(x) apply(x,2,mean,na.rm=T)) #take average across group
     sum_motif<-do.call("rbind",sum_motif) #condense to smaller data frame
-
     sum_motif<-t(scale(sum_motif))
     sum_motif<-sum_motif[row.names(sum_motif)%in%features,]
     sum_motif<-sum_motif[complete.cases(sum_motif),]
@@ -135,7 +134,7 @@ average_features<-function(x=hg38_atac,features=da_tf_markers$motif.feature,assa
 
 #Make a heatmap of aligned multiple modalities
 plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group_by.="predicted.id",CHROMVAR=TRUE,GA=TRUE,height.){
-    tf_rna<-average_features(x=x,features=tf_markers$gene,assay="SoupXRNA",group_by.=group_by.)
+    tf_rna<-average_features(x=x,features=tf_markers$gene,assay="RNA",group_by.=group_by.)
     tf_rna<-tf_rna[row.names(tf_rna) %in% tf_markers$gene,]
 
     tf_motif<-average_features(x=x,features=tf_markers$chromvar.feature,assay="chromvar",group_by.=group_by.)
@@ -157,11 +156,17 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
     tf_ga<-tf_ga[markers_list,]
 
     #set up heatmap seriation and order by RNA
-    o = seriate(max(tf_rna) - tf_rna, method = "BEA_TSP")
+    o_rows =dist(tf_rna,method="maximum") %>%
+                          hclust() %>%
+                          as.dendrogram()  %>%
+                          ladderize()
+    o_col =dist(t(tf_rna),method="maximum") %>%
+                      hclust() %>%
+                      as.dendrogram()  %>%
+                      ladderize()
     saveRDS(o,file=paste0(prefix,".geneactivity.dend.rds")) 
-    side_ha_rna<-data.frame(ga_motif=tf_markers[get_order(o,1),]$SoupXRNA.auc)
+    side_ha_rna<-data.frame(ga_motif=tf_markers[get_order(o,1),]$RNA.auc)
     colfun_rna=colorRamp2(quantile(unlist(tf_rna), probs=c(0.5,0.80,0.95)),plasma(3))
-
     side_ha_motif<-data.frame(chromvar_motif=tf_markers[get_order(o,1),]$chromvar.auc)
     colfun_motif=colorRamp2(quantile(unlist(tf_motif), probs=c(0.5,0.80,0.95)),cividis(3))
     #Plot motifs alongside chromvar plot, to be added to the side with illustrator later
@@ -176,32 +181,31 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
     side_ha_col<-colorRamp2(c(0,1),c("white","black"))
     gene_ha = rowAnnotation(foo = anno_mark(at = c(1:nrow(tf_rna)), labels =row.names(tf_rna),labels_gp=gpar(fontsize=6)))
 
-
     rna_auc<-Heatmap(side_ha_rna,
-        row_order = get_order(o,1),
+        cluster_rows = o_rows,
         col=side_ha_col,
         show_column_names=FALSE,
         row_names_gp=gpar(fontsize=7))
 
     rna_plot<-Heatmap(tf_rna,
-        row_order = get_order(o,1),
-        column_order = get_order(o,2),
-        name="SoupX",
-        column_title="SoupX",
+        cluster_rows = o_rows,
+        cluster_columns=o_col,
+        name="RNA",
+        column_title="RNA",
         col=colfun_rna,
         column_names_gp = gpar(fontsize = 8),
         show_row_names=FALSE,
         column_names_rot=90)
 
       ga_auc<-Heatmap(side_ha_ga,
-          row_order = get_order(o,1),
+          cluster_rows = o_rows,         
           col=side_ha_col,
           show_column_names=FALSE,
           row_names_gp=gpar(fontsize=7))
 
       ga_plot<-Heatmap(tf_ga,
-          row_order = get_order(o,1),
-          column_order = get_order(o,2),
+          cluster_rows = o_rows,                 
+          cluster_columns=o_col,
           name="Gene Activity",
           column_title="Gene Activity",
           col=colfun_ga,
@@ -210,15 +214,15 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
           column_names_rot=90)
 
       motif_auc<-Heatmap(side_ha_motif,
-          row_order = get_order(o,1),
+          cluster_rows = o_rows,          
           col=side_ha_col,
           show_row_names=FALSE,
           show_column_names=FALSE,
           row_names_gp=gpar(fontsize=7))
 
       motif_plot<-Heatmap(tf_motif,
-          row_order = get_order(o,1),
-          column_order = get_order(o,2),
+          cluster_rows = o_rows,                 
+          cluster_columns=o_col,
           name="TF Motif",
           column_title="TF Motif",
           col=colfun_motif,
@@ -228,19 +232,23 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
           column_names_rot=90,
           right_annotation=gene_ha)
       
+      #motif_image<-anno_image(paste0(prefix,".tf.heatmap.motif.svg"))
+
       plt1<-draw(ga_auc+ga_plot+rna_auc+rna_plot+motif_auc+motif_plot,row_title=prefix)
-
-
     pdf(paste0(prefix,".tf.heatmap.pdf"),height=height.)
     print(plt1)
     dev.off()
 }
 
 #Final wrapper function
-run_top_TFs<-function(obj=stromal,prefix="stromal",i="predicted.id",n_markers=5,plot_height=10){
-  markers<-lapply(c("SoupXRNA","GeneActivity","chromvar"),function(assay) Identify_Marker_TFs(x=obj,group_by.=i,assay.=assay,prefix.=prefix))
-  names(markers)<-c("SoupXRNA","GeneActivity","chromvar")
-  markers_out<-do.call("rbind",lapply(unique(obj@meta.data[,i]),function(x) head(topTFs(markers_list=markers,celltype=x,rna=markers$SoupXRNA,ga=markers$GeneActivity,motifs=markers$chromvar),n=n_markers))) #grab top 5 TF markers per celltype
+run_top_TFs<-function(obj=obj,prefix="all_cells",i="assigned_celltype",n_markers=5,plot_height=10){
+  markers<-lapply(c("RNA","GeneActivity","chromvar"),
+    function(assay) Identify_Marker_TFs(x=obj,group_by.=i,assay.=assay,prefix.=prefix))
+  names(markers)<-c("RNA","GeneActivity","chromvar")
+  markers_out<-do.call("rbind",lapply(unique(obj@meta.data[,i]),
+    function(x) head(topTFs(markers_list=markers,celltype=x,
+                    rna=markers$RNA,ga=markers$GeneActivity,
+                    motifs=markers$chromvar),n=n_markers))) #grab top 5 TF markers per celltype
   dim(markers_out)
   markers_out<-markers_out[!duplicated(markers_out$gene),]
   dim(markers_out)
@@ -250,12 +258,21 @@ run_top_TFs<-function(obj=stromal,prefix="stromal",i="predicted.id",n_markers=5,
  
 }
 
+obj<-subset(dat,assigned_celltype!="low_quality")
+run_top_TFs(dat,prefix="all_cells",i="assigned_celltype",n_markers=10) #generate top TF markers per cell type
+
+
 ##Scaling scores function before calling the highest Call
 center_sweep <- function(x, row.w = rep(1, nrow(x))/nrow(x)) {
     get_average <- function(v) sum(v * row.w)/sum(row.w)
     average <- apply(x, 2, get_average)
     sweep(x, 2, average)
   }
+
+
+
+
+
 
 run_scsubtype_perclone<-function(obj){
   #Read in the single cell RDS object as 'Mydata'
