@@ -28,44 +28,32 @@ dat=readRDS(opt$object_input)
 #/home/groups/CEDAR/scATACcnv/Hisham_data/new_seq/CNV_validate/[sample]_clone_val/[sample]_[ATAC/RNA]_clones.csv
 #CNV data processed by TM and stored in directory listed above.
 
-RNA_cluster_idents_samples<-lapply(
-    list.files(path="/home/groups/CEDAR/scATACcnv/Hisham_data/new_seq/CNV_validate",recursive=TRUE,pattern="*RNA_clones.csv",full.names=T), 
-    function(RNA){
-    in_clus=read.csv(RNA,header=F,col.names=c("cell","RNA_cluster"))
-    in_clus$sample=gsub(basename(RNA),pattern="_RNA_clones.csv",replace="")
-    in_clus$cellID=paste(in_clus$sample,in_clus$cell,sep="_")
+merged_cluster_idents_samples<-lapply(
+    list.files(path="/home/groups/CEDAR/scATACcnv/Hisham_data/new_seq/CNV_validate",recursive=TRUE,pattern="*ATAC_anno.csv",full.names=T), 
+    function(merge){
+    in_clus=read.csv(merge,header=T)
+    in_clus$sample=gsub(basename(merge),pattern="_ATAC_anno.csv",replace="")
+    in_clus$cellID=paste(in_clus$sample,in_clus$X,sep="_")
     in_clus$cellID<-gsub('\\.', '-', in_clus$cellID)
     row.names(in_clus)<-in_clus$cellID
-    in_clus$RNA_cluster<-paste(in_clus$sample,in_clus$RNA_cluster,sep=".")
+    in_clus$atac_cluster<-paste(in_clus$sample,in_clus$atac_cluster,sep=".")
+    in_clus$rna_cluster<-paste(in_clus$sample,in_clus$rna_cluster,sep=".")
+    in_clus$merge_cluster<-paste(in_clus$sample,in_clus$merge_cluster,sep=".")
     return(in_clus)}
 )
 
+cnv_cluster_in<-do.call("rbind",merged_cluster_idents_samples)
+cnv_cluster_in<-cnv_cluster_in[c("atac_cluster","rna_cluster","merge_cluster")]
 
-ATAC_cluster_idents_samples<-lapply(
-    list.files(path="/home/groups/CEDAR/scATACcnv/Hisham_data/new_seq/CNV_validate",recursive=TRUE,pattern="*ATAC_clones.csv",full.names=T), 
-    function(RNA){
-    in_clus=read.csv(RNA,header=F,col.names=c("cell","ATAC_cluster"))
-    in_clus$sample=gsub(basename(RNA),pattern="_ATAC_clones.csv",replace="")
-    in_clus$cellID=paste(in_clus$sample,in_clus$cell,sep="_")
-    in_clus$cellID<-gsub('\\.', '-', in_clus$cellID)
-    row.names(in_clus)<-in_clus$cellID
-    in_clus$ATAC_cluster<-paste(in_clus$sample,in_clus$ATAC_cluster,sep=".")
-    return(in_clus)}
-)
-
-RNA_cluster_in<-do.call("rbind",RNA_cluster_idents_samples)
-ATAC_cluster_in<-do.call("rbind",ATAC_cluster_idents_samples)
-RNA_cluster_in<-RNA_cluster_in["RNA_cluster"]
-ATAC_cluster_in<-ATAC_cluster_in["ATAC_cluster"]
-
-dat<-AddMetaData(dat,RNA_cluster_in)
-dat<-AddMetaData(dat,ATAC_cluster_in)
+dat<-AddMetaData(dat,cnv_cluster_in)
 
 saveRDS(dat,"merged.clone_annot.passqc.SeuratObject.rds")
 
-dat<-subset(dat,cells=row.names(dat@meta.data[!is.na(dat@meta.data$RNA_cluster) & !is.na(dat@meta.data$ATAC_cluster),]))
-p1<-DimPlot(dat, group.by = 'RNA_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
-p2<-DimPlot(dat, group.by = 'ATAC_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F)
-p3<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
-ggsave(p1/p2/p3,file="allcells.umap.clones.passqc.pdf",height=30,width=10,limitsize=F)
+dat<-subset(dat,cells=row.names(dat@meta.data[!is.na(dat@meta.data$rna_cluster) & !is.na(dat@meta.data$atac_cluster),]))
+p1<-DimPlot(dat, group.by = 'rna_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p2<-DimPlot(dat, group.by = 'atac_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F)
+p3<-DimPlot(dat, group.by = 'merge_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p4<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+
+ggsave(p1+p2/p3+p4,file="allcells.umap.clones.passqc.pdf",height=20,width=20,limitsize=F)
 
