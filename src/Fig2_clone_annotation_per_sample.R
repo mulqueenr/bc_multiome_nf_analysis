@@ -48,12 +48,12 @@ cnv_cluster_in<-cnv_cluster_in[c("atac_cluster","rna_cluster","merge_cluster")]
 dat<-AddMetaData(dat,cnv_cluster_in)
 
 saveRDS(dat,"merged.clone_annot.passqc.SeuratObject.rds")
+dat<-readRDS("merged.clone_annot.passqc.SeuratObject.rds")
 
-dat<-subset(dat,cells=row.names(dat@meta.data[!is.na(dat@meta.data$rna_cluster) & !is.na(dat@meta.data$atac_cluster),]))
-p1<-DimPlot(dat, group.by = 'rna_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
-p2<-DimPlot(dat, group.by = 'atac_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F)
-p3<-DimPlot(dat, group.by = 'merge_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
-p4<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F) 
+p1<-DimPlot(dat, group.by = 'rna_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.rm=TRUE) + theme(legend.position="none")
+p2<-DimPlot(dat, group.by = 'atac_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none")
+p3<-DimPlot(dat, group.by = 'merge_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none")
+p4<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none")
 
-ggsave(p1+p2/p3+p4,file="allcells.umap.clones.passqc.pdf",height=20,width=20,limitsize=F)
+ggsave((p1+p2)/(p3+p4),file="allcells.umap.clones.passqc.pdf",height=20,width=20,limitsize=F)
 
