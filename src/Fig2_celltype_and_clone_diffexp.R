@@ -133,7 +133,7 @@ average_features<-function(x=hg38_atac,features=da_tf_markers$motif.feature,assa
 }
 
 #Make a heatmap of aligned multiple modalities
-plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group_by.="predicted.id",CHROMVAR=TRUE,GA=TRUE,height.){
+plot_top_TFs<-function(x=dat,tf_markers=da_tf_markers,prefix="celltype",group_by.="assigned_celltype",CHROMVAR=TRUE,GA=TRUE,height.){
     tf_rna<-average_features(x=x,features=tf_markers$gene,assay="RNA",group_by.=group_by.)
     tf_rna<-tf_rna[row.names(tf_rna) %in% tf_markers$gene,]
 
@@ -155,32 +155,33 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
     tf_motif<-tf_motif[markers_list,]
     tf_ga<-tf_ga[markers_list,]
 
+    average_matrix=(tf_rna+tf_motif+tf_ga)/3. #matrix averages for clustering
+
     #set up heatmap seriation and order by RNA
-    o_rows =dist(tf_rna,method="maximum") %>%
+    o_rows =dist(average_matrix) %>%
                           hclust() %>%
-                          as.dendrogram()  %>%
-                          ladderize()
-    o_col =dist(t(tf_rna),method="maximum") %>%
+                          as.dendrogram()  #%>%
+                          #ladderize()
+    o_col =dist(t(tf_rna)) %>%
                       hclust() %>%
                       as.dendrogram()  %>%
                       ladderize()
-    saveRDS(o,file=paste0(prefix,".geneactivity.dend.rds")) 
-    side_ha_rna<-data.frame(ga_motif=tf_markers[get_order(o,1),]$RNA.auc)
-    colfun_rna=colorRamp2(quantile(unlist(tf_rna), probs=c(0.5,0.80,0.95)),plasma(3))
-    side_ha_motif<-data.frame(chromvar_motif=tf_markers[get_order(o,1),]$chromvar.auc)
-    colfun_motif=colorRamp2(quantile(unlist(tf_motif), probs=c(0.5,0.80,0.95)),cividis(3))
+    saveRDS(o_rows,file=paste0(prefix,".geneactivity.dend.rds")) 
+    side_ha_rna<-data.frame(ga_motif=tf_markers[get_order(o_rows,1),]$RNA.auc)
+    colfun_rna=colorRamp2(quantile(unlist(tf_rna), probs=c(0.5,0.90,0.95)),plasma(3))
+    side_ha_motif<-data.frame(chromvar_motif=tf_markers[get_order(o_rows,1),]$chromvar.auc)
+    colfun_motif=colorRamp2(quantile(unlist(tf_motif), probs=c(0.5,0.90,0.95)),cividis(3))
     #Plot motifs alongside chromvar plot, to be added to the side with illustrator later
     motif_list<-tf_markers[tf_markers$gene %in% row.names(tf_motif),]$chromvar.feature
-    plt<-MotifPlot(object = x,assay="peaks",motifs = motif_list[get_order(o,1)],ncol=1)+theme_void()+theme(strip.text = element_blank())
+    plt<-MotifPlot(object = x,assay="peaks",motifs = motif_list[get_order(o_rows,1)],ncol=1)+theme_void()+theme(strip.text = element_blank())
     ggsave(plt,file=paste0(prefix,".tf.heatmap.motif.pdf"),height=100,width=2,limitsize=F)
 
-    side_ha_ga<-data.frame(ga_auc=tf_markers[get_order(o,1),]$GeneActivity.auc)
-    colfun_ga=colorRamp2(quantile(unlist(tf_ga), probs=c(0.5,0.80,0.95)),magma(3))
-
+    side_ha_ga<-data.frame(ga_auc=tf_markers[get_order(o_rows,1),]$GeneActivity.auc)
+    colfun_ga=colorRamp2(quantile(unlist(tf_ga), probs=c(0.5,0.90,0.95)),magma(3))
 
     side_ha_col<-colorRamp2(c(0,1),c("white","black"))
     gene_ha = rowAnnotation(foo = anno_mark(at = c(1:nrow(tf_rna)), labels =row.names(tf_rna),labels_gp=gpar(fontsize=6)))
-
+    o_col<-levels(Idents(x))
     rna_auc<-Heatmap(side_ha_rna,
         cluster_rows = o_rows,
         col=side_ha_col,
@@ -189,7 +190,7 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
 
     rna_plot<-Heatmap(tf_rna,
         cluster_rows = o_rows,
-        cluster_columns=o_col,
+        column_order=as.factor(levels(Idents(x))),
         name="RNA",
         column_title="RNA",
         col=colfun_rna,
@@ -205,7 +206,7 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
 
       ga_plot<-Heatmap(tf_ga,
           cluster_rows = o_rows,                 
-          cluster_columns=o_col,
+        column_order=as.factor(levels(Idents(x))),
           name="Gene Activity",
           column_title="Gene Activity",
           col=colfun_ga,
@@ -222,7 +223,7 @@ plot_top_TFs<-function(x=stromal,tf_markers=da_tf_markers,prefix="stromal",group
 
       motif_plot<-Heatmap(tf_motif,
           cluster_rows = o_rows,                 
-          cluster_columns=o_col,
+        column_order=as.factor(levels(Idents(x))),
           name="TF Motif",
           column_title="TF Motif",
           col=colfun_motif,
@@ -258,9 +259,16 @@ run_top_TFs<-function(obj=obj,prefix="all_cells",i="assigned_celltype",n_markers
  
 }
 
-obj<-subset(dat,assigned_celltype!="low_quality")
-run_top_TFs(dat,prefix="all_cells",i="assigned_celltype",n_markers=10) #generate top TF markers per cell type
+Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial",
+"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
+"mast","myeloid","bcell","plasma","pDC",
+"tcell"
+))
 
+run_top_TFs(dat,prefix="celltype",i="assigned_celltype",n_markers=5) #generate top TF markers per cell type
+
+obj<-subset(dat,cells=names(!is.na(dat$merge_cluster)))
+run_top_TFs(obj,prefix="clonal",i="merge_cluster",n_markers=10) #generate top TF markers per cell type
 
 ##Scaling scores function before calling the highest Call
 center_sweep <- function(x, row.w = rep(1, nrow(x))/nrow(x)) {

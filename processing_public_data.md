@@ -275,6 +275,23 @@ cd /home/groups/CEDAR/mulqueen/ref/embo
 ```
 
 
+### Download of Multiome Normal Breast Data from Cellxgene
+From https://cellxgene.cziscience.com/e/61af564d-e5ea-4d34-a0f3-2668a00db376.cxg/
+https://pubmed.ncbi.nlm.nih.gov/39122969/
+
+```bash
+cd /home/groups/CEDAR/mulqueen/ref
+mkdir -p nakshatri_multiome
+cd nakshatri_multiome
+wget https://datasets.cellxgene.cziscience.com/63a485bc-cac7-49d2-83ed-8e07ca4efa2a.rds
+#curl download of fastq files
+curl --location --fail https://service.azul.data.humancellatlas.org/manifest/files/ksQwlKVkY3A0NKRjdXJsxBDVqi-KPW5cZIBunIwUGnbJxBDNWgLvW59Vl54jxXbB21J3xCAWcw-YKqAgo8jjf-6V_OLtqiQl2o01JAye0IwhVslyhg | curl --fail-early --continue-at - --retry 15 --retry-delay 10 --config -
+
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE244585
+
+wget https://ftp.ncbi.nlm.nih.gov/geo/series/GSE244nnn/GSE244585/suppl/GSE244585_RAW.tar
+
+```
 
 ### Use EMBO and Swarbrick Paper Cell Types to Define Signatures
 Using package genefu for PAM50 pseudobulk assignment.

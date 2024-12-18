@@ -27,18 +27,16 @@ library(ggdendro)
 library(circlize)
 
 option_list = list(
-  make_option(c("-c", "--cistopic"), type="character", default=NULL, 
-              help="List of sample cisTopic RDS files", metavar="character"),
-  make_option(c("-t", "--titan"), type="character", default=NULL, 
-              help="List of sample TITAN RDS files", metavar="character")
+  make_option(c("-i", "--object_input"), type="character", default=NULL, 
+              help="Sample input seurat object", metavar="character")
 );
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 #cistopic=readRDS(opt$cistopic)
 #titan=readRDS(opt$titan)
-setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
-opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+opt$object_input="merged.clone_annot.passqc.SeuratObject.rds"
 dat=readRDS(opt$object_input)
 
 hist_col=c("NAT"="#99CCFF","DCIS"="#CCCCCC","IDC"="#FF9966","ILC"="#006633")
@@ -51,10 +49,10 @@ clin_col=c("IDC ER+/PR-/HER2-"="#f9bdbd",
                       "ILC ER+/PR-/HER2-"="#123524")
 sampled_col=c("Primary"="#8A4C80","Metastasis"="#4c9173","NAT"="#99CCFF")
 
-inmf<-function(dat,assay="SCT",ndim=10,prefix="allcells",col_in=c("black","pink","white")){
+inmf<-function(dat,assay="RNA",ndim=10,prefix="allcells",col_in=c("black","pink","white")){
   DefaultAssay(dat)<-assay
   seu.list <- SplitObject(dat, split.by = "sample")
-  geneNMF.programs <- multiNMF(seu.list, assay=assay,  k=10:25, slot="data", min.cells.per.sample = 100,min.exp = 0.05)
+  geneNMF.programs <- multiNMF(seu.list, assay=assay,  k=10:25, slot="data", min.cells.per.sample = 20, min.exp = 0.01)
   geneNMF.metaprograms <- getMetaPrograms(geneNMF.programs,
                                           max.genes=200,
                                           nMP=ndim,
@@ -62,9 +60,8 @@ inmf<-function(dat,assay="SCT",ndim=10,prefix="allcells",col_in=c("black","pink"
                                           hclust.method="ward.D2",
                                           weight.explained=0.5)
 
-  ph <- plotMetaPrograms(geneNMF.metaprograms,
-                        similarity.cutoff = c(0.1,1))
-  png("test_geneNMF_heatmap.png")
+  ph <- plotMetaPrograms(geneNMF.metaprograms, similarity.cutoff = c(0.1,1))
+  png("geneNMF_allcells_heatmap.png")
   print(ph)
   dev.off()
   sim_mat<-geneNMF.metaprograms$programs.similarity
@@ -78,7 +75,7 @@ inmf<-function(dat,assay="SCT",ndim=10,prefix="allcells",col_in=c("black","pink"
   saveRDS(member_split,file=paste0(prefix,"_metaprograms",assay,".members.rds"))
 
   #set up metadata
-  program_samples<-unlist(lapply(strsplit(row.names(jaccard_dist),"[.]"),"[",1))
+  program_samples<-unlist(lapply(strsplit(row.names(sim_mat),"[.]"),"[",1))
   sample_metadata<-dat@meta.data[!duplicated(dat@meta.data$sample),]
   sample_metadata$Mol_Diagnosis<-paste(sample_metadata$Diagnosis,sample_metadata$Mol_Diagnosis)
   sample_metadata$sampled_site<-unlist(lapply(strsplit(sample_metadata$sampled_site," "),"[",1))
@@ -142,10 +139,11 @@ dev.off()
 
   #Add module scores
   mp.genes <- geneNMF.metaprograms$metaprograms.genes
+  dat<-JoinLayers(dat,assay="RNA")
   dat <- AddModuleScore_UCell(dat, features = mp.genes, assay=assay, ncores=1, name = paste0("_",assay))
 
   #plot per cell type
-  plt<-VlnPlot(dat, features=paste0(names(mp.genes),"_",assay), group.by = "HBCA_predicted.id",pt.size = 0, stack=TRUE)
+  plt<-VlnPlot(dat, features=paste0(names(mp.genes),"_",assay), group.by = "assigned_celltype",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bycelltype","_",assay,".pdf"),width=20)
 
   #plot per diagnosis
@@ -155,13 +153,12 @@ dev.off()
   return(dat)
 }
 
-inmf(dat,assay="SCT")
-inmf(dat,assay="GeneActivity",col_in=c("black","green","white"))
-#inmf(dat,assay="chromvar")
+inmf(dat,assay="RNA")
 
-dat<-subset(dat,HBCA_predicted.id %in% c("luminal epithelial cell of mammary gland","basal cell"))
-dat<-inmf(dat,assay="SCT",prefix="epi")
-dat<-inmf(dat,assay="GeneActivity",prefix="epi")
+
+dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$reclust %in% c("luminal_epithelial","basal_epithelial")])
+dat_epi<-inmf(dat_epi,assay="RNA",prefix="epi")
+#dat<-inmf(dat,assay="GeneActivity",prefix="epi")
 #dat<-inmf(dat,assay="chromvar",prefix="epi")
 
 ```

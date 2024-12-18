@@ -4,6 +4,7 @@ module load singularity
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
 singularity shell \
 --bind /home/groups/CEDAR/scATACcnv/Hisham_data \
+--bind /home/groups/CEDAR/mulqueen/ref \
 --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 ```
 
@@ -47,13 +48,20 @@ cnv_cluster_in<-cnv_cluster_in[c("atac_cluster","rna_cluster","merge_cluster")]
 
 dat<-AddMetaData(dat,cnv_cluster_in)
 
+dat$ploidy<-"diploid"
+diploid_clone<-c("DCIS_03.1","IDC_01.4","IDC_02.1","IDC_05.1","IDC_06.3","IDC_08.2","IDC_09.2","IDC_10.3","IDC_11.2","IDC_12.4","ILC_02.1","ILC_04.2")
+dat@meta.data[!(dat$merge_cluster %in% diploid_clone),]$ploidy<-"aneuploid"
+dat@meta.data[is.na(dat$merge_cluster),]$ploidy<-NA
+
+dat@meta.data[dat$assigned_celltype=="luminal_epithelial",]$assigned_celltype<-ifelse(dat@meta.data[dat$assigned_celltype=="luminal_epithelial",]$ploidy=="aneuploid","cancer_luminal_epithelial","luminal_epithelial")
 saveRDS(dat,"merged.clone_annot.passqc.SeuratObject.rds")
 dat<-readRDS("merged.clone_annot.passqc.SeuratObject.rds")
 
-p1<-DimPlot(dat, group.by = 'rna_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.rm=TRUE) + theme(legend.position="none")
-p2<-DimPlot(dat, group.by = 'atac_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none")
-p3<-DimPlot(dat, group.by = 'merge_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none")
-p4<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none")
+p1<-DimPlot(dat, group.by = 'rna_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NULL) + theme(legend.position="none") +scale_fill_manual(na.value=NULL) 
+p2<-DimPlot(dat, group.by = 'atac_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NA) + theme(legend.position="none")
+p3<-DimPlot(dat, group.by = 'merge_cluster',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NA) + theme(legend.position="none")
+p4<-DimPlot(dat, group.by = 'sample',label = TRUE, repel = TRUE,reduction = "allcells.wnn.umap",raster=F,na.value=NA) + theme(legend.position="none")
 
 ggsave((p1+p2)/(p3+p4),file="allcells.umap.clones.passqc.pdf",height=20,width=20,limitsize=F)
+
 
