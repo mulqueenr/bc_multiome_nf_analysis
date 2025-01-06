@@ -15,7 +15,7 @@ library(optparse)
 option_list = list(
   make_option(c("-s", "--sample_array_in"), type="character", default="NAT_1", 
               help="Sample array to subset to (number 1 - total sample count", metavar="character"),
-    make_option(c("-i", "--object_input"), type="character", default="merged.public_transfer.SeuratObject.rds", 
+    make_option(c("-i", "--object_input"), type="character", default="merged.clone_annot.passqc.SeuratObject.rds", 
               help="Reference directory containing genome information. default: %default]", metavar="character"),
         make_option(c("-o", "--output_directory"), type="character", default=NULL, 
               help="Output directory, defined in nextflow parameters.", metavar="character")
@@ -25,7 +25,6 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
-opt$object_input="merged.geneactivity.passqc.SeuratObject.rds"
 dat<-readRDS(file=opt$object_input)
 opt$output_directory="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3"
 outdir=paste0(opt$output_directory,"/titan_objects") #/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3
@@ -74,7 +73,7 @@ single_sample_titan_generation<- function(Object,
   print(paste0("Setting ",assay," as assay..."))
   if(epithelial_only){
     Object<-subset(Object,sample==sample_in)
-    Object<-subset(Object,reclust %in% c("luminal_epithelial","basal_epithelial"))
+    Object<-subset(Object,assigned_celltype %in% c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial"))
     out_seurat_object<-paste0(outDir,"/",sample_in,".titan_epithelial.SeuratObject.rds")
     out_titan_obj<-paste0(outDir,"/",sample_in,".titan_epithelial.titanObject.rds")
     elbow_out<-paste0(outDir,"/",sample_in,".titan_epithelial.elbow.pdf")
@@ -180,4 +179,3 @@ single_sample_titan_generation(Object=dat,outDir=outdir,sample_in=sample_in,epit
 single_sample_titan_generation(Object=dat,outDir=outdir,sample_in=sample_in,epithelial_only=FALSE) #all cells per sample
 })
 
-#IDC_10 failed?

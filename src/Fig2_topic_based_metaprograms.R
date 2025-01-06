@@ -27,7 +27,7 @@ library(circlize)
 
 
 option_list = list(
-  make_option(c("-i", "--object_input"), type="character", default=NULL, 
+  make_option(c("-i", "--object_input"), type="character", default="merged.clone_annot.passqc.SeuratObject.rds", 
               help="List of sample RDS files", metavar="character"),
   make_option(c("-c", "--cistopic"), type="character", default=NULL, 
               help="List of sample cisTopic RDS files", metavar="character"),
@@ -37,10 +37,7 @@ option_list = list(
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-#cistopic=readRDS(opt$cistopic)
-#titan=readRDS(opt$titan)
-setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3")
-opt$object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds"
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
 dat=readRDS(opt$object_input)
 met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
 
@@ -153,7 +150,6 @@ report_genes<-function(i,titan_objs,member_split_df){
   tmp=member_split_df[member_split_df$cluster==i,]
   genes<-lapply(1:nrow(tmp), function(x){
       sample=tmp[x,"sample"]
-      sample<-gsub("_0","_",sample) #uncorrect sample names for reading in file
       topic=tmp[x,"topic"]
       print(paste("Reading in ",sample,topic))
       titan<-readRDS(titan_objs[grep(pattern=paste0(sample,"[.]"),x=titan_objs)])
@@ -199,7 +195,7 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
   
  #cluster by all marker genes
   sum_da_dend <- as.matrix(1-sim_mat) %>% as.dist %>% hclust(method="ward.D2") %>% as.dendrogram 
-  k_in<-find_k(sum_da_dend,krange=5:15)
+  k_in<-find_k(sum_da_dend,krange=8:15)
   sum_da_dend<-sum_da_dend %>% set("branches_k_color", k = k_in$k)
   saveRDS(sum_da_dend,file=paste0(prefix,"_metaprograms.TITAN.dend.rds"))
   member_split<-cutree(sum_da_dend,k_in$k)
@@ -230,7 +226,7 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
     show_row_names=FALSE,
     show_column_names=FALSE,
     name = "TITAN Topics",
-    col=colorRamp2(c(0,0.5,1),col_in))
+    col=colorRamp2(c(0,0.5,0.75),plasma(3)))
   print(ph)
   dev.off()
 
@@ -284,12 +280,47 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
   theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
   ggsave(plt,file=paste0(prefix,"_metaprograms","_H","_","TITAN",".pdf"),width=20)
 
+  #find positional signatures
+    top_p_H <- do.call("rbind",
+    lapply(unique(genes_out$metaprogram_cluster), 
+    function(i) {
+    program_name=i
+    program_genes=unlist(genes_out[genes_out$metaprogram_cluster==program_name,]$genes)
+    out<-runGSEA(program_genes, universe=row.names(dat@assays$RNA), category = "C1")
+    out$program<-paste0(program_name)
+    return(out)
+    }
+    ))
+  pltdat<-top_p_H %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
+
+  plt<-ggplot(pltdat,aes(x=program,y=pathway))+
+  geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
+  theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_c1","_","TITAN",".pdf"),width=20)
+  #find enrichment in tft (transcription factor targets)
+    top_p_H <- do.call("rbind",
+    lapply(unique(genes_out$metaprogram_cluster), 
+    function(i) {
+    program_name=i
+    program_genes=unlist(genes_out[genes_out$metaprogram_cluster==program_name,]$genes)
+    out<-runGSEA(program_genes, universe=row.names(dat@assays$RNA), category = "C3",subcategory="TFT:GTRD")
+    out$program<-paste0(program_name)
+    return(out)
+    }
+    ))
+  pltdat<-top_p_H %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
+
+  plt<-ggplot(pltdat,aes(x=program,y=pathway))+
+  geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
+  theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_TFT","_","TITAN",".pdf"),width=20)
+
   #Add module scores
   metaprogram_genes<-list()
   for(i in unique(genes_out$metaprogram_cluster)){
     metaprogram_genes[[paste0("MetaTopic_",i)]]<-unlist(genes_out[genes_out$metaprogram_cluster==i,]$genes)
   }
-  dat <- AddModuleScore_UCell(dat, features = metaprogram_genes, assay="SoupXRNA", ncores=1, name = paste0("_","TITAN_metaprogram"))
+  dat <- AddModuleScore_UCell(dat, features = metaprogram_genes, assay="RNA", ncores=1, name = paste0("_","TITAN_metaprogram"))
 
   #plot per cell type
   assay="TITAN_metaprogram"
@@ -300,6 +331,11 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
   dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
   plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "Diag_MolDiag",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bydiagnosis","_",assay,".pdf"),width=20)
+
+  #plot per diagnosis
+  plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "merge_cluster",pt.size = 0, stack=TRUE)
+  ggsave(plt,file=paste0(prefix,"_metaprograms","_byclone","_",assay,".pdf"),width=20)
+
   return(dat)
   }
 
@@ -312,7 +348,8 @@ titan_cluster_genes<-process_titan_topics(dat=dat,titan_objs=titan_objs,met=met,
 
 #titan epithelial
 titan_objs<-list.files(path=titan_path, pattern="*titan_epithelial.titanObject.rds$",full.names=TRUE)
-titan_epi_cluster_genes<-process_titan_topics(titan_objs=titan_objs,met=met,out_prefix="titan_epithelial",titan_path=titan_path)
+dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$reclust %in% c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial")])
+titan_epi_cluster_genes<-process_titan_topics(dat=dat_epi,titan_objs=titan_objs,met=met,prefix="titan_epithelial",titan_path=titan_path)
 
 
 #add clustering and k selection for output
