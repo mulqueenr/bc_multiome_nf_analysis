@@ -483,6 +483,37 @@ run_top_TFs(combined,prefix="ref_cell_type",i="author_cell_type",n_markers=5) #g
 
 ```
 
+Call peaks per cell type
+```R
+library(Signac)
+library(Seurat)
+library(EnsDb.Hsapiens.v86)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(GenomeInfoDb)
+library(stringr)
+library(plyr)
+library(org.Hs.eg.db)
+library(JASPAR2020)
+library(TFBSTools)
+library(patchwork)
+set.seed(1234)
+library(BiocParallel)
+library(universalmotif)
+library(GenomicRanges)
+register(SerialParam()) #using single core mode
+
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+
+combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
+
+peaks <- CallPeaks(
+  object = combined,
+  group.by = "author_cell_type",
+  macs2.path = "/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2"
+)
+
+saveRDS(peaks,file="nakshatri_celltype_peaks.rds")
+```
 ### Use EMBO and Swarbrick Paper Cell Types to Define Signatures
 Using package genefu for PAM50 pseudobulk assignment.
 https://www.bioconductor.org/packages/release/bioc/vignettes/genefu/inst/doc/genefu.html
