@@ -3,6 +3,7 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3
 module load singularity
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
 ```
 
 library(GeneNMF,lib="/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3")
@@ -19,7 +20,7 @@ library(msigdbr)
 library(fgsea)
 library(dplyr)
 library(TITAN)
-library(cistopic)
+library(cisTopic)
 library(ComplexHeatmap)
 library(reshape2)
 library(dendextend)
@@ -173,16 +174,6 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
   titan_full_cor<-lapply(titan_objs,function(x) titan_top_genes(x))
   titan_topic_genes<-lapply(titan_objs,function(x) titan_top_genes(x))
   names(titan_topic_genes)<-unlist(lapply(titan_objs,function(x) strsplit(basename(x),"[.]")[[1]][1]))
-  #correct names
-  names(titan_topic_genes)<-unlist(lapply(names(titan_topic_genes),
-  function(x){
-    if(nchar(strsplit(x,"_")[[1]][2])==2){
-      return(x)
-    }else {
-      x<-paste0(strsplit(x,"_")[[1]][1],"_0",strsplit(x,"_")[[1]][2])
-      return(x)
-    }
-  }))
 
   #calculate similarity matrix among lists of top genes per topic
   out<-lapply(names(titan_topic_genes),function(x){lapply(names(titan_topic_genes),function(y){compare_topics(x,y)})})
@@ -332,8 +323,14 @@ process_titan_topics<-function(dat,titan_objs,met,prefix,titan_path,sim_method="
   plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "Diag_MolDiag",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bydiagnosis","_",assay,".pdf"),width=20)
 
-  #plot per diagnosis
-  plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "merge_cluster",pt.size = 0, stack=TRUE)
+  #set merge_cluster annots to just those over 50 cells, and those not diploid
+  dat$merge_cluster_50min<-NA
+  for(i in names(which(table(dat$merge_cluster)>50))){
+    dat@meta.data[which(dat@meta.data$merge_cluster==i),]$merge_cluster_50min<-i
+  }
+  dat@meta.data[which(dat@meta.data$ploidy=="diploid"),]$merge_cluster_50min<-"diploid"
+
+  plt<-VlnPlot(dat, features=paste0(names(metaprogram_genes),"_",assay), group.by = "merge_cluster_50min",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_byclone","_",assay,".pdf"),width=20)
 
   return(dat)
@@ -350,7 +347,63 @@ titan_cluster_genes<-process_titan_topics(dat=dat,titan_objs=titan_objs,met=met,
 titan_objs<-list.files(path=titan_path, pattern="*titan_epithelial.titanObject.rds$",full.names=TRUE)
 dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$reclust %in% c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial")])
 titan_epi_cluster_genes<-process_titan_topics(dat=dat_epi,titan_objs=titan_objs,met=met,prefix="titan_epithelial",titan_path=titan_path)
+```
 
+
+```bash 
+module load singularity
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
+
+```
+
+```R
+
+library(GeneNMF,lib="/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3")
+library(Seurat)
+library(Signac)
+library(ggplot2)
+library(UCell)
+library(patchwork)
+library(Matrix)
+library(RcppML)
+library(viridis)
+library(optparse)
+library(msigdbr)
+library(fgsea)
+library(dplyr)
+library(TITAN)
+library(cisTopic)
+library(ComplexHeatmap)
+library(reshape2)
+library(dendextend)
+library(circlize)
+
+option_list = list(
+  make_option(c("-i", "--object_input"), type="character", default="merged.clone_annot.passqc.SeuratObject.rds", 
+              help="List of sample RDS files", metavar="character"),
+  make_option(c("-c", "--cistopic"), type="character", default=NULL, 
+              help="List of sample cisTopic RDS files", metavar="character"),
+  make_option(c("-t", "--titan"), type="character", default=NULL, 
+              help="List of sample TITAN RDS files", metavar="character")
+);
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+dat=readRDS(opt$object_input)
+met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
+
+hist_col=c("NAT"="#99CCFF","DCIS"="#CCCCCC","IDC"="#FF9966","ILC"="#006633")
+clin_col=c("IDC ER+/PR-/HER2-"="#f9bdbd",
+                      "IDC ER+/PR+/HER2-"="#fe549d",
+                      "NAT NA"="#c5eae7",          
+                      "DCIS DCIS"="#707b90",
+                      "ILC ER+/PR+/HER2-"="#fdd503",
+                      "IDC ER+/PR-/HER2+"="#328983",
+                      "ILC ER+/PR-/HER2-"="#123524")
+sampled_col=c("Primary"="#8A4C80","Metastasis"="#4c9173","NAT"="#99CCFF")
 
 #add clustering and k selection for output
 cistopic_top_sites<-function(x){
@@ -398,7 +451,7 @@ process_cistopic_topics<-function(cistopic_objs,met,out_prefix,cistopic_path){
   colnames(df)<-c("dat1","dat2","topic_dat1","topic_dat2","overlap")
   df$overlap<-as.numeric(df$overlap)
   out_mat<-as.data.frame(dcast(dat1+topic_dat1~dat2+topic_dat2,data=df,value.var="overlap"))
-  row.names(out_mat)<-unique(paste(out_mat$dat1,out_mat$topic_dat1))#check that row is correct for this
+  row.names(out_mat)<-unique(paste(out_mat$dat1,out_mat$topic_dat1))
   out_mat<-out_mat[,3:ncol(out_mat)]
   ha = rowAnnotation(mol_diag = met[unlist(lapply(strsplit(row.names(out_mat),split=" "),"[",1)),]$full_diag,
                       diag = unlist(lapply(strsplit(row.names(out_mat),split="_"),"[",1)),
@@ -467,14 +520,4 @@ process_cistopic_topics(cistopic_objs=cistopic_objs,met=met,out_prefix="cistopic
 cistopic_epi_objs<-list.files(path=cistopic_path,pattern="*cistopic_epithelial.cistopicObject.rds$",full.names=TRUE)
 process_cistopic_topics(cistopic_objs=cistopic_epi_objs,met=met,out_prefix="cistopic_epithelial",cistopic_path=cistopic_path)
 
-
 ```
-
-```R
-
-
-
-met<-dat@meta.data[!duplicated(dat@meta.data$sample),]
-row.names(met)<-met$sample
-met$full_diag<-paste(met$Diagnosis,met$Mol_Diagnosis)
-

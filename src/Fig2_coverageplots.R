@@ -54,17 +54,33 @@ DefaultAssay(dat)<-"peaks"
 #dat<-subset(dat,cells=cell_idx)
 
 
-dat$ploidy<-"aneuploid"
+dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
+dat<-ScaleData(dat,assay="RNA",features=row.names(dat@assays$RNA@data),vars.to.regress="nCount_RNA")
 
-DefaultAssay(dat)<-"peaks"
-feat="GLI2"
-cov_plot <- CoveragePlot(object = dat,
+dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$assigned_celltype %in% c("cancer_luminal_epithelial")])
+dat_epi<-ScaleData(dat_epi,features=c("ERBB2","CDH1"))
+Idents(dat_epi)<-dat_epi$Diagnosis
+feat="ERBB2"
+cov_plot <- CoveragePlot(object = dat_epi,
                         region=feat,
                         features=feat,
+                        expression.slot="scale.data",
                         assay.scale="common",
-                        extend.upstream=5000,
-                        extend.downstream=5000,
-                        split.by="assigned_celltype",
+                        extend.upstream=50000,
+                        extend.downstream=50000,
+                        split.by="Diag_MolDiag",
                         ncol=1)
-ggsave(cov_plot,file="coverage.pdf")
+ggsave(cov_plot,file="coverage.ERBB2.pdf")
 
+
+feat="CDH1"
+cov_plot <- CoveragePlot(object = dat_epi,
+                        region=feat,
+                        features=feat,
+                        expression.slot="scale.data",
+                        assay.scale="common",
+                        extend.upstream=50000,
+                        extend.downstream=50000,
+                        split.by="Diag_MolDiag",
+                        ncol=1)
+ggsave(cov_plot,file="coverage.CDH1.pdf")

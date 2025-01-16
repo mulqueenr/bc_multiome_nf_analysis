@@ -48,16 +48,19 @@ clin_col=c("IDC ER+/PR-/HER2-"="#f9bdbd",
                       "ILC ER+/PR-/HER2-"="#123524")
 sampled_col=c("Primary"="#8A4C80","Metastasis"="#4c9173","NAT"="#99CCFF")
 
-inmf<-function(dat,assay="RNA",ndim=20,prefix="allcells",col_in=c("black","pink","white")){
+inmf<-function(dat,assay="RNA",ndim=10,prefix="allcells",col_in=c("black","pink","white")){
   DefaultAssay(dat)<-assay
   seu.list <- SplitObject(dat, split.by = "sample")
-  geneNMF.programs <- multiNMF(seu.list, assay=assay,  k=10:25, slot="data", min.cells.per.sample = 20, min.exp = 0.01)
+  geneNMF.programs <- multiNMF(seu.list, assay=assay,  k=4:8, 
+                                hvg=VariableFeatures(dat),slot="scale.data", 
+                                min.cells.per.sample = 20,center=F,scale=F)
+
   geneNMF.metaprograms <- getMetaPrograms(geneNMF.programs,
-                                          max.genes=200,
                                           nMP=ndim,
                                           metric="cosine",
                                           hclust.method="ward.D2",
-                                          weight.explained=0.5)
+                                          weight.explained=0.8)
+
   ph <- plotMetaPrograms(geneNMF.metaprograms, similarity.cutoff = c(0.1,1))
   png(paste0("geneNMF_",prefix,"_heatmap.png"))
   print(ph)
@@ -176,7 +179,7 @@ inmf<-function(dat,assay="RNA",ndim=20,prefix="allcells",col_in=c("black","pink"
   plt<-VlnPlot(dat, features=paste0(names(mp.genes),"_",assay), group.by = "Diag_MolDiag",pt.size = 0, stack=TRUE)
   ggsave(plt,file=paste0(prefix,"_metaprograms","_bydiagnosis","_",assay,".pdf"),width=20)
 
-  #plot per diagnosis
+  #plot per clone
   #set merge_cluster annots to just those over 50 cells, and those not diploid
   dat$merge_cluster_50min<-NA
   for(i in names(which(table(dat$merge_cluster)>50))){
@@ -192,10 +195,13 @@ inmf<-function(dat,assay="RNA",ndim=20,prefix="allcells",col_in=c("black","pink"
 inmf(dat,assay="RNA")
 
 
-dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$reclust %in% c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial")])
-dat_epi<-inmf(dat_epi,assay="RNA",prefix="epi")
-saveRDS(dat_epi,file="merged.nmfmodules.SeuratObject.rds")
+dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$assigned_celltype %in% c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial")])
 
+dat_epi<-inmf(dat_epi,assay="RNA",prefix="epi")
+saveRDS(dat_epi,file="merged.rna_nmfmodules.SeuratObject.rds")
+
+dat_epi<-inmf(dat_epi,assay="GeneActivity",prefix="epi")
+saveRDS(dat_epi,file="merged.geneactivity_nmfmodules.SeuratObject.rds")
 
 
 
