@@ -297,7 +297,10 @@ module load singularity
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 singularity shell \
 --bind /home/groups/CEDAR/mulqueen/bc_multiome \
---bind /home/groups/CEDAR/mulqueen/ref $sif
+--bind /home/groups/CEDAR/mulqueen/ref \
+--bind /home/groups/CEDAR/mulqueen/src/miniconda3/bin \
+$sif
+
 ```
 ```R
 library(Signac)
@@ -503,13 +506,14 @@ library(GenomicRanges)
 register(SerialParam()) #using single core mode
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-
 combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
 
 peaks <- CallPeaks(
   object = combined,
   group.by = "author_cell_type",
-  macs2.path = "/home/groups/CEDAR/mulqueen/src/miniconda3/bin/macs2"
+  macs2.path = "/home/users/mulqueen/macs3",
+  outdir="/home/groups/CEDAR/mulqueen/bc_multiome/ref/nakshatri",
+  fragment.tempdir="/home/groups/CEDAR/mulqueen/bc_multiome/ref/nakshatri"
 )
 
 saveRDS(peaks,file="nakshatri_celltype_peaks.rds")
