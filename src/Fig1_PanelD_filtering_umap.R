@@ -52,7 +52,7 @@ multimodal_cluster<-function(dat=dat,prefix="allcells",res=0.5,dotsize=5){
   # build a joint neighbor graph using both assays
   dat <- FindMultiModalNeighbors(object = dat,
     reduction.list = list("pca", "lsi"), 
-    dims.list = list(1:50, 2:40),
+    dims.list = list(1:30, 2:30),
     modality.weight.name = "RNA.weight",
     weighted.nn.name=paste(prefix,"weighted.nn",sep="."),
     snn.graph.name=paste(prefix,"wsnn",sep="."),

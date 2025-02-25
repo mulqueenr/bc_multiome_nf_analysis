@@ -17,7 +17,7 @@ params.sample_metadata="${params.proj_dir}/sample_metadata.csv"
 log.info """
 
 		================================================
-		    Breast Cancer Multiome NF PIPELINE v1.0
+		    Breast Cancer Multiome NF PIPELINE v1.2
 		================================================
 		NF Working Directory : ${workflow.launchDir}
 		Project Directory : ${params.proj_dir}
@@ -51,7 +51,7 @@ process SCRUBLET_RNA {
 
 	script:
 		"""
-		python /src/scrublet_per_sample.py \\
+		python /src/preprocessing_scrublet_per_sample.py \\
 		-m ${sample_dir}/outs/filtered_feature_bc_matrix.h5 \\
 		-o ${sample_dir}/outs
 		"""
@@ -60,7 +60,7 @@ process SCRUBLET_RNA {
 
 process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
-	//TODO: Update with R getopts library
+	//TODO: Update with R getopts library for readability
   cpus 5
   label 'inhouse'
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
@@ -72,7 +72,7 @@ process SOUPX_RNA {
 
 	script:
 		"""
-		Rscript /src/soupx_per_sample.R \\
+		Rscript /src/1_preprocessing_soupx_per_sample.R \\
 		${sample_name} \\
 		${sample_dir}
 		"""
@@ -112,6 +112,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		#format as bam and filter chr
 		awk 'OFS="\\t" {print \$1,\$2,\$3}' merged_peaks.narrowPeak | grep "chr" | grep -v "chrY" > merged.nf.bed
 		
+		####SKIP
 		#take summits and then expand to 250bp in either direction
 		#awk 'OFS="\\t" {print \$1,int(\$2)-250,int(\$2)+250}' merged_summits.bed > peaks_500bp.bed
 		#awk 'OFS="\\t" sub(/-./,\"1\")1' peaks_500bp.bed > peaks_500bp.nonneg.bed #set negative values to 1
@@ -122,7 +123,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 }
 
-
+//SKIP
 /*process SUPPLIED_MERGED_PEAKS {
 		//Copy supplied bed file. If one is given to the --merged_peaks argument on initialization of pipeline.
 		publishDir "${params.outdir}", mode: 'copy', overwrite: true
@@ -142,7 +143,9 @@ process MERGE_SAMPLES_CALLPEAKS {
 process DIM_REDUCTION_PER_SAMPLE {
 	//Generate per sample seurat object and perform dim reduction.
 	//Reanalyze ATAC data with combined peak set and perform dim reduction.
-	//Note at this stage the seurat object is unfiltered.
+	//Note at this stage the seurat object is unfiltered. 
+	// Only Filters: Requires cells to have 1000 RNA count and 1000 Fragment count
+	// 				Requires sample to have 200 cells
   cpus 5
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'inhouse'
@@ -153,7 +156,7 @@ process DIM_REDUCTION_PER_SAMPLE {
 		path("${sample_dir.simpleName}.SeuratObject.rds")
 	script:
 	"""
-	Rscript /src/seurat_dim_reduction_per_sample.R \\
+	Rscript /src/2_preprocessing_seurat_dim_reduction_per_sample.R \\
 	-p ${combined_peaks} \\
 	-s ${sample_dir} \\
 	-o ${params.outdir}
@@ -174,15 +177,13 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 
 	script:
 	"""
-	Rscript /src/seurat_public_data_label_transfer.R \\
+	Rscript /src/3_preprocessing_seurat_public_data_label_transfer.R \\
 	-s "${seurat_objects}" \\
 	-r ${params.ref} \\
 	-m ${metadata} \\
 	-o ${params.outdir}/plots
 	"""
 }
-
-
 
   //////////////////////////////////////////////////////
  ///	Sample Integration and Merged Processing	///

@@ -37,29 +37,6 @@ outdir<-opt$plot_output_directory
 ###################
 
 
-# set up sample loop to load the RNA and ATAC data, save to seurat object
-merge_seurat<-function(x){
-  #read in data
-  outname=strsplit(x,"[.]")[[1]][1]
-  dat<-readRDS(x)
-  dat$sample<-outname #set up sample metadata
-  dat <- SCTransform(dat,vst.flavor = 'v1')
-  print(paste("Finished sample:",outname))
-  return(dat)}
-
-seurat_obj_list=strsplit(seurat_obj_list," ")[[1]]
-out<-lapply(unlist(seurat_obj_list),merge_seurat)
-sample_names=unlist(lapply(strsplit(seurat_obj_list,"[.]"),"[",1))
-dat <- merge(out[[1]], y = as.list(out[2:length(out)]), add.cell.ids = sample_names, project = "all_data")
-
-
-
-dat$cellID<-row.names(dat@meta.data)
-dat_met<-as.data.frame(dat@meta.data)
-met_merged<-merge(dat_met,met,by.x="sample",by.y="Manuscript_Name",all.x=T)
-row.names(met_merged)<-met_merged$cellID
-dat<-AddMetaData(dat,met_merged[,c("phase","Original_Sample","sample_ID","sample_weight","Diagnosis","Mol_Diagnosis","sampled_site","batch","outcome")])
-
 #saveRDS(dat,file="merged.SeuratObject.rds")
 #dat<-readRDS(file="merged.SeuratObject.rds"))
 
@@ -79,7 +56,7 @@ dat<- RunUMAP(
   dims=1:50
 )
 
-single_sample_label_transfer<-function(dat,ref_obj,ref_prefix){
+single_sample_label_transfer<-function(dat,ref_obj,ref_prefix,celltype="celltype"){
   ref_obj<-UpdateSeuratObject(ref_obj)
   ref_obj <- SCTransform(ref_obj,vst.flavor = 'v2')
 
@@ -95,7 +72,7 @@ single_sample_label_transfer<-function(dat,ref_obj,ref_prefix){
 
   predictions<- TransferData(
     anchorset = transfer.anchors,
-    refdata = ref_obj$celltype,
+    refdata = ref_obj[,celltype],
   )
   colnames(predictions)<-paste0(ref_prefix,"_",colnames(predictions))
 
@@ -105,15 +82,19 @@ single_sample_label_transfer<-function(dat,ref_obj,ref_prefix){
   }
 
 swarbrick<-readRDS(paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds"))#swarbrick types
-dat<-single_sample_label_transfer(dat,ref_obj=swarbrick,"swarbrick")
+dat<-single_sample_label_transfer(dat,ref_obj=swarbrick,ref_prefix="swarbrick")
 rm(swarbrick)
 
 embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds")) #EMBO cell types
-dat<-single_sample_label_transfer(dat,ref_obj=embo_er,"EMBO")
+dat<-single_sample_label_transfer(dat,ref_obj=embo_er,ref_prefix="EMBO")
 rm(embo_er)
 
 hbca<-readRDS(paste0(ref_dir,"/hbca/hbca.rds")) #HBCA cell types
-dat<-single_sample_label_transfer(dat,ref_obj=hbca,"HBCA")
+dat<-single_sample_label_transfer(dat,ref_obj=hbca,ref_prefix="HBCA")
+
+
+nakshatri<-readRDS(file=paste0(ref_dir,"/nakshatri/","nakshatri_multiome.rds"))
+dat<-single_sample_label_transfer(dat,celltype="author_cell_type",ref_obj=nakshatriref_prefix="nakshatri")
 
 saveRDS(dat,file="merged.public_transfer.SeuratObject.rds")
 

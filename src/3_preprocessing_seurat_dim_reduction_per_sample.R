@@ -109,8 +109,8 @@ dat[["peaks"]]<-peaks_assay
 DefaultAssay(dat)<-"peaks"
 
 #set up basic filters
-dat<-subset(dat, nCount_RNA>=500)
-dat<-subset(dat, nCount_peaks>=500)
+dat<-subset(dat, nCount_RNA>=1000)
+dat<-subset(dat, nCount_peaks>=1000)
 
 dat <- NucleosomeSignal(dat)
 dat <- TSSEnrichment(dat)
