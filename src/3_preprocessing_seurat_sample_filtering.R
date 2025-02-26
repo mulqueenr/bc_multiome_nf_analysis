@@ -1,13 +1,11 @@
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 library(Signac)
 library(Seurat)
-library(harmony)
 library(ggplot2)
 library(patchwork)
 library(stringr)
-library(ggalluvial)
 library(reshape2)
 library(optparse)
 library(plyr)
@@ -15,22 +13,119 @@ library(dplyr)
 library(ComplexHeatmap)
 set.seed(123)
 
-
 option_list = list(
-  make_option(c("-s", "--sample_list"), type="character", default=NULL, 
-              help="List of sample RDS files", metavar="character"),
-    make_option(c("-o","--plot_output_directory"), type="character", default=NULL,
-              help="Directory to publish output plots to.", metavar="character")
+  make_option(c("-s", "--sample_dir"), type="character", default="NAT_1", 
+              help="Sample directory from cellranger output.", metavar="character"),
+    make_option(c("-p", "--peaks_bed"), type="character", default="NULL", 
+              help="Bed file formated peaks.", metavar="character"),
+        make_option(c("-o", "--output_directory"), type="character", default=NULL, 
+              help="Output directory, defined in nextflow parameters.", metavar="character")
 
 ); 
- 
+
+#######testing#########
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+#seurat_obj_list="IDC_12.SeuratObject.rds IDC_4.SeuratObject.rds DCIS_2.SeuratObject.rds IDC_7.SeuratObject.rds IDC_2.SeuratObject.rds IDC_5.SeuratObject.rds IDC_9.SeuratObject.rds IDC_6.SeuratObject.rds NAT_4.SeuratObject.rds NAT_11.SeuratObject.rds IDC_3.SeuratObject.rds ILC_1.SeuratObject.rds IDC_10.SeuratObject.rds IDC_1.SeuratObject.rds DCIS_1.SeuratObject.rds IDC_11.SeuratObject.rds DCIS_3.SeuratObject.rds NAT_14.SeuratObject.rds IDC_8.SeuratObject.rds"
+#ref_dir="/home/groups/CEDAR/mulqueen/bc_multiome/ref" 
+#met=read.csv("sample_metadata.csv",header=T,sep=",")
+#outdir<-"/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
+###################
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-seurat_obj_list=opt$sample_list
-ref_dir=opt$ref_dir
-met<-read.csv(opt$metadata,header=T,sep=",")
-outdir<-opt$plot_output_directory
+sample_in=opt$sample_dir
+#outname<-"NAT_11"
+outname<-sample_in
+nf_dir=getwd()
+wd=paste0(nf_dir,"/",outname,"/","outs")
+
+#peaks=read.csv(file="merged.nf.bed",sep="\t",col.names=c("chr","start","end"))
+peaks=read.csv(file=opt$peaks_bed,sep="\t",col.names=c("chr","start","end"))
+peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
+peaks<-peaks[peaks$start>0,]
+peaks<-makeGRangesFromDataFrame(peaks)
+
+#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis"
+outdir=paste0(opt$output_directory,"/plots")
+system(paste0("mkdir -p ",outdir))
+
+# get gene annotations for hg38
+annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pattern="chrMT", replacement="chrM")
+seqlevels(annotation) <- ucsc.levels #standard seq level change threw error, using a string replace instead
+
+counts <- Read10X_h5(paste0(wd,"/filtered_feature_bc_matrix.h5")) #count data
+fragpath <- paste0(wd,"/atac_fragments.tsv.gz") #atac fragments
+metadata_cellranger<-read.csv(paste0(wd,"/per_barcode_metrics.csv")) #metadata
+row.names(metadata_cellranger)<-metadata_cellranger$barcode
+soupx_output<-readRDS(paste0(wd,"/soupx_corrected_counts.rds")) #load SoupX contamination corrected output
+#scrublet is broken due to an annoy versioning error interaction with docker/singularity. I'm just skipping for now
+scrublet_output<-read.table(paste0(wd,"/","scrublet_results.tsv"),sep="\t",header=T) #load scrublet output for doublet detection
+scrublet_output$Barcode<-substr(scrublet_output$Barcode,2,nchar(scrublet_output$Barcode))
+row.names(scrublet_output)<-scrublet_output$Barcode
+
+# create a Seurat object containing the RNA data
+dat <- CreateSeuratObject(
+  counts = counts$`Gene Expression`,
+  assay = "RNA"
+)
+
+# create ATAC assay and add it to the object
+dat[["ATAC"]] <- CreateChromatinAssay(
+  counts = counts$Peaks,
+  sep = c(":", "-"),
+  fragments = fragpath,
+  annotation = annotation
+)
+
+#Create corrected RNA data and add to object
+dat[["SoupXRNA"]]<-CreateAssayObject(
+  counts=soupx_output)
+
+#QC cells
+DefaultAssay(dat) <- "ATAC"
+dat<-AddMetaData(dat,metadata=metadata_cellranger)
+dat<-AddMetaData(dat,metadata=scrublet_output)
+
+# quantify counts in each peak (using merged peak set)
+#i actually used macs3
+macs2_counts <- FeatureMatrix(
+  fragments = Fragments(dat),
+  features = peaks,
+  cells = colnames(dat)
+)
+
+# create a new assay using the MACS2 peak set and add it to the Seurat object
+
+peaks_assay <-CreateChromatinAssay(
+  counts = macs2_counts,
+  fragments = Fragments(dat),
+  annotation = annotation,
+  min.features=-1
+)
+
+peaks_assay<-subset(peaks_assay, cells=colnames(dat))
+dat[["peaks"]]<-peaks_assay
+DefaultAssay(dat)<-"peaks"
+
+#set up basic filters
+dat<-subset(dat, nCount_RNA>=1000)
+dat<-subset(dat, nCount_peaks>=1000)
+
+dat <- NucleosomeSignal(dat)
+dat <- TSSEnrichment(dat)
+
+
+plt<-VlnPlot(
+  object = dat,
+  features = c("nCount_RNA", "nCount_ATAC", "TSS.enrichment", "nucleosome_signal"),
+  ncol = 4,
+  pt.size = 0
+)
+
+ggsave(plt,file=paste0(outdir,"/",outname,".qc.pdf"))
+
 
 
 # set up sample loop to load the RNA and ATAC data, save to seurat object
@@ -56,8 +151,8 @@ dat<-AddMetaData(dat,met_merged[,c("phase","Original_Sample","sample_ID","sample
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
-opt$object_input="merged.geneactivity.SeuratObject.rds"
+#setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
+#opt$object_input="merged.geneactivity.SeuratObject.rds"
 
 dat<-readRDS(opt$object_input)
 dat[["RNA"]] <- as(dat[["RNA"]], Class = "Assay5")
