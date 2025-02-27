@@ -31,11 +31,8 @@ met<-read.csv(opt$metadata,header=T,sep=",")
 outdir<-opt$plot_output_directory
 dat<-readRDS(file=opt$object_input)
 
-#prepare data
-DefaultAssay(dat)<-"RNA" #can use SoupXRNA here also
-#dat<-NormalizeData(dat)
-#dat<-FindVariableFeatures(dat)
-#dat<-ScaleData(dat)
+#prepare data, use SCT to normalize
+DefaultAssay(dat)<-"RNA" 
 dat <- SCTransform(dat,vst.flavor = 'v2')
 dat <- RunPCA(dat)
 dat<- RunUMAP(
@@ -72,20 +69,33 @@ single_sample_label_transfer<-function(dat,ref_obj,ref_prefix,celltype="celltype
   return(dat)
   }
 
-swarbrick<-readRDS(paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds"))#swarbrick types
+swarbrick_file<-paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds")
+if(file.exists(swarbrick_file)){
+swarbrick<-readRDS(swarbrick_file)#swarbrick types
 dat<-single_sample_label_transfer(dat,ref_obj=swarbrick,ref_prefix="swarbrick")
 rm(swarbrick)
+}
 
-embo_er<-readRDS(paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds")) #EMBO cell types
+embo_er_file<-paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds")
+if(file.exists(embo_er_file)){
+embo_er<-readRDS(embo_er_file) #EMBO cell types
 dat<-single_sample_label_transfer(dat,ref_obj=embo_er,ref_prefix="EMBO")
 rm(embo_er)
+}
 
-hbca<-readRDS(paste0(ref_dir,"/hbca/hbca.rds")) #HBCA cell types
+hbca_file<-paste0(ref_dir,"/hbca/hbca.rds")
+if(file.exists(hbca_file)){
+hbca<-readRDS(hbca_file) #HBCA cell types
 dat<-single_sample_label_transfer(dat,ref_obj=hbca,ref_prefix="HBCA")
+rm(hbca)
+}
 
-
-nakshatri<-readRDS(file=paste0(ref_dir,"/nakshatri/","nakshatri_multiome.rds"))
-dat<-single_sample_label_transfer(dat,celltype="author_cell_type",ref_obj=nakshatriref_prefix="nakshatri")
+nakshatri_file<-paste0(paste0(ref_dir,"/nakshatri/","nakshatri_multiome.rds"))
+if(file.exists(nakshatri_file)){
+nakshatri<-readRDS(nakshatri_file)
+dat<-single_sample_label_transfer(dat,ref_obj=nakshatri,ref_prefix="nakshatri")
+rm(nakshatri)
+}
 
 saveRDS(dat,file="merged.public_transfer.SeuratObject.rds")
 
