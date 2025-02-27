@@ -314,13 +314,11 @@ workflow {
 			| set { merged_peaks }
 		}
 
-/*
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
-		merged_seurat_object =
-		merged_peaks_input \
-		| collect \
-		MERGE_SAMPLE_AND_FILTER(sample_dir,sample_metadata)
+		cellranger_out = merged_peaks_input | collect
+		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out,sample_metadata)
+/*
 
 		//Merge sample, public data label transfers
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(merged_seurat_object)
