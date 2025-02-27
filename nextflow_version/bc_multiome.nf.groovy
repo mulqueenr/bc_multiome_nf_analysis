@@ -99,8 +99,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		samples_arr=(${sample_dir})
 		for i in "\${samples_arr[@]}"; 
 		do zcat \${i}"/outs/atac_fragments.tsv.gz" | \\
-		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}';
-		done | \\
+		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}'; done | \\
 		grep -v "^#" | \\
 		sort --parallel=${task.cpus} -T . -k1,1 -k2,2n -k3,3n - | \\
 		gzip > merged_fragments.tsv.gz
@@ -305,7 +304,7 @@ workflow {
 	//Make merged bed file of peaks
 	// the long way
 		if ( params.merged_bed ) {
-			merged_peaks = SUPPLIED_MERGED_PEAKS(${params.merged_bed}) \
+			merged_peaks = SUPPLIED_MERGED_PEAKS(params.merged_bed) \
 			| set { merged_peaks }
 		}
 		else {
@@ -315,6 +314,7 @@ workflow {
 			| set { merged_peaks }
 		}
 
+/*
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		merged_seurat_object =
@@ -349,6 +349,7 @@ workflow {
 		| collect \
 		| set { titan_object_list }
 */
+
 }
 
 /*
