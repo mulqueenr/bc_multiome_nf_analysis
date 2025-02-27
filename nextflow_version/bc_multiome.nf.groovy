@@ -23,7 +23,6 @@ log.info """
 		Project Directory : ${params.proj_dir}
 		Script Directory: ${params.src_dir}
 		Reference Directory: ${params.ref}
-		Singularity Container: /home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif
 		Looking for samples in: ${params.sample_dir}
 		Force Rewriting Data: ${params.force_rewrite}
 		Supplied Sample Metadata: ${params.sample_metadata}
@@ -100,7 +99,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		samples_arr=(${sample_dir})
 		for i in "\${samples_arr[@]}"; 
 		do zcat \${i}"/outs/atac_fragments.tsv.gz" | \\
-		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,sample_\$4,\$5}';
+		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}';
 		done | \\
 		grep -v "^#" | \\
 		sort --parallel=${task.cpus} -T . -k1,1 -k2,2n -k3,3n - | \\
@@ -150,7 +149,7 @@ process MERGE_SAMPLE_AND_FILTER {
 
 	script:
 	"""
-	Rscript /src/4_preprocessing_seurat_sample_filtering.R \\
+	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
 	-i ${seurat_object} \\
 	-r ${params.ref} \\
 	-m ${metadata} \\
@@ -315,14 +314,17 @@ workflow {
 			| MERGE_SAMPLES_CALLPEAKS \
 			| set { merged_peaks }
 		}
-/*
+
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		merged_seurat_object =
+		merged_peaks_input \
+		| collect \
 		MERGE_SAMPLE_AND_FILTER(sample_dir,sample_metadata)
 
 		//Merge sample, public data label transfers
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(merged_seurat_object)
+		
 		//Integrate and cluster data, run chromvar, run gene activity
 		MERGED_CHROMVAR(merged_seurat_object)
 		| MERGED_GENE_ACTIVITY \
@@ -358,7 +360,7 @@ sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-git clone -force https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
+git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 mkdir -p ${proj_dir}/nf_analysis_round4
