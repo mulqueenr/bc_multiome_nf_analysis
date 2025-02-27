@@ -117,7 +117,6 @@ process MERGE_SAMPLES_CALLPEAKS {
 		-B -q 0.01	
 
 		#format as bam and filter chr
-		echo"""
 		awk 'OFS="\\t" {print \$1,\$2,\$3}' merged_peaks.narrowPeak | grep "chr" | grep -v "chrY" > merged.nf.bed
 		"""
 
@@ -349,6 +348,7 @@ workflow {
 		| set { titan_object_list }
 */
 }
+
 /*
 #Example running
 
