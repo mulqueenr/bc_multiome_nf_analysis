@@ -73,8 +73,8 @@ process SOUPX_RNA {
 	script:
 		"""
 		Rscript /src/2_preprocessing_soupx_per_sample.R \\
-		${sample_name} \\
-		${sample_dir}
+		-o ${sample_name} \\
+		-d ${sample_dir}
 		"""
 }
 
@@ -352,13 +352,13 @@ workflow {
 /*
 #Example running
 
-srun --pty --time=36:00:00 --cpus-per-task=30 --ntasks-per-node=1 -p guest --mem 400G --pty bash
+srun --partition=guest --time=1-12:00:00 --cpus-per-task=30 --mem=400G --nodes=1 --pty /bin/bash
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
+git clone -force https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
 mkdir -p ${proj_dir}/nf_analysis_round4
