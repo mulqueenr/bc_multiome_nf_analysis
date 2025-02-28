@@ -85,10 +85,10 @@ process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "*nf*"
-	containerOptions "--bind /home/users/mulqueen/.local/bin/macs3:/tool/,${params.outdir}"
+	//containerOptions "--bind /home/users/mulqueen/.local/bin/macs3:/tool/,${params.outdir}"
 
 	cpus 30
-	label 'inhouse'
+	//label 'inhouse'
 	input:
 		path(sample_dir)
 	output:
@@ -108,7 +108,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		#note because this is using bed, it does not account for cell id specifics, or counts in extra columns,
 		#so basically calling on deduplicated fragments
 				
-		/tool/macs3 callpeak -f BEDPE \
+		macs3 callpeak -f BEDPE \
 		--tempdir . \
 		-t merged_fragments.sorted.tsv.gz \
 		-g hs -n merged \
