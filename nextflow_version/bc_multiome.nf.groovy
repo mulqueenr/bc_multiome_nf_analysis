@@ -143,6 +143,7 @@ process MERGE_SAMPLE_AND_FILTER {
 	label 'inhouse'
 	input:
 		path(seurat_object)
+		path(metadata)
 	output:
 		path("2_merged.scrublet_filtered.SeuratObject.rds")
 
@@ -313,13 +314,12 @@ workflow {
 			| MERGE_SAMPLES_CALLPEAKS \
 			| set { merged_peaks }
 		}
-/*
 
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
 		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out,sample_metadata)
-
+/*
 		//Merge sample, public data label transfers
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(merged_seurat_object)
 		
