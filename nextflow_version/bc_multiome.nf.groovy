@@ -84,7 +84,8 @@ process SOUPX_RNA {
 process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
-	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "*nf*"
+	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "*nf.bed"
+	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged_fragments.sorted.tsv.gz"
 	//containerOptions "--bind /home/users/mulqueen/.local/bin/macs3:/tool/,${params.outdir}"
 
 	cpus 30
@@ -97,21 +98,28 @@ process MERGE_SAMPLES_CALLPEAKS {
 		"""
 		#merge all ATAC fragment files
 		samples_arr=(${sample_dir})
+
 		for i in "\${samples_arr[@]}"; 
 		do zcat \${i}"/outs/atac_fragments.tsv.gz" | \\
-		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}'; done | \\
+		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}' \\
+		done  > merged_fragments.tsv 
+
+		gzip merged_fragments.tsv
+
+		zcat merged_fragments.tsv.gz | \\
 		grep -v "^#" | \\
-		sort --parallel=${task.cpus} -T . -k1,1 -k2,2n -k3,3n - | \\
-		gzip > merged_fragments.tsv.gz
+		sort --parallel=${task.cpus} -T . -k1,1 -k2,2n -k3,3n - > merged_fragments.sorted.tsv
+
+		gzip merged_fragments.sorted.tsv
 
 		#run macs3 to call atac peaks
 		#note because this is using bed, it does not account for cell id specifics, or counts in extra columns,
 		#so basically calling on deduplicated fragments
 				
-		macs3 callpeak -f BEDPE \
-		--tempdir . \
-		-t merged_fragments.sorted.tsv.gz \
-		-g hs -n merged \
+		macs3 callpeak -f BEDPE \\
+		--tempdir . \\
+		-t merged_fragments.sorted.tsv.gz \\
+		-g hs -n merged \\
 		-B -q 0.01	
 
 		#format as bam and filter chr
