@@ -84,7 +84,7 @@ process SOUPX_RNA {
 process MERGE_SAMPLES_CALLPEAKS {
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
 	//Initialize Seurat Object per sample.
-	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "*nf.bed"
+	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged.nf.bed"
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged_fragments.sorted.tsv.gz"
 	//containerOptions "--bind /home/users/mulqueen/.local/bin/macs3:/tool/,${params.outdir}"
 
@@ -93,7 +93,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 	input:
 		path(sample_dir)
 	output:
-		path("*.nf.bed")
+		path("merged.nf.bed")
 	script:
 		"""
 		#merge all ATAC fragment files
@@ -149,16 +149,17 @@ process MERGE_SAMPLE_AND_FILTER {
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'inhouse'
 	input:
-		path(seurat_object)
+		path(seurat_objects)
+		path(merged_peaks)
 		path(metadata)
 	output:
-		path("2_merged.scrublet_filtered.SeuratObject.rds")
+		path("1_merged.scrublet_filtered.SeuratObject.rds")
 
 	script:
 	"""
 	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
-	-i ${seurat_object} \\
-	-r ${params.ref} \\
+	-s ${seurat_objects} \\
+	-p ${merged_peaks}
 	-m ${metadata} \\
 	-o ${params.outdir}/plots
 	"""
@@ -325,7 +326,9 @@ workflow {
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
-		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out,sample_metadata)
+		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out,merged_peaks,sample_metadata)
+}
+
 /*
 		//Merge sample, public data label transfers
 		MERGED_PUBLIC_DATA_LABEL_TRANSFER(merged_seurat_object)
@@ -355,7 +358,6 @@ workflow {
 		| set { titan_object_list }
 */
 
-}
 
 /*
 
@@ -374,7 +376,8 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --force_rewrite true \
 --outdir ${proj_dir}/nf_analysis_round4 \
---sample_dir ${proj_dir}/cellranger_data/third_round 
+--sample_dir ${proj_dir}/cellranger_data/third_round \
+-resume
 */
 
 
