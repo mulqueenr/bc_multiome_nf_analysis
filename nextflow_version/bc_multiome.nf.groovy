@@ -86,14 +86,13 @@ process MERGE_SAMPLES_CALLPEAKS {
 	//Initialize Seurat Object per sample.
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged.nf.bed"
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged_fragments.sorted.tsv.gz"
-	//containerOptions "--bind /home/users/mulqueen/.local/bin/macs3:/tool/,${params.outdir}"
 
 	cpus 30
 	//label 'inhouse'
 	input:
 		path(sample_dir)
 	output:	
-		tuple path(sample_dir),path("merged.nf.bed")
+		path("merged.nf.bed"), emit: merged_bed
 	script:
 		"""
 		#merge all ATAC fragment files
@@ -149,7 +148,7 @@ process MERGE_SAMPLE_AND_FILTER {
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'inhouse'
 	input:
-		path(seurat_objects)
+		path(sample_dir)
 		path(merged_peaks)
 		path(metadata)
 	output:
@@ -158,7 +157,7 @@ process MERGE_SAMPLE_AND_FILTER {
 	script:
 	"""
 	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
-	-s ${seurat_objects} \\
+	-s ${sample_dir} \\
 	-p ${merged_peaks}
 	-m ${metadata} \\
 	-o ${params.outdir}/plots
@@ -314,19 +313,16 @@ workflow {
 	// the long way
 		if ( params.merged_bed ) {
 			merged_peaks = SUPPLIED_MERGED_PEAKS(params.merged_bed) \
-			| set { merged_peaks }
 		}
 		else {
-			(merged_peaks_input,merged_peaks)= merged_peaks_input \
-			| collect \
-			| MERGE_SAMPLES_CALLPEAKS
+			merged_peaks = merged_peaks_input | collect | MERGE_SAMPLES_CALLPEAKS
 		}
 
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
 
-		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(merged_peaks_input, merged_peaks, sample_metadata)
+		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
 }
 
 /*
