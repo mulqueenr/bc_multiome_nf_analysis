@@ -101,8 +101,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 
 		for i in "\${samples_arr[@]}"; 
 		do zcat \${i}"/outs/atac_fragments.tsv.gz" | \\
-		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}' \\
-		done  > merged_fragments.tsv 
+		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}'; done >> merged_fragments.tsv 
 
 		gzip merged_fragments.tsv
 
@@ -375,9 +374,7 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --force_rewrite true \
 --outdir ${proj_dir}/nf_analysis_round4 \
---sample_dir ${proj_dir}/cellranger_data/third_round \
--resume
-
+--sample_dir ${proj_dir}/cellranger_data/third_round 
 */
 
 
