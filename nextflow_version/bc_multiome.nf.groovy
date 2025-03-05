@@ -92,8 +92,8 @@ process MERGE_SAMPLES_CALLPEAKS {
 	//label 'inhouse'
 	input:
 		path(sample_dir)
-	output:
-		path("merged.nf.bed")
+	output:	
+		tuple path(sample_dir),path("merged.nf.bed")
 	script:
 		"""
 		#merge all ATAC fragment files
@@ -317,16 +317,16 @@ workflow {
 			| set { merged_peaks }
 		}
 		else {
-			merged_peaks_input \
+			(merged_peaks_input,merged_peaks) \
 			| collect \
-			| MERGE_SAMPLES_CALLPEAKS \
-			| set { merged_peaks }
+			| MERGE_SAMPLES_CALLPEAKS
 		}
 
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
-		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
+
+		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(merged_peaks_input,merged_peaks, sample_metadata)
 }
 
 /*
