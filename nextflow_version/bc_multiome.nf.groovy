@@ -317,7 +317,7 @@ workflow {
 			| set { merged_peaks }
 		}
 		else {
-			merged_peaks = merged_peaks_input \
+			merged_peaks_input \
 			| collect \
 			| MERGE_SAMPLES_CALLPEAKS \
 			| set { merged_peaks }
@@ -326,7 +326,7 @@ workflow {
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
-		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out,merged_peaks,sample_metadata)
+		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
 }
 
 /*
