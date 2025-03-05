@@ -16,9 +16,11 @@ set.seed(123)
 option_list = list(
   make_option(c("-s", "--sample_dir"), type="character", default="NAT_1", 
               help="Sample directory from cellranger output.", metavar="character"),
-    make_option(c("-p", "--peaks_bed"), type="character", default="NULL", 
+  make_option(c("-p", "--peaks_bed"), type="character", default="NULL", 
               help="Bed file formated peaks.", metavar="character"),
-        make_option(c("-o", "--output_directory"), type="character", default=NULL, 
+  make_option(c("-m","--metadata"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/sample_metadata.csv",
+              help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character"),
+  make_option(c("-o", "--output_directory"), type="character", default=NULL, 
               help="Output directory, defined in nextflow parameters.", metavar="character")
 
 ); 
@@ -27,7 +29,6 @@ option_list = list(
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 #seurat_obj_list="IDC_12.SeuratObject.rds IDC_4.SeuratObject.rds DCIS_2.SeuratObject.rds IDC_7.SeuratObject.rds IDC_2.SeuratObject.rds IDC_5.SeuratObject.rds IDC_9.SeuratObject.rds IDC_6.SeuratObject.rds NAT_4.SeuratObject.rds NAT_11.SeuratObject.rds IDC_3.SeuratObject.rds ILC_1.SeuratObject.rds IDC_10.SeuratObject.rds IDC_1.SeuratObject.rds DCIS_1.SeuratObject.rds IDC_11.SeuratObject.rds DCIS_3.SeuratObject.rds NAT_14.SeuratObject.rds IDC_8.SeuratObject.rds"
-#ref_dir="/home/groups/CEDAR/mulqueen/bc_multiome/ref" 
 #met=read.csv("sample_metadata.csv",header=T,sep=",")
 #outdir<-"/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis/plots"
 ###################
@@ -60,7 +61,6 @@ fragpath <- paste0(wd,"/atac_fragments.tsv.gz") #atac fragments
 metadata_cellranger<-read.csv(paste0(wd,"/per_barcode_metrics.csv")) #metadata
 row.names(metadata_cellranger)<-metadata_cellranger$barcode
 soupx_output<-readRDS(paste0(wd,"/soupx_corrected_counts.rds")) #load SoupX contamination corrected output
-#scrublet is broken due to an annoy versioning error interaction with docker/singularity. I'm just skipping for now
 scrublet_output<-read.table(paste0(wd,"/","scrublet_results.tsv"),sep="\t",header=T) #load scrublet output for doublet detection
 scrublet_output$Barcode<-substr(scrublet_output$Barcode,2,nchar(scrublet_output$Barcode))
 row.names(scrublet_output)<-scrublet_output$Barcode
@@ -115,7 +115,6 @@ dat<-subset(dat, nCount_peaks>=1000)
 
 dat <- NucleosomeSignal(dat)
 dat <- TSSEnrichment(dat)
-
 
 plt<-VlnPlot(
   object = dat,

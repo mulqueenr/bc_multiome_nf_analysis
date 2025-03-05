@@ -72,21 +72,21 @@ single_sample_label_transfer<-function(dat,ref_obj,ref_prefix,celltype="celltype
 swarbrick_file<-paste0(ref_dir,"/swarbrick/swarbrick.SeuratObject.Rds")
 if(file.exists(swarbrick_file)){
 swarbrick<-readRDS(swarbrick_file)#swarbrick types
-dat<-single_sample_label_transfer(dat,ref_obj=swarbrick,ref_prefix="swarbrick")
+dat<-single_sample_label_transfer(dat,ref_obj=swarbrick,ref_prefix="swarbrick2")
 rm(swarbrick)
 }
 
 embo_er_file<-paste0(ref_dir,"/embo/SeuratObject_ERProcessed.rds")
 if(file.exists(embo_er_file)){
 embo_er<-readRDS(embo_er_file) #EMBO cell types
-dat<-single_sample_label_transfer(dat,ref_obj=embo_er,ref_prefix="EMBO")
+dat<-single_sample_label_transfer(dat,ref_obj=embo_er,ref_prefix="wu2")
 rm(embo_er)
 }
 
 hbca_file<-paste0(ref_dir,"/hbca/hbca.rds")
 if(file.exists(hbca_file)){
 hbca<-readRDS(hbca_file) #HBCA cell types
-dat<-single_sample_label_transfer(dat,ref_obj=hbca,ref_prefix="HBCA")
+dat<-single_sample_label_transfer(dat,ref_obj=hbca,ref_prefix="HBCA2")
 rm(hbca)
 }
 
