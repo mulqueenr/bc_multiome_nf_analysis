@@ -322,7 +322,7 @@ workflow {
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
 
-		merged_seurat_object = MERGE_SAMPLE_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
+		merged_seurat_object = MERGE_SAMPLES_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
 }
 
 /*
