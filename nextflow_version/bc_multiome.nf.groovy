@@ -102,13 +102,13 @@ process MERGE_SAMPLES_CALLPEAKS {
 		do zcat \${i}"/outs/atac_fragments.tsv.gz" | \\
 		awk -v sample=\${i} 'OFS="\\t" {print \$1,\$2,\$3,\$4,\$5,sample}'; done >> merged_fragments.tsv 
 
-		gzip merged_fragments.tsv
+		pigz -b 1G -p ${task.cpus} merged_fragments.tsv
 
 		zcat merged_fragments.tsv.gz | \\
 		grep -v "^#" | \\
 		sort --parallel=${task.cpus} -T . -k1,1 -k2,2n -k3,3n - > merged_fragments.sorted.tsv
 
-		gzip merged_fragments.sorted.tsv
+		pigz -b 1GB -p ${task.cpus} merged_fragments.sorted.tsv
 
 		#run macs3 to call atac peaks
 		#note because this is using bed, it does not account for cell id specifics, or counts in extra columns,
