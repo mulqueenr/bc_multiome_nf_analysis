@@ -527,7 +527,234 @@ Running SSpbc method as well
 Using https://github.com/StaafLab/sspbc/archive/refs/heads/main.zip for multiple classifications
 https://www.nature.com/articles/s41523-022-00465-3#code-availability
 
-```R
 #wget https://github.com/StaafLab/sspbc/archive/refs/heads/main.zip
 #file located in /home/groups/CEDAR/mulqueen/src/sspbc/sspbc-main/package
 #R CMD INSTALL sspbc_1.0.tar.gz
+
+
+
+## Download HTAN multiome data Terekhanova et al.
+Selected data using the HTAN portal. 
+Downloading level 3 and 4 data (open source) from synapse
+
+```bash
+pip install --upgrade synapseclient
+#login with authentification token
+
+projDir="/home/groups/CEDAR/mulqueen/bc_multiome/ref/"
+cd $projDir
+mkdir ${projDir}/ref/terekhanova
+mkdir ${projDir}/ref/terekhanova/rna_obj
+mkdir ${projDir}/ref/terekhanova/atac_frag
+
+#rna
+cd ${projDir}/ref/terekhanova/rna_obj
+for i in "syn53214887 syn53214703 syn53214932 syn53214720 syn53214931 syn53214683 syn53214973 syn53214802 syn53214920 syn53214695 syn53214950 syn53214812 syn53214757 syn53214656 syn53214605 syn53214771 syn53214677 syn53214594";
+do synapse get $i; done
+
+#atac
+cd ${projDir}/ref/terekhanova/atac_frag
+for i in syn52176627 syn52175906 syn52175971 syn52176152 syn52176835 syn52175918 syn52175960 syn52176281 syn52176599 syn52175948 syn52175949 syn52176099 syn52176830 syn52175958 syn52175962 syn52176354 syn52176791 syn52175969 syn52175982 syn52176198 syn52176842 syn52175970 syn52175997 syn52176397 syn52176839 syn52175993 syn52176003 syn52176217 syn52176825 syn52175992 syn52175991 syn52176141 syn52176769 syn52176004 syn52176005 syn52176145 syn52176693 syn52176006 syn52176012 syn52176156 syn52176747 syn52176007 syn52176010 syn52176140 syn52176633 syn52176008 syn52176015 syn52176100 syn53215775 syn53215789 syn53215774 syn53215798 syn53215811 syn53215784 syn53214546 syn53214579 syn53214453 syn53214571 syn53214519 syn53214649 syn53214791 syn53214450 syn53214493 syn53214547 syn53214543 syn53214471; 
+do synapse get $i; done
+
+
+```
+
+```bash
+
+
+module load singularity
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+singularity shell \
+--bind /home/groups/CEDAR/mulqueen/bc_multiome \
+--bind /home/groups/CEDAR/mulqueen/ref \
+--bind /home/groups/CEDAR/mulqueen/src/miniconda3/bin \
+$sif
+```
+
+```R
+library(Signac)
+library(Seurat)
+library(EnsDb.Hsapiens.v86)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(GenomeInfoDb)
+library(stringr)
+library(plyr)
+library(org.Hs.eg.db)
+library(JASPAR2020)
+library(TFBSTools)
+library(patchwork)
+set.seed(1234)
+library(BiocParallel)
+library(universalmotif)
+library(GenomicRanges)
+
+#read in RNA object, use atac_fragments.tsv.gz to make a feature matrix using our peaks
+
+object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.clone_annot.passqc.SeuratObject.rds"
+dat=readRDS(object_input)
+peaks<-dat@assays$peaks@ranges
+
+# get gene annotations for hg38
+annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pattern="chrMT", replacement="chrM")
+seqlevels(annotation) <- ucsc.levels #standard seq level change threw error, using a string replace instead
+
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+system(paste0("mkdir -p ",proj_dir,"/ref/nakshatri/"))
+setwd("/home/groups/CEDAR/mulqueen/ref/nakshatri_multiome")
+
+ref<-readRDS("63a485bc-cac7-49d2-83ed-8e07ca4efa2a.rds")
+#added cell id names are pools 1-16
+#assuming cellid names are [STD 10x Barcodes-1]_[Pool1:16]
+#levels(ref@meta.data$Pool)
+# [1] "Pool1"  "Pool3"  "Pool4"  "Pool5"  "Pool6"  "Pool7"  "Pool8"  "Pool9" 
+# [9] "Pool11" "Pool12" "Pool13" "Pool14" "Pool15" "Pool17" "Pool23" "Pool25"
+#Plan is split by pool, rename cells to fit existing fragment files, then recombine object
+pool_frag<-setNames(nm=levels(ref@meta.data$Pool),list.files(pattern="fragments.tsv.gz$")) #ordered by GSM###
+
+ref<-SplitObject(ref, split.by = "Pool")
+build_atac<-function(x)  {
+  test<-ref[[x]]
+  working_pool<-test@meta.data$Pool[1]
+  fragpath<-pool_frag[working_pool]
+  test<-RenameCells(test, new.names = unlist(lapply(strsplit(Cells(test),"_"),"[",1)))
+  fragments <- CreateFragmentObject(
+    path = unname(fragpath),
+    cells = colnames(test),
+    validate.fragments = FALSE
+  )
+  #start with our set of peaks, also call peaks on merged set later
+  counts<-FeatureMatrix(fragments=fragments,features=peaks)
+  # create ATAC assay and add it to the object
+  test[["our_peaks"]] <- CreateChromatinAssay(
+    sep = c(":", "-"),
+    counts=counts,
+    fragments = fragpath,
+    annotation = annotation
+  )
+  return(test)
+}
+
+frag_fixed_ref<-lapply(1:length(ref),build_atac)
+
+# merge all datasets, adding a cell ID to make sure cell names are unique
+combined <- merge(
+  x = frag_fixed_ref[[1]],
+  y =unlist(frag_fixed_ref[2:length(frag_fixed_ref)]),
+  add.cell.ids = names(pool_frag)
+)
+combined[["our_peaks"]]
+DefaultAssay(combined)<-"our_peaks"
+combined <- RunTFIDF(combined)
+combined <- FindTopFeatures(combined, min.cutoff = 20)
+combined <- RunSVD(combined)
+combined <- RunUMAP(combined, dims = 2:50, reduction = 'lsi',reduction.name="our_peaks_umap")
+
+#RNA preprocessing, set counts to gene SYMBOLS
+gene_names<-select(org.Hs.eg.db, keys = row.names(combined@assays$RNA), keytype = 'ENSEMBL', columns = 'SYMBOL')
+genes.filter <- gene_names[!is.na(gene_names$SYMBOL),]$ENSEMBL 
+counts <- combined@assays$RNA@counts[genes.filter,]
+row.names(counts)<-gene_names[!is.na(gene_names$SYMBOL),]$SYMBOL
+counts<-counts[!duplicated(row.names(counts)),]
+combined[["RNA"]]<-NULL
+combined[["RNA"]]<-CreateAssayObject(counts=counts)
+DefaultAssay(combined)<-"RNA"
+#PREPROCESSING RNA
+combined<-NormalizeData(combined)
+combined<-FindVariableFeatures(combined)
+combined<-ScaleData(combined)
+combined <- RunPCA(combined)
+combined <- RunUMAP(combined, dims = 1:30, reduction = 'pca',reduction.name="RNA_umap")
+
+
+plt1<-DimPlot(combined,group.by="author_cell_type",reduction="our_peaks_umap")+ggtitle("Our Peaks")
+plt2<-DimPlot(combined,group.by="author_cell_type",reduction="RNA_umap")+ggtitle("RNA")
+ggsave(plt1/plt2,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.atac_umap.pdf"),width=12)
+saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
+```
+
+```R
+# RUN CHROMVAR
+
+library(Signac)
+library(Seurat)
+library(EnsDb.Hsapiens.v86)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(GenomeInfoDb)
+library(stringr)
+library(plyr)
+library(org.Hs.eg.db)
+library(JASPAR2020)
+library(TFBSTools)
+library(patchwork)
+set.seed(1234)
+library(BiocParallel)
+library(universalmotif)
+library(GenomicRanges)
+register(SerialParam()) #using single core mode
+
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
+
+DefaultAssay(combined)<-"our_peaks"
+
+# Get a list of motif position frequency matrices from the JASPAR database
+pfm <- getMatrixSet(
+  x = JASPAR2020,
+  opts = list(species =9606, all_versions = FALSE))
+
+main.chroms <- standardChromosomes(BSgenome.Hsapiens.UCSC.hg38)
+main.chroms <- main.chroms[!(main.chroms %in% c("chrY","chrM"))] 
+keep.peaks <- which(as.character(seqnames(granges(combined[["our_peaks"]]))) %in% main.chroms)
+combined[["our_peaks"]] <- subset(combined[["our_peaks"]], features = rownames(combined[["our_peaks"]])[keep.peaks])
+
+# Scan the DNA sequence of each peak for the presence of each motif, using orgo_atac for all objects (shared peaks)
+peaks<-granges(combined[["our_peaks"]])
+
+motif.matrix.hg38 <- CreateMotifMatrix(
+  features = peaks, 
+  pwm = pfm, 
+  genome = BSgenome.Hsapiens.UCSC.hg38, 
+  use.counts = FALSE)
+
+motif.hg38 <- CreateMotifObject(
+  data = motif.matrix.hg38, 
+  pwm = pfm)
+
+combined <- SetAssayData(object = combined, 
+  assay = 'our_peaks', 
+  layer = 'motifs', 
+  new.data = motif.hg38)
+
+combined <- RegionStats(object = combined, 
+  genome = BSgenome.Hsapiens.UCSC.hg38,
+  assay="our_peaks")
+
+combined <- RunChromVAR( object = combined,
+  genome = BSgenome.Hsapiens.UCSC.hg38,
+  assay="our_peaks")
+
+saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.chromvar.rds"))
+
+combined<-
+# compute gene activities
+gene.activities <- GeneActivity(combined)
+
+# add the gene activity matrix to the Seurat object as a new assay
+combined[['GeneActivity']] <- CreateAssayObject(counts = gene.activities)
+combined <- NormalizeData(
+  object = combined,
+  assay = 'GeneActivity',
+  normalization.method = 'LogNormalize',
+  scale.factor = median(combined$nCount_GeneActivity)
+)
+
+
+saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.geneactivity.rds"))
+combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
+
+run_top_TFs(combined,prefix="ref_cell_type",i="author_cell_type",n_markers=5) #generate top TF markers per cell type
+
+
+```
