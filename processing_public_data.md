@@ -557,14 +557,15 @@ cd ${projDir}/ref/terekhanova/atac_frag
 for i in syn52176627 syn52175906 syn52175971 syn52176152 syn52176835 syn52175918 syn52175960 syn52176281 syn52176599 syn52175948 syn52175949 syn52176099 syn52176830 syn52175958 syn52175962 syn52176354 syn52176791 syn52175969 syn52175982 syn52176198 syn52176842 syn52175970 syn52175997 syn52176397 syn52176839 syn52175993 syn52176003 syn52176217 syn52176825 syn52175992 syn52175991 syn52176141 syn52176769 syn52176004 syn52176005 syn52176145 syn52176693 syn52176006 syn52176012 syn52176156 syn52176747 syn52176007 syn52176010 syn52176140 syn52176633 syn52176008 syn52176015 syn52176100 syn53215775 syn53215789 syn53215774 syn53215798 syn53215811 syn53215784 syn53214546 syn53214579 syn53214453 syn53214571 syn53214519 syn53214649 syn53214791 syn53214450 syn53214493 syn53214547 syn53214543 syn53214471; 
 do synapse get $i; done
 
+for i in *atac_fragments.tsv.gz;
+do tabix -p bed $i; done
+
 
 ```
 
 ```bash
-
-
-module load singularity
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+
 singularity shell \
 --bind /home/groups/CEDAR/mulqueen/bc_multiome \
 --bind /home/groups/CEDAR/mulqueen/ref \
@@ -591,76 +592,53 @@ library(GenomicRanges)
 
 #read in RNA object, use atac_fragments.tsv.gz to make a feature matrix using our peaks
 
-object_input="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.clone_annot.passqc.SeuratObject.rds"
-dat=readRDS(object_input)
-peaks<-dat@assays$peaks@ranges
-
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
 ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pattern="chrMT", replacement="chrM")
 seqlevels(annotation) <- ucsc.levels #standard seq level change threw error, using a string replace instead
 
-proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-system(paste0("mkdir -p ",proj_dir,"/ref/nakshatri/"))
-setwd("/home/groups/CEDAR/mulqueen/ref/nakshatri_multiome")
+peaks<- as.data.frame(read.table("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/merged.nf.bed",header=F,sep="\t",col.names=c("chr","start","end")))
+peaks<-makeGRangesFromDataFrame(peaks)
 
-ref<-readRDS("63a485bc-cac7-49d2-83ed-8e07ca4efa2a.rds")
-#added cell id names are pools 1-16
-#assuming cellid names are [STD 10x Barcodes-1]_[Pool1:16]
-#levels(ref@meta.data$Pool)
-# [1] "Pool1"  "Pool3"  "Pool4"  "Pool5"  "Pool6"  "Pool7"  "Pool8"  "Pool9" 
-# [9] "Pool11" "Pool12" "Pool13" "Pool14" "Pool15" "Pool17" "Pool23" "Pool25"
-#Plan is split by pool, rename cells to fit existing fragment files, then recombine object
-pool_frag<-setNames(nm=levels(ref@meta.data$Pool),list.files(pattern="fragments.tsv.gz$")) #ordered by GSM###
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/ref/terekhanova")
+rna_objs<-list.files("./rna_obj",pattern=".rds$",full.names=TRUE,include.dirs=TRUE)
+atac_fragments<-list.files("./atac_frag",pattern="fragments.tsv.gz$",full.names=TRUE,include.dirs=TRUE)
 
-ref<-SplitObject(ref, split.by = "Pool")
-build_atac<-function(x)  {
-  test<-ref[[x]]
-  working_pool<-test@meta.data$Pool[1]
-  fragpath<-pool_frag[working_pool]
-  test<-RenameCells(test, new.names = unlist(lapply(strsplit(Cells(test),"_"),"[",1)))
+rna_objs<-setNames(rna_objs,nm=gsub(".rds","",basename(rna_objs)))
+atac_fragments<-setNames(atac_fragments,nm=gsub("-atac_fragments.tsv.gz$","",basename(atac_fragments)))
+
+rna_objs<-rna_objs[names(rna_objs) %in% names(atac_fragments)]
+atac_fragments<-atac_fragments[names(atac_fragments) %in% names(rna_objs)]
+
+
+build_seurat_obj<-function(name_in){
+  obj<-readRDS(rna_objs[name_in])
   fragments <- CreateFragmentObject(
-    path = unname(fragpath),
-    cells = colnames(test),
-    validate.fragments = FALSE
-  )
-  #start with our set of peaks, also call peaks on merged set later
+    path = unname(atac_fragments[name_in]),
+    cells=unique(obj$Original_barcode),
+    validate.fragments = FALSE)
+  obj$cell_id<-Cells(obj)
+  obj<-RenameCells(obj,new.names=obj$Original_barcode) #reset to old names for fragment files
   counts<-FeatureMatrix(fragments=fragments,features=peaks)
-  # create ATAC assay and add it to the object
-  test[["our_peaks"]] <- CreateChromatinAssay(
-    sep = c(":", "-"),
-    counts=counts,
-    fragments = fragpath,
-    annotation = annotation
-  )
-  return(test)
+  obj[["our_peaks"]] <- CreateChromatinAssay(
+      sep = c(":", "-"),
+      counts=counts,
+      fragments = fragments,
+      annotation = annotation)
+  obj<-RenameCells(obj,new.names=obj$cell_id) #reset to new names now that fragments are calculated
+  return(obj)
 }
 
-frag_fixed_ref<-lapply(1:length(ref),build_atac)
+obj_list<-lapply(names(rna_objs),function(x) {
+  build_seurat_obj(name_in=x)}
+  )
 
-# merge all datasets, adding a cell ID to make sure cell names are unique
-combined <- merge(
-  x = frag_fixed_ref[[1]],
-  y =unlist(frag_fixed_ref[2:length(frag_fixed_ref)]),
-  add.cell.ids = names(pool_frag)
-)
-combined[["our_peaks"]]
-DefaultAssay(combined)<-"our_peaks"
-combined <- RunTFIDF(combined)
-combined <- FindTopFeatures(combined, min.cutoff = 20)
-combined <- RunSVD(combined)
-combined <- RunUMAP(combined, dims = 2:50, reduction = 'lsi',reduction.name="our_peaks_umap")
+combined<-merge(x = obj_list[[1]], y = unlist(obj_list)
 
-#RNA preprocessing, set counts to gene SYMBOLS
-gene_names<-select(org.Hs.eg.db, keys = row.names(combined@assays$RNA), keytype = 'ENSEMBL', columns = 'SYMBOL')
-genes.filter <- gene_names[!is.na(gene_names$SYMBOL),]$ENSEMBL 
-counts <- combined@assays$RNA@counts[genes.filter,]
-row.names(counts)<-gene_names[!is.na(gene_names$SYMBOL),]$SYMBOL
-counts<-counts[!duplicated(row.names(counts)),]
-combined[["RNA"]]<-NULL
-combined[["RNA"]]<-CreateAssayObject(counts=counts)
-DefaultAssay(combined)<-"RNA"
-#PREPROCESSING RNA
+#merge all objects and then preprocess a bit
+#cell labels in $cell_type
+
+
 combined<-NormalizeData(combined)
 combined<-FindVariableFeatures(combined)
 combined<-ScaleData(combined)
