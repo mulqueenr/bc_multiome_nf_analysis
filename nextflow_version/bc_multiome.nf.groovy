@@ -130,6 +130,8 @@ process MERGE_SAMPLES_CALLPEAKS {
 process SUPPLIED_MERGED_PEAKS {
 		//Copy supplied bed file. If one is given to the --merged_bed argument on initialization of pipeline.
 		publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true
+		containerOptions "--bind ${params.outdir}"
+
 		label 'inhouse'
 		input:
 			path(merged_bed)
