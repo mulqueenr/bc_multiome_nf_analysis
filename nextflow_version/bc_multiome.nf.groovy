@@ -161,7 +161,7 @@ process MERGE_SAMPLES_AND_FILTER {
 	script:
 	"""
 	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
-	-s ${sample_dir} \\
+	-s . \\
 	-p ${merged_peaks}
 	-m ${metadata} \\
 	-o ${params.outdir}/plots
