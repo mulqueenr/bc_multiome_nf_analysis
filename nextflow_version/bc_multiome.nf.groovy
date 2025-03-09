@@ -175,9 +175,8 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	label 'inhouse'
 	input:
 		path(seurat_objects)
-		path(metadata)
 	output:
-		path("1_merged.public_transfer.SeuratObject.rds")
+		path("3_merged.public_transfer.SeuratObject.rds")
 
 	script:
 	"""
