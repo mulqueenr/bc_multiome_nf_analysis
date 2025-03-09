@@ -148,7 +148,7 @@ process MERGE_SAMPLES_AND_FILTER {
 	//Run single-cell label trasfer using available RNA data
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
   cpus 5
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.sample_dir}"
 	label 'inhouse'
 	input:
 		path(sample_dir)
