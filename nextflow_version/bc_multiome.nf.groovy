@@ -136,7 +136,7 @@ process SUPPLIED_MERGED_PEAKS {
 		input:
 			path(merged_bed)
 		output:
-			path("${merged_bed}")
+			path("merged.nf.bed")
 		script:
 		"""
 		cp ${merged_bed} merged.nf.bed
