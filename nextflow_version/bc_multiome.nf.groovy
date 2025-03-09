@@ -93,6 +93,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		path(sample_dir)
 	output:	
 		path("merged.nf.bed"), emit: merged_bed
+		path("merged_fragments.sorted.tsv.gz"), emit: merged_fragments
 	script:
 		"""
 		#merge all ATAC fragment files
@@ -136,7 +137,7 @@ process SUPPLIED_MERGED_PEAKS {
 			path("${merged_bed}")
 		script:
 		"""
-		touch ${merged_bed}
+		cp ${merged_bed} merged.nf.bed
 		"""
 
 }
@@ -152,7 +153,8 @@ process MERGE_SAMPLES_AND_FILTER {
 		path(merged_peaks)
 		path(metadata)
 	output:
-		path("1_merged.scrublet_filtered.SeuratObject.rds")
+		path("1_merged.unfiltered.SeuratObject.rds"), emit: unfiltered_obj
+		path("2_merged.scrublet_count_filtered.SeuratObject.rds"), emit: obj
 
 	script:
 	"""
@@ -312,22 +314,24 @@ workflow {
 	//Make merged bed file of peaks
 	// the long way
 		if ( params.merged_bed ) {
-			merged_peaks = SUPPLIED_MERGED_PEAKS(params.merged_bed) \
+			merged_peaks = SUPPLIED_MERGED_PEAKS(params.merged_bed)
 		}
 		else {
-			merged_peaks = merged_peaks_input | collect | MERGE_SAMPLES_CALLPEAKS
+			merged_peaks_input | collect | MERGE_SAMPLES_CALLPEAKS
+			merged_peaks = MERGE_SAMPLES_CALLPEAKS.out.merged_bed
 		}
 
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
 		cellranger_out = merged_peaks_input | collect
 
-		merged_seurat_object = MERGE_SAMPLES_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
+		MERGE_SAMPLES_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
+		merged_seurat_object = MERGE_SAMPLES_AND_FILTER.out.obj | MERGED_PUBLIC_DATA_LABEL_TRANSFER
 }
 
 /*
 		//Merge sample, public data label transfers
-		MERGED_PUBLIC_DATA_LABEL_TRANSFER(merged_seurat_object)
+		
 		
 		//Integrate and cluster data, run chromvar, run gene activity
 		MERGED_CHROMVAR(merged_seurat_object)
@@ -366,13 +370,21 @@ sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
 
+#Note bed file input was originally generated from running this, 
+#but it just takes like 30 hours to run the 
+#merging, sorting, and peak calling, so using the already generated one.
+bed_in = "/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
+#also copied the combined and sorted fragments file for future data publishing
+
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+
 mkdir -p ${proj_dir}/nf_analysis_round4
 cd /home/groups/CEDAR/mulqueen/bc_multiome
 nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
 --force_rewrite true \
 --outdir ${proj_dir}/nf_analysis_round4 \
 --sample_dir ${proj_dir}/cellranger_data/third_round \
+--merged_bed ${bed_in} \
 -resume
 */
 
