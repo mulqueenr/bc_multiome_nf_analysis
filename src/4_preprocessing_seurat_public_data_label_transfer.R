@@ -16,8 +16,6 @@ option_list = list(
               help="Input seurat object", metavar="character"),
     make_option(c("-r", "--ref_dir"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref", 
               help="Reference directory containing genome information. default: %default]", metavar="character"),
-    make_option(c("-m","--metadata"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/sample_metadata.csv",
-              help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character"),
     make_option(c("-o","--plot_output_directory"), type="character", default=NULL,
               help="Directory to publish output plots to.", metavar="character")
 
