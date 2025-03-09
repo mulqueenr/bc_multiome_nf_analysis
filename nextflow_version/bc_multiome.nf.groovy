@@ -315,7 +315,7 @@ workflow {
 	//Make merged bed file of peaks
 	// the long way
 		if ( params.merged_bed ) {
-			merged_peaks = Channel.fromPath("${params.sample_metadata}") \
+			merged_peaks = Channel.fromPath("${params.merged_bed}") \
 			| SUPPLIED_MERGED_PEAKS
 		}
 		else {
