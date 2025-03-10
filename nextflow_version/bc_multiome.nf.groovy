@@ -167,7 +167,7 @@ process MERGE_SAMPLES_AND_FILTER {
 	"""
 	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
 	-s . \\
-	-p ${merged_peaks}
+	-p ${merged_peaks} \\
 	-m ${metadata} \\
 	-o ${params.outdir}/plots
 	"""
@@ -364,8 +364,6 @@ workflow {
 		| collect \
 		| set { titan_object_list }
 */
-
-//NOTE TO SELF ITS SOMETHING ABOUT HOW THE SUPPLIED BED IS BEING READ IN//
 
 /*
 

@@ -104,13 +104,11 @@ build_seurat_obj<-function(name_in){
 
 obj_list<-lapply(names(rna_objs),build_seurat_obj)
 
-combined <- merge(obj_list[[1]], y = as.list(obj_list[2:length(out)]), project = "terekhanova")
+combined <- merge(obj_list[[1]], y = as.list(obj_list[2:length(obj_list)]), project = "terekhanova")
 
 #merge all objects and then preprocess a bit
 #cell labels in $cell_type
-combined<-NormalizeData(combined)
-combined<-FindVariableFeatures(combined)
-combined<-ScaleData(combined)
+combined<-SCTransform(combined)
 combined <- RunPCA(combined)
 combined <- RunUMAP(combined, dims = 1:30, reduction = 'pca',reduction.name="RNA_umap")
 
