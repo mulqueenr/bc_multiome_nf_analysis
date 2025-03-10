@@ -360,6 +360,7 @@ workflow {
 		| set { titan_object_list }
 */
 
+//NOTE TO SELF ITS SOMETHING ABOUT HOW THE SUPPLIED BED IS BEING READ IN//
 
 /*
 
