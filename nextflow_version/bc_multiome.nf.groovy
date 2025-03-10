@@ -139,7 +139,12 @@ process SUPPLIED_MERGED_PEAKS {
 			path("merged.nf.bed")
 		script:
 		"""
-		cp ${merged_bed} merged.nf.bed
+		if [ "${merged_bed}" == "merged.nf.bed" ]; then
+			touch ${merged_bed}
+		else
+			cp ${merged_bed} merged.nf.bed
+		fi
+
 		"""
 
 }
@@ -376,7 +381,7 @@ git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github 
 #Note bed file input was originally generated from running this, 
 #but it just takes like 30 hours to run the 
 #merging, sorting, and peak calling, so using the already generated one.
-bed_in = "/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
+bed_in="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
 #also copied the combined and sorted fragments file for future data publishing
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
