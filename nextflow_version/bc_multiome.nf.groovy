@@ -177,13 +177,14 @@ process MERGE_SAMPLES_AND_FILTER {
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
 	//All reference data must have a metadata column of "celltype" to label transfer
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
-  publishDir "${params.outdir}/plots", mode: 'copy', overwrite: true, pattern: "*pdf"
   containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.ref}:/ref/"
   label 'inhouse'
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
+  publishDir "${params.outdir}/plots", mode: 'copy', overwrite: true, pattern: "*pdf"
+
 	
 	input:
-		path(seurat_objects)
+		path(obj)
 	output:
 		path("3_merged.public_transfer.SeuratObject.rds")
 		path("*pdf"), emit: public_transfer_plots
@@ -191,7 +192,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	script:
 	"""
 	Rscript /src/4_preprocessing_seurat_public_data_label_transfer.R \\
-	-s "${seurat_objects}" \\
+	-i ${obj} \\
 	-r /ref/
 	"""
 }
@@ -309,34 +310,47 @@ process TITAN_PER_SAMPLE {
 
 workflow {
 	/* SETTING UP VARIABLES */
-		sample_dir = Channel.fromPath("${params.sample_dir}/[I|N|D]*/" , type: 'dir').map { [it.name, it ] }
-		sample_metadata = Channel.fromPath("${params.sample_metadata}")
+		sample_dir = \
+		Channel.fromPath("${params.sample_dir}/[I|N|D]*/" , type: 'dir').map { [it.name, it ] }
 		//Sample_dir finds all folders that start with I (IDC/ILC), N (NAT), or D (DCIS), but that regex filter can be removed//
+
+		sample_metadata = \
+		Channel.fromPath("${params.sample_metadata}")
 
 	// DATA CORRECTION
 		SCRUBLET_RNA(sample_dir) \
 		| SOUPX_RNA \
 		| set { merged_peaks_input }
 
-	//Make merged bed file of peaks
-	// the long way
+	//ATAC PEAK GENERATION
+	// supplied bed file, or call them from merged fragments file using macs3
 		if ( params.merged_bed ) {
-			merged_peaks = Channel.fromPath("${params.merged_bed}") \
+			merged_peaks = \
+			Channel.fromPath("${params.merged_bed}") \
 			| SUPPLIED_MERGED_PEAKS
 		}
 		else {
-			merged_peaks_input | collect | MERGE_SAMPLES_CALLPEAKS
-			merged_peaks = MERGE_SAMPLES_CALLPEAKS.out.merged_bed
+			merged_peaks_input \
+			| collect \
+			| MERGE_SAMPLES_CALLPEAKS
+
+			merged_peaks = \
+			MERGE_SAMPLES_CALLPEAKS.out.merged_bed
 		}
 
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
-		cellranger_out = merged_peaks_input | collect
+		cellranger_out = \
+		merged_peaks_input \
+		| collect
 
+		merged_obj = \
 		MERGE_SAMPLES_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
 		
 		//Merge sample, public data label transfers
-		merged_seurat_object = MERGE_SAMPLES_AND_FILTER.out.obj | MERGED_PUBLIC_DATA_LABEL_TRANSFER
+		merged_seurat_object = \
+		merged_obj.obj \
+		| MERGED_PUBLIC_DATA_LABEL_TRANSFER
 }
 
 /*
@@ -381,10 +395,10 @@ git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github 
 #Note bed file input was originally generated from running this, 
 #but it just takes like 30 hours to run the 
 #merging, sorting, and peak calling, so using the already generated one.
-bed_in="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
 #also copied the combined and sorted fragments file for future data publishing
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+bed_in="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
 
 mkdir -p ${proj_dir}/nf_analysis_round4
 cd /home/groups/CEDAR/mulqueen/bc_multiome
