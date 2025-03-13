@@ -176,22 +176,24 @@ process MERGE_SAMPLES_AND_FILTER {
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
 	//All reference data must have a metadata column of "celltype" to label transfer
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
+  publishDir "${params.outdir}/plots", mode: 'copy', overwrite: true, pattern: "*pdf"
+
   cpus 5
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.ref}:/ref/"
 	label 'inhouse'
 	input:
 		path(seurat_objects)
+		path(ref)
 	output:
 		path("3_merged.public_transfer.SeuratObject.rds")
+		path("*pdf"), emit: public_transfer_plots
 
 	script:
 	"""
-	Rscript /src/5_preprocessing_seurat_public_data_label_transfer.R \\
+	Rscript /src/4_preprocessing_seurat_public_data_label_transfer.R \\
 	-s "${seurat_objects}" \\
-	-r ${params.ref} \\
-	-m ${metadata} \\
-	-o ${params.outdir}/plots
+	-r /ref/
 	"""
 }
 

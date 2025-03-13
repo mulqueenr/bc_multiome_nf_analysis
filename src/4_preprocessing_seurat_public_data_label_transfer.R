@@ -15,9 +15,7 @@ option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects/merged.geneactivity.SeuratObject.rds", 
               help="Input seurat object", metavar="character"),
     make_option(c("-r", "--ref_dir"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref", 
-              help="Reference directory containing genome information. default: %default]", metavar="character"),
-    make_option(c("-o","--plot_output_directory"), type="character", default=NULL,
-              help="Directory to publish output plots to.", metavar="character")
+              help="Reference directory containing genome information. default: %default]", metavar="character")
 
 ); 
  
