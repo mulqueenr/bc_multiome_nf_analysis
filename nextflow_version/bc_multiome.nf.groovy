@@ -192,7 +192,7 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	input:
 		path(obj)
 	output:
-		path("3_merged.public_transfer.SeuratObject.rds")
+		path("3_merged.public_transfer.SeuratObject.rds"), emit: seurat_obj
 		path("*pdf"), emit: public_transfer_plots
 
 	script:
@@ -203,8 +203,47 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	"""
 }
 
+
+process MERGED_CHROMVAR {	
+	//Run chromVAR on merged seurat object.
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	label 'inhouse'
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
+
+	input:
+		path(merged_in)
+	output:
+		path("4_merged.chromvar.SeuratObject.rds")
+
+	script:
+	"""
+	Rscript /src/5_preprocessing_chromvar_merged_samples.R \\
+	-i ${merged_in}
+	"""
+}
+
+process MERGED_GENE_ACTIVITY {
+	//Run Signac Gene activity function on seurat object.
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	label 'inhouse'
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+
+	input:
+		path(merged_in)
+
+	output:
+		path("5_merged.geneactivity.SeuratObject.rds")
+
+	script:
+	"""
+	Rscript /src/6_preprocessing_geneactivity_merged_sample.R  \\
+	-i ${merged_in}
+	"""
+}
+
+
   //////////////////////////////////////////////////////
- ///	Sample Integration and Merged Processing	///
+ ///	Sample Clustering and Merged Processing		///
 //////////////////////////////////////////////////////
 
 process MERGED_CLUSTER {
@@ -222,40 +261,6 @@ process MERGED_CLUSTER {
 	Rscript /src/merged_cluster_liger.R \\
 	-i ${merged_in} \\
 	-o ${params.outdir}/plots
-	"""
-}
-
-process MERGED_CHROMVAR {	
-	//Run chromVAR on merged seurat object.
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-	label 'inhouse'
-	input:
-		path(merged_in)
-	output:
-		path("*.chromvar.SeuratObject.rds")
-
-	script:
-	"""
-	Rscript /src/chromvar_merged_samples.R \\
-	-i ${merged_in}
-	"""
-}
-
-process MERGED_GENE_ACTIVITY {
-	//Run Signac Gene activity function on seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-	label 'inhouse'
-	input:
-		path(merged_in)
-
-	output:
-		path("*.geneactivity.SeuratObject.rds")
-
-	script:
-	"""
-	Rscript /src/geneactivity_merged_sample.R \\
-	-i ${merged_in}
 	"""
 }
 
@@ -357,6 +362,10 @@ workflow {
 		merged_seurat_object = \
 		merged_obj.obj \
 		| MERGED_PUBLIC_DATA_LABEL_TRANSFER
+
+		merged_seurat_object.seurat_obj \
+		| MERGED_CHROMVAR \
+		| MERGED_GENE_ACTIVITY
 }
 
 /*

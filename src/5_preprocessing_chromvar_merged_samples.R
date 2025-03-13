@@ -23,7 +23,6 @@ opt = parse_args(opt_parser);
 #setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
 #opt$object_input="merged.public_transfer.SeuratObject.rds"
 dat=readRDS(opt$object_input)
-
 DefaultAssay(dat)<-"peaks"
 
 # Get a list of motif position frequency matrices from the JASPAR database
@@ -60,7 +59,7 @@ dat <- RunChromVAR( object = dat,
   genome = BSgenome.Hsapiens.UCSC.hg38,
   assay="peaks")
 
-saveRDS(dat,file="merged.chromvar.SeuratObject.rds")
+saveRDS(dat,file="4_merged.chromvar.SeuratObject.rds")
 
 
 #THESE FILES SHOULD BE PRE-DOWNLOADED INTO THE SIF#

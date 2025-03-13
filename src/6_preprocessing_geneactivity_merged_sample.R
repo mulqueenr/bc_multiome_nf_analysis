@@ -17,7 +17,6 @@ opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 
 gene_activity<-GeneActivity(dat,process_n=10000)
-saveRDS(gene_activity,file="merged.GeneActivity.rds")
 
 dat[["GeneActivity"]]<-CreateAssayObject(counts=gene_activity)
 dat<- NormalizeData(
@@ -26,6 +25,6 @@ dat<- NormalizeData(
   normalization.method = 'LogNormalize',
   scale.factor = median(dat$nCount_GeneActivity)
 )
-saveRDS(dat,file="merged.geneactivity.SeuratObject.rds")
+saveRDS(dat,file="4_merged.geneactivity.SeuratObject.rds")
 
 
