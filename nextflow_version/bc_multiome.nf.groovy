@@ -320,7 +320,7 @@ process TITAN_PER_SAMPLE {
 //////////////////////////////
 
 workflow {
-	/* SETTING UP VARIABLES */
+	// SETTING UP VARIABLES
 		sample_dir = \
 		Channel.fromPath("${params.sample_dir}/[I|N|D]*/" , type: 'dir').map { [it.name, it ] }
 		//Sample_dir finds all folders that start with I (IDC/ILC), N (NAT), or D (DCIS), but that regex filter can be removed//
@@ -398,8 +398,7 @@ workflow {
 
 /*
 Example run is in README.md file.
-
-/*
+*/
 
 
 
