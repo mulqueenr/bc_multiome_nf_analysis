@@ -21,9 +21,7 @@ option_list = list(
   make_option(c("-p", "--peaks_bed"), type="character", default="merged.nf.bed", 
               help="Bed file formated peaks.", metavar="character"),
   make_option(c("-m","--metadata"), type="character", default="sample_metadata.csv",
-              help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character"),
-  make_option(c("-o", "--output_directory"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4", 
-              help="Output directory, defined in nextflow parameters.", metavar="character")
+              help="Comma separated (CSV) metadata file of cell information to be appended.", metavar="character")
 
 ); 
 
@@ -36,10 +34,6 @@ peaks=read.csv(file=opt$peaks_bed,sep="\t",col.names=c("chr","start","end"))
 peaks<-peaks[peaks$chr %in% c(paste0("chr",1:22),"chrX"),]
 peaks<-peaks[peaks$start>0,]
 peaks<-makeGRangesFromDataFrame(peaks)
-
-#outdir="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis"
-outdir=paste0(opt$output_directory,"/plots")
-system(paste0("mkdir -p ",outdir))
 
 # get gene annotations for hg38
 annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
@@ -110,7 +104,7 @@ make_seurat_object<-function(sample_input){
       ncol = 4,
       pt.size = 0)
 
-    ggsave(plt,file=paste0(outdir,"/",outname,".qc.pdf"))
+    ggsave(plt,file=paste0(outname,".qc.pdf"))
     dat$sample<-outname
     dat<-RenameCells(dat,new.names=paste(outname,Cells(dat),sep="_"))
   return(dat)

@@ -39,7 +39,7 @@ log.info """
 //////////////////////////
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
-	 cpus 5
+	//Output back into cellranger out directory
 	 label 'scrub'
 	 containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
@@ -59,8 +59,7 @@ process SCRUBLET_RNA {
 
 process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
-	//TODO: Update with R getopts library for readability
-  cpus 5
+	//Output back into cellranger out directory
   label 'inhouse'
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
@@ -78,11 +77,12 @@ process SOUPX_RNA {
 }
 
   //////////////////////////////////////
- ///	Seurat Sample Processing	///
+ ///		Peak Calling			///
 //////////////////////////////////////
 
 process MERGE_SAMPLES_CALLPEAKS {
-	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
+	//TODO update SIF to include macs3 and samtools 
+	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH 
 	//Initialize Seurat Object per sample.
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged.nf.bed"
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged_fragments.sorted.tsv.gz"
@@ -149,10 +149,15 @@ process SUPPLIED_MERGED_PEAKS {
 
 }
 
+  //////////////////////////////////////
+ ///	Seurat Sample Processing	///
+//////////////////////////////////////
+
 process MERGE_SAMPLES_AND_FILTER {
 	//Run single-cell label trasfer using available RNA data
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-  cpus 5
+    publishDir "${params.outdir}/plots/sample_qc", mode: 'copy', overwrite: true, pattern="*pdf"
+
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.sample_dir}"
 	label 'inhouse'
 	input:
@@ -162,14 +167,14 @@ process MERGE_SAMPLES_AND_FILTER {
 	output:
 		path("1_merged.unfiltered.SeuratObject.rds"), emit: unfiltered_obj
 		path("2_merged.scrublet_count_filtered.SeuratObject.rds"), emit: obj
+		path("*pdf"), emit: plots
 
 	script:
 	"""
 	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
 	-s . \\
 	-p ${merged_peaks} \\
-	-m ${metadata} \\
-	-o ${params.outdir}/plots
+	-m ${metadata}
 	"""
 	
 }
@@ -177,10 +182,11 @@ process MERGE_SAMPLES_AND_FILTER {
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
 	//All reference data must have a metadata column of "celltype" to label transfer
+	//Data processing conducted in the SIF is included in /public_data/ folder
   containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.ref}:/ref/"
   label 'inhouse'
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
-  publishDir "${params.outdir}/plots", mode: 'copy', overwrite: true, pattern: "*pdf"
+  publishDir "${params.outdir}/plots/label_transfer", mode: 'copy', overwrite: true, pattern: "*pdf"
 
 	
 	input:
@@ -382,32 +388,9 @@ workflow {
 */
 
 /*
+Example run is in README.md file.
 
-Example running
-srun --partition=guest --time=1-12:00:00 --cpus-per-task=30 --mem=400G --nodes=1 --pty /bin/bash
-cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+/*
 
-cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
-
-#Note bed file input was originally generated from running this, 
-#but it just takes like 30 hours to run the 
-#merging, sorting, and peak calling, so using the already generated one.
-#also copied the combined and sorted fragments file for future data publishing
-
-proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-bed_in="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
-
-mkdir -p ${proj_dir}/nf_analysis_round4
-cd /home/groups/CEDAR/mulqueen/bc_multiome
-nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
---force_rewrite true \
---outdir ${proj_dir}/nf_analysis_round4 \
---sample_dir ${proj_dir}/cellranger_data/third_round \
---merged_bed ${bed_in} \
--resume
-*/
 
 

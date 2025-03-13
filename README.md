@@ -14,7 +14,6 @@ Example run of nextflow:
 ```bash
 #request interactive node
 srun --partition=guest --time=1-12:00:00 --cpus-per-task=30 --mem=400G --nodes=1 --pty /bin/bash
-cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 
 #To enter SIF used for processing steps:
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
