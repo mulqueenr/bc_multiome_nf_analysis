@@ -171,6 +171,7 @@ process MERGE_SAMPLES_AND_FILTER {
 	-m ${metadata} \\
 	-o ${params.outdir}/plots
 	"""
+	
 }
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
@@ -335,11 +336,12 @@ workflow {
 		cellranger_out = merged_peaks_input | collect
 
 		MERGE_SAMPLES_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
+		
+		//Merge sample, public data label transfers
 		merged_seurat_object = MERGE_SAMPLES_AND_FILTER.out.obj | MERGED_PUBLIC_DATA_LABEL_TRANSFER
 }
 
 /*
-		//Merge sample, public data label transfers
 		
 		
 		//Integrate and cluster data, run chromvar, run gene activity
