@@ -50,6 +50,7 @@ library(org.Hs.eg.db)
 library(JASPAR2020)
 library(TFBSTools)
 library(patchwork)
+library(ggplot2)
 set.seed(1234)
 library(BiocParallel)
 library(universalmotif)
@@ -108,6 +109,13 @@ combined <- merge(
 )
 combined[["our_peaks"]]
 DefaultAssay(combined)<-"our_peaks"
+
+#filter peaks not seen in data
+main.chroms <- standardChromosomes(BSgenome.Hsapiens.UCSC.hg38)
+main.chroms <- main.chroms[!(main.chroms %in% c("chrY","chrM"))] 
+keep.peaks <- which(as.character(seqnames(granges(combined[["our_peaks"]]))) %in% main.chroms)
+combined[["our_peaks"]] <- subset(combined[["our_peaks"]], features = rownames(combined[["our_peaks"]])[keep.peaks])
+
 combined <- RunTFIDF(combined)
 combined <- FindTopFeatures(combined, min.cutoff = 20)
 combined <- RunSVD(combined)
@@ -122,10 +130,9 @@ counts<-counts[!duplicated(row.names(counts)),]
 combined[["RNA"]]<-NULL
 combined[["RNA"]]<-CreateAssayObject(counts=counts)
 DefaultAssay(combined)<-"RNA"
+
 #PREPROCESSING RNA
-combined<-NormalizeData(combined)
-combined<-FindVariableFeatures(combined)
-combined<-ScaleData(combined)
+combined<-SCTransform(combined)
 combined <- RunPCA(combined)
 combined <- RunUMAP(combined, dims = 1:30, reduction = 'pca',reduction.name="RNA_umap")
 
@@ -199,7 +206,6 @@ combined <- RunChromVAR( object = combined,
 
 saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.chromvar.rds"))
 
-combined<-
 # compute gene activities
 gene.activities <- GeneActivity(combined)
 

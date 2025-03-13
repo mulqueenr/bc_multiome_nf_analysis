@@ -62,6 +62,7 @@ library(universalmotif)
 library(GenomicRanges)
 library(EnsDb.Hsapiens.v86)
 library(Signac)
+library(ggplot2)
 
 #read in RNA object, use atac_fragments.tsv.gz to make a feature matrix using our peaks
 
@@ -112,8 +113,15 @@ combined<-SCTransform(combined)
 combined <- RunPCA(combined)
 combined <- RunUMAP(combined, dims = 1:30, reduction = 'pca',reduction.name="RNA_umap")
 
-plt<-DimPlot(combined,group.by="cell_type",reduction="RNA_umap")+ggtitle("RNA")
-ggsave(plt,file="terekhanova_multiome.atac_umap.pdf")
+#run basic atac clustering
+combined <- RunTFIDF(combined)
+combined <- FindTopFeatures(combined, min.cutoff = 20)
+combined <- RunSVD(combined)
+combined <- RunUMAP(combined, dims = 2:50, reduction = 'lsi',reduction.name="our_peaks_umap")
+
+plt1<-DimPlot(combined,group.by="cell_type",reduction="RNA_umap")+ggtitle("RNA")
+plt2<-DimPlot(combined,group.by="cell_type",reduction="our_peaks_umap")+ggtitle("ATAC")
+ggsave(plt1|plt2,file="terekhanova_multiome.atac_umap.pdf")
 saveRDS(combined,file="terekhanova_multiome.rds")
 ```
 
@@ -137,8 +145,8 @@ library(universalmotif)
 library(GenomicRanges)
 register(SerialParam()) #using single core mode
 
-proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/ref/terekhanova")
+combined<-readRDS(file="terekhanova_multiome.rds")
 
 DefaultAssay(combined)<-"our_peaks"
 
@@ -178,7 +186,8 @@ combined <- RunChromVAR( object = combined,
   genome = BSgenome.Hsapiens.UCSC.hg38,
   assay="our_peaks")
 
-saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.chromvar.rds"))
+saveRDS(combined,file="terekhanova_multiome.chromvar.rds")
+combined<-readRDS(file="terekhanova_multiome.chromvar.rds")
 
 # compute gene activities
 gene.activities <- GeneActivity(combined)
@@ -193,10 +202,7 @@ combined <- NormalizeData(
 )
 
 
-saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.geneactivity.rds"))
-combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
-
-run_top_TFs(combined,prefix="ref_cell_type",i="author_cell_type",n_markers=5) #generate top TF markers per cell type
+saveRDS(combined,file="terekhanova_multiome.geneactivity.rds")
 
 
 ```
