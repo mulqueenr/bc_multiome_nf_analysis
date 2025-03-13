@@ -185,7 +185,6 @@ process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	label 'inhouse'
 	input:
 		path(seurat_objects)
-		path(ref)
 	output:
 		path("3_merged.public_transfer.SeuratObject.rds")
 		path("*pdf"), emit: public_transfer_plots
