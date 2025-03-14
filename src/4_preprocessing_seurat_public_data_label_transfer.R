@@ -24,7 +24,6 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 ref_dir=opt$ref_dir
 met<-read.csv(opt$metadata,header=T,sep=",")
-outdir<-opt$plot_output_directory
 dat<-readRDS(file=opt$object_input)
 
 #using only RNA for all label transfers (not atac for the multimodal ones)
