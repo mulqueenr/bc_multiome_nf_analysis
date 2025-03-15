@@ -12,15 +12,32 @@ The file sif_creation.md details the creation of a Singularity container using A
 
 Example run of nextflow:
 ```bash
+#request interactive node
+srun --partition=guest --time=1-12:00:00 --cpus-per-task=30 --mem=400G --nodes=1 --pty /bin/bash
+
+#To enter SIF used for processing steps:
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
 cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
 git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
-module load singularity #load singularity on exacloud
-module load nextflow #load nextflow on exacloud
 
-#run nextflow with defaults
-nextflow bc_multiome/bc_multiome.nf.groovy \
--with-dag bc_multiome.flowchart.png \
--with-report bc_multiome.report.html 
+#Note bed file input was originally generated from running this, 
+#but it just takes like 30 hours to run the 
+#merging, sorting, and peak calling, so using the already generated one.
+#also copied the combined and sorted fragments file for future data publishing
+
+proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
+bed_in="/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
+
+mkdir -p ${proj_dir}/nf_analysis_round4
+cd /home/groups/CEDAR/mulqueen/bc_multiome
+nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
+--force_rewrite true \
+--outdir ${proj_dir}/nf_analysis_round4 \
+--sample_dir ${proj_dir}/cellranger_data/third_round \
+--merged_bed ${bed_in} \
+-resume
 ```
 
 Repository folders:

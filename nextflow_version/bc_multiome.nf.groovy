@@ -39,7 +39,7 @@ log.info """
 //////////////////////////
 process SCRUBLET_RNA {
 	//Perform scrublet on raw RNA count.
-	 cpus 5
+	//Output back into cellranger out directory
 	 label 'scrub'
 	 containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
@@ -59,8 +59,7 @@ process SCRUBLET_RNA {
 
 process SOUPX_RNA {
 	//Perform soupX on raw RNA counts.
-	//TODO: Update with R getopts library for readability
-  cpus 5
+	//Output back into cellranger out directory
   label 'inhouse'
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 
@@ -78,11 +77,12 @@ process SOUPX_RNA {
 }
 
   //////////////////////////////////////
- ///	Seurat Sample Processing	///
+ ///		Peak Calling			///
 //////////////////////////////////////
 
 process MERGE_SAMPLES_CALLPEAKS {
-	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH
+	//TODO update SIF to include macs3 and samtools 
+	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH 
 	//Initialize Seurat Object per sample.
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged.nf.bed"
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged_fragments.sorted.tsv.gz"
@@ -139,15 +139,25 @@ process SUPPLIED_MERGED_PEAKS {
 			path("merged.nf.bed")
 		script:
 		"""
-		cp ${merged_bed} merged.nf.bed
+		if [ "${merged_bed}" == "merged.nf.bed" ]; then
+			touch ${merged_bed}
+		else
+			cp ${merged_bed} merged.nf.bed
+		fi
+
 		"""
 
 }
 
+  //////////////////////////////////////
+ ///	Seurat Sample Processing	///
+//////////////////////////////////////
+
 process MERGE_SAMPLES_AND_FILTER {
 	//Run single-cell label trasfer using available RNA data
   publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-  cpus 5
+    publishDir "${params.outdir}/plots/sample_qc", mode: 'copy', overwrite: true, pattern="*pdf"
+
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.sample_dir}"
 	label 'inhouse'
 	input:
@@ -157,41 +167,83 @@ process MERGE_SAMPLES_AND_FILTER {
 	output:
 		path("1_merged.unfiltered.SeuratObject.rds"), emit: unfiltered_obj
 		path("2_merged.scrublet_count_filtered.SeuratObject.rds"), emit: obj
+		path("*pdf"), emit: plots
 
 	script:
 	"""
 	Rscript /src/3_preprocessing_seurat_sample_filtering.R \\
 	-s . \\
-	-p ${merged_peaks}
-	-m ${metadata} \\
-	-o ${params.outdir}/plots
+	-p ${merged_peaks} \\
+	-m ${metadata}
 	"""
+	
 }
 
 process MERGED_PUBLIC_DATA_LABEL_TRANSFER {
 	//Run single-cell label trasfer using available RNA data
 	//All reference data must have a metadata column of "celltype" to label transfer
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-  cpus 5
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-	label 'inhouse'
+	//Data processing conducted in the SIF is included in /public_data/ folder
+  containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.ref}:/ref/"
+  label 'inhouse'
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
+  publishDir "${params.outdir}/plots/label_transfer", mode: 'copy', overwrite: true, pattern: "*pdf"
+
+	
 	input:
-		path(seurat_objects)
+		path(obj)
 	output:
-		path("3_merged.public_transfer.SeuratObject.rds")
+		path("3_merged.public_transfer.SeuratObject.rds"), emit: seurat_obj
+		path("*pdf"), emit: public_transfer_plots
 
 	script:
 	"""
-	Rscript /src/5_preprocessing_seurat_public_data_label_transfer.R \\
-	-s "${seurat_objects}" \\
-	-r ${params.ref} \\
-	-m ${metadata} \\
-	-o ${params.outdir}/plots
+	Rscript /src/4_preprocessing_seurat_public_data_label_transfer.R \\
+	-i ${obj} \\
+	-r /ref/
 	"""
 }
 
+
+process MERGED_CHROMVAR {	
+	//Run chromVAR on merged seurat object.
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	label 'inhouse'
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
+
+	input:
+		path(merged_in)
+	output:
+		path("4_merged.chromvar.SeuratObject.rds")
+
+	script:
+	"""
+	Rscript /src/5_preprocessing_chromvar_merged_samples.R \\
+	-i ${merged_in}
+	"""
+}
+
+process MERGED_GENE_ACTIVITY {
+	//Run Signac Gene activity function on seurat object.
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	label 'inhouse'
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+
+	input:
+		path(merged_in)
+
+	output:
+		path("5_merged.geneactivity.SeuratObject.rds")
+
+	script:
+	"""
+	Rscript /src/6_preprocessing_geneactivity_merged_sample.R  \\
+	-i ${merged_in}
+	"""
+}
+
+
   //////////////////////////////////////////////////////
- ///	Sample Integration and Merged Processing	///
+ ///	Sample Clustering and Merged Processing		///
 //////////////////////////////////////////////////////
 
 process MERGED_CLUSTER {
@@ -209,40 +261,6 @@ process MERGED_CLUSTER {
 	Rscript /src/merged_cluster_liger.R \\
 	-i ${merged_in} \\
 	-o ${params.outdir}/plots
-	"""
-}
-
-process MERGED_CHROMVAR {	
-	//Run chromVAR on merged seurat object.
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-	label 'inhouse'
-	input:
-		path(merged_in)
-	output:
-		path("*.chromvar.SeuratObject.rds")
-
-	script:
-	"""
-	Rscript /src/chromvar_merged_samples.R \\
-	-i ${merged_in}
-	"""
-}
-
-process MERGED_GENE_ACTIVITY {
-	//Run Signac Gene activity function on seurat object.
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
-	label 'inhouse'
-	input:
-		path(merged_in)
-
-	output:
-		path("*.geneactivity.SeuratObject.rds")
-
-	script:
-	"""
-	Rscript /src/geneactivity_merged_sample.R \\
-	-i ${merged_in}
 	"""
 }
 
@@ -302,37 +320,55 @@ process TITAN_PER_SAMPLE {
 //////////////////////////////
 
 workflow {
-	/* SETTING UP VARIABLES */
-		sample_dir = Channel.fromPath("${params.sample_dir}/[I|N|D]*/" , type: 'dir').map { [it.name, it ] }
-		sample_metadata = Channel.fromPath("${params.sample_metadata}")
+	// SETTING UP VARIABLES
+		sample_dir = \
+		Channel.fromPath("${params.sample_dir}/[I|N|D]*/" , type: 'dir').map { [it.name, it ] }
 		//Sample_dir finds all folders that start with I (IDC/ILC), N (NAT), or D (DCIS), but that regex filter can be removed//
+
+		sample_metadata = \
+		Channel.fromPath("${params.sample_metadata}")
 
 	// DATA CORRECTION
 		SCRUBLET_RNA(sample_dir) \
 		| SOUPX_RNA \
 		| set { merged_peaks_input }
 
-	//Make merged bed file of peaks
-	// the long way
+	//ATAC PEAK GENERATION
+	// supplied bed file, or call them from merged fragments file using macs3
 		if ( params.merged_bed ) {
-			merged_peaks = Channel.fromPath("${params.merged_bed}") \
+			merged_peaks = \
+			Channel.fromPath("${params.merged_bed}") \
 			| SUPPLIED_MERGED_PEAKS
 		}
 		else {
-			merged_peaks_input | collect | MERGE_SAMPLES_CALLPEAKS
-			merged_peaks = MERGE_SAMPLES_CALLPEAKS.out.merged_bed
+			merged_peaks_input \
+			| collect \
+			| MERGE_SAMPLES_CALLPEAKS
+
+			merged_peaks = \
+			MERGE_SAMPLES_CALLPEAKS.out.merged_bed
 		}
 
 	// DATA PREPROCESSING 
 		//Merge filtered seurat objects, add sample metadata
-		cellranger_out = merged_peaks_input | collect
+		cellranger_out = \
+		merged_peaks_input \
+		| collect
 
+		merged_obj = \
 		MERGE_SAMPLES_AND_FILTER(cellranger_out, merged_peaks, sample_metadata)
-		merged_seurat_object = MERGE_SAMPLES_AND_FILTER.out.obj | MERGED_PUBLIC_DATA_LABEL_TRANSFER
+		
+		//Merge sample, public data label transfers
+		merged_seurat_object = \
+		merged_obj.obj \
+		| MERGED_PUBLIC_DATA_LABEL_TRANSFER
+
+		merged_seurat_object.seurat_obj \
+		| MERGED_CHROMVAR \
+		| MERGED_GENE_ACTIVITY
 }
 
 /*
-		//Merge sample, public data label transfers
 		
 		
 		//Integrate and cluster data, run chromvar, run gene activity
@@ -360,35 +396,9 @@ workflow {
 		| set { titan_object_list }
 */
 
-//NOTE TO SELF ITS SOMETHING ABOUT HOW THE SUPPLIED BED IS BEING READ IN//
-
 /*
-
-Example running
-srun --partition=guest --time=1-12:00:00 --cpus-per-task=30 --mem=400G --nodes=1 --pty /bin/bash
-cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
-
-cd /home/groups/CEDAR/mulqueen/bc_multiome #move to project directory
-git clone https://github.com/mulqueenr/bc_multiome_nf_analysis.git #pull github repo
-
-#Note bed file input was originally generated from running this, 
-#but it just takes like 30 hours to run the 
-#merging, sorting, and peak calling, so using the already generated one.
-bed_in = "/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/peaks/merged.nf.bed"
-#also copied the combined and sorted fragments file for future data publishing
-
-proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-
-mkdir -p ${proj_dir}/nf_analysis_round4
-cd /home/groups/CEDAR/mulqueen/bc_multiome
-nextflow run bc_multiome_nf_analysis/nextflow_version/bc_multiome.nf.groovy \
---force_rewrite true \
---outdir ${proj_dir}/nf_analysis_round4 \
---sample_dir ${proj_dir}/cellranger_data/third_round \
---merged_bed ${bed_in} \
--resume
+Example run is in README.md file.
 */
+
 
 
