@@ -155,8 +155,8 @@ process SUPPLIED_MERGED_PEAKS {
 
 process MERGE_SAMPLES_AND_FILTER {
 	//Run single-cell label trasfer using available RNA data
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
-    publishDir "${params.outdir}/plots/sample_qc", mode: 'copy', overwrite: true, pattern="*pdf"
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*rds"
+    publishDir "${params.outdir}/plots/sample_qc", mode: 'copy', overwrite: true, pattern: "*pdf"
 
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.sample_dir}"
 	label 'inhouse'
