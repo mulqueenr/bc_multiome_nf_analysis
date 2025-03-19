@@ -140,11 +140,12 @@ process SUPPLIED_MERGED_PEAKS {
 		script:
 		"""
 		if [ "${merged_bed}" == "merged.nf.bed" ]; then
-			touch ${merged_bed}
+			cp ${merged_bed} temp.bed
+			mv temp.bed merged.nf.bed
 		else
 			cp ${merged_bed} merged.nf.bed
 		fi
-
+		#use cp and mv rather than touch for proper cacheing
 		"""
 
 }
@@ -155,7 +156,7 @@ process SUPPLIED_MERGED_PEAKS {
 
 process MERGE_SAMPLES_AND_FILTER {
 	//Run single-cell label trasfer using available RNA data
-  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true
+  publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern="*rds"
     publishDir "${params.outdir}/plots/sample_qc", mode: 'copy', overwrite: true, pattern="*pdf"
 
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.sample_dir}"
