@@ -126,7 +126,7 @@ process MERGE_SAMPLES_CALLPEAKS {
 		"""
 
 }
-
+/*
 process SUPPLIED_MERGED_PEAKS {
 		//Copy supplied bed file. If one is given to the --merged_bed argument on initialization of pipeline.
 		publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true
@@ -145,6 +145,7 @@ process SUPPLIED_MERGED_PEAKS {
 		"""
 
 }
+*/
 
   //////////////////////////////////////
  ///	Seurat Sample Processing	///
@@ -333,10 +334,8 @@ workflow {
 	//ATAC PEAK GENERATION
 	// supplied bed file, or call them from merged fragments file using macs3
 		if ( params.merged_bed ) {
-			merged_peaks = \
-			Channel.fromPath("${params.merged_bed}") \
-			| SUPPLIED_MERGED_PEAKS
-		}
+			merged_peaks = Channel.fromPath("${params.merged_bed}")
+			}
 		else {
 			merged_peaks_input \
 			| collect \
