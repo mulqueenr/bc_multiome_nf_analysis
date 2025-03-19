@@ -139,12 +139,8 @@ process SUPPLIED_MERGED_PEAKS {
 			path("merged.nf.bed")
 		script:
 		"""
-		if [ "${merged_bed}" == "merged.nf.bed" ]; then
-			cp ${merged_bed} temp.bed
-			mv temp.bed merged.nf.bed
-		else
-			cp ${merged_bed} merged.nf.bed
-		fi
+		cp ${merged_bed} temp.bed
+		mv temp.bed merged.nf.bed
 		#use cp and mv rather than touch for proper cacheing
 		"""
 
