@@ -22,7 +22,12 @@ option_list = list(
 
 ); 
  
-
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+ref_dir=opt$ref_dir
+met<-read.csv(opt$metadata,header=T,sep=",")
+outdir<-opt$plot_output_directory
+dat<-readRDS(file=opt$object_input)
 
 #clustering function for processing stuff
 multimodal_cluster<-function(dat=dat,prefix="allcells",res=0.5,dotsize=5){
