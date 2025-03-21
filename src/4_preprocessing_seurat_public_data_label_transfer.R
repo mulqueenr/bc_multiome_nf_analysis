@@ -1,5 +1,5 @@
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome,/home/groups/CEDAR/mulqueen/bc_multiome/ref:/ref  $sif
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome,/home/groups/CEDAR/mulqueen/bc_multiome/ref:/ref $sif
 
 library(Signac)
 library(Seurat)
@@ -11,10 +11,11 @@ library(stringr)
 library(plyr)
 library(optparse)
 library(ggplot2)
+
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="2_merged.scrublet_count_filtered.SeuratObject.rds", 
               help="Input seurat object", metavar="character"),
-    make_option(c("-r", "--ref_dir"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref", 
+    make_option(c("-r", "--ref_dir"), type="character", default="/ref", 
               help="Reference directory containing genome information. default: %default]", metavar="character")
 
 ); 
@@ -25,7 +26,8 @@ ref_dir=opt$ref_dir
 dat<-readRDS(file=opt$object_input)
 dat <- SCTransform(dat,vst.flavor='v2')
 DefaultAssay(dat)<-"SCT"
-dat<-JoinLayers(dat,assay="SCT")
+
+#dat<-JoinLayers(dat)
 #using only SCT for all label transfers (not atac for the multimodal ones)
 
 single_sample_label_transfer<-function(dat,ref_obj,ref_prefix,celltype="celltype"){
