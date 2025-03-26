@@ -84,6 +84,8 @@ process MERGE_SAMPLES_CALLPEAKS {
 	//TODO update SIF to include macs3 and samtools 
 	//REQUIRES MACS3 AND SAMTOOLS INSTALL IN PATH 
 	//Initialize Seurat Object per sample.
+	//NOTE merged_fragments are not properly cellIDs for merging across all samples. 
+	//Use passqc.atac_fragments.tsv.gz for each cell ranger object for actual data upload
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged.nf.bed"
 	publishDir "${params.outdir}/peaks", mode: 'copy', overwrite: true, pattern: "merged_fragments.sorted.tsv.gz"
 
