@@ -204,7 +204,7 @@ process MERGED_CHROMVAR {
 
 process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
 	label 'inhouse'
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 
