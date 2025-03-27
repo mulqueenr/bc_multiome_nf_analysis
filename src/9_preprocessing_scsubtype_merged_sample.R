@@ -1,14 +1,5 @@
-
-```bash
-module load singularity
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
-singularity shell \
---bind /home/groups/CEDAR/scATACcnv/Hisham_data \
---bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
-```
-
-
-```R
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 
 library(Seurat)
 library(Signac)
@@ -23,31 +14,24 @@ library(ggtern)
 
 set.seed(123)
 option_list = list(
-  make_option(c("-i", "--object_input"), type="character", default="merged.clone_annot.passqc.SeuratObject.rds", 
+  make_option(c("-i", "--object_input"), type="character", default="5_merged.geneactivity.SeuratObject.rds", 
               help="List of sample RDS files", metavar="character")
 );
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3/seurat_objects")
 dat=readRDS(opt$object_input)
 
 
-#set merge_cluster annots to just those over 50 cells, and those not diploid
-dat$merge_cluster_50min<-NA
-for(i in names(which(table(dat$merge_cluster)>50))){
-  dat@meta.data[which(dat@meta.data$merge_cluster==i),]$merge_cluster_50min<-i
-}
-dat@meta.data[which(dat@meta.data$ploidy=="diploid"),]$merge_cluster_50min<-"diploid"
-dat_epi<-subset(dat,cell=row.names(dat@meta.data)[dat$reclust %in% c("cancer_luminal_epithelial","luminal_epithelial","basal_epithelial")])
-
-
 #downloading PAM50 gene list from SCSubtype git repo
-if(!file.exists("/home/groups/CEDAR/mulqueen/bc_multiome/ref/NatGen_Supplementary_table_S4.csv")){
-  system("wget -P /home/groups/CEDAR/mulqueen/bc_multiome/ref/ https://raw.githubusercontent.com/Swarbricklab-code/BrCa_cell_atlas/main/scSubtype/NatGen_Supplementary_table_S4.csv")
+if(!file.exists("/ref/NatGen_Supplementary_table_S4.csv")){
+  system("wget https://raw.githubusercontent.com/Swarbricklab-code/BrCa_cell_atlas/main/scSubtype/NatGen_Supplementary_table_S4.csv")
+  sigdat <- read.csv("NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
+} else {
+  sigdat <- read.csv("/ref/NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
 }
+
 # read in scsubtype gene signatures
-sigdat <- read.csv("/home/groups/CEDAR/mulqueen/bc_multiome/ref/NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
 temp_allgenes <- c(as.vector(sigdat[,"Basal_SC"]),
                    as.vector(sigdat[,"Her2E_SC"]),
                    as.vector(sigdat[,"LumA_SC"]),

@@ -205,8 +205,8 @@ process MERGED_CHROMVAR {
 process MERGED_GENE_ACTIVITY {
 	//Run Signac Gene activity function on seurat object.
 	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
-	label 'inhouse'
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+	label 'inhouse'
 
 	input:
 		path(merged_in)
@@ -226,21 +226,23 @@ process MERGED_GENE_ACTIVITY {
  ///	Sample Clustering and Merged Processing		///
 //////////////////////////////////////////////////////
 
-process MERGED_CLUSTER {
+process FIG1_MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
-  cpus 5
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+	publishDir "${params.outdir}/plots/fig1", mode: 'copy', overwrite: true, pattern: "*.rds"
+
 	label 'inhouse'
 	input:
 		path(merged_in)
 	output:
-		path("*.liger.SeuratObject.rds")
+		path("6_merged.celltyping.SeuratObject.rds"), emit: cluster_obj
+		path("*pdf"), emit: fig_pdf
 
 	script:
 	"""
-	Rscript /src/merged_cluster_liger.R \\
+	Rscript /src/7_preprocessing_cluster_data \\
 	-i ${merged_in} \\
-	-o ${params.outdir}/plots
 	"""
 }
 
@@ -343,7 +345,8 @@ workflow {
 
 		merged_seurat_object.seurat_obj \
 		| MERGED_CHROMVAR \
-		| MERGED_GENE_ACTIVITY
+		| MERGED_GENE_ACTIVITY \
+		| FIG1_MERGED_CLUSTER
 }
 
 /*
