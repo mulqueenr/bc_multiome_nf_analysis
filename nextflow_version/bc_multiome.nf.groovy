@@ -241,7 +241,7 @@ process FIG1_MERGED_CLUSTER {
 
 	script:
 	"""
-	Rscript /src/7_preprocessing_cluster_data \\
+	Rscript /src/7_preprocessing_cluster_data.R \\
 	-i ${merged_in} \\
 	"""
 }
