@@ -164,10 +164,12 @@ celltype_col=c("cancer"="#9e889e",
 "pericyte"="#edb379",
 "fibroblast"="#e12228",
 "myeloid"="#239ba8",
-"bcell"="B cells",
+"bcell"="#243d97",
 "plasma"="#742b8c",
 "tcell"="#003147")
-
+Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
+"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
+"myeloid","bcell","plasma","tcell"))
 
 hist_col=c("NAT"="#99CCFF",
 "DCIS"="#CCCCCC",
