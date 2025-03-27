@@ -151,7 +151,7 @@ ggsave(plt,file="FIG1_assigned_celltypes.features.pdf",height=10,width=40,limits
 
 
 ####################################################
-#           Fig 1 Colors                            #
+#           Fig 1 Colors                           #
 ###################################################
 
 celltype_col=c("cancer"="#9e889e",
