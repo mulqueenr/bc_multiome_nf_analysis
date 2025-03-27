@@ -198,7 +198,7 @@ p3<-DimPlot(dat,cols=hist_col,group.by="Diagnosis",reduction = "allcells.wnn.uma
 p4<-DimPlot(dat,cols=clin_col,group.by="Diag_MolDiag",reduction = "allcells.wnn.umap")
 p5<-DimPlot(dat,group.by="sample",reduction = "allcells.wnn.umap")
 
-ggsave(p1/p2/p3/p4/p5,file="FIG1_umap_assigned_celltype.pdf",width=10,height=50)
+ggsave(p1/p2/p3/p4/p5,file="FIG1_umap_assigned_celltype.pdf",width=10,height=50,limitsize=F)
 
 ####################################################
 #           Fig 1 Sample Heatmap                  #
