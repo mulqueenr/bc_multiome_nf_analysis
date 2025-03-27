@@ -351,13 +351,6 @@ workflow {
 
 /*
 		
-		
-		//Integrate and cluster data, run chromvar, run gene activity
-		MERGED_CHROMVAR(merged_seurat_object)
-		| MERGED_GENE_ACTIVITY \
-		|  MERGED_CLUSTER \
-		| collect \
-		| set { merged_out }
 
 		//generate tuple of sample names with merged object for splitting merged seurat object in parallel
 		seurat_object_list
