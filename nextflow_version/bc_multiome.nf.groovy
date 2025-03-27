@@ -228,6 +228,7 @@ process MERGED_GENE_ACTIVITY {
 
 process FIG1_MERGED_CLUSTER {
 	//Run merge seurat objects again and run LIGER on merged seurat object.
+	//This script is not generalizable. It includes hard coded metadata and a set seet for assigning clusters.
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 	publishDir "${params.outdir}/plots/fig1", mode: 'copy', overwrite: true, pattern: "*.rds"
