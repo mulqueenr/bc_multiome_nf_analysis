@@ -254,7 +254,7 @@ dev.off()
 #Make stacked barplot on identities per cluster
 
 DF<-as.data.frame(dat@meta.data %>% group_by(assigned_celltype,sample) %>% tally())
-plt1<-ggplot(DF,aes(x=sample,fill=assigned_celltype,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()+scale_color_discrete(values=celltype_col)
+plt1<-ggplot(DF,aes(x=sample,fill=assigned_celltype,y=n))+geom_bar(position="fill",stat="identity")+theme_minimal()#+scale_color_discrete(values=celltype_col)
 ggsave(plt1,file="FIG1_allcells.assigned_celltype_barplots.pdf",width=50,limitsize=F)
 
 #plot cellcount (no epi distinction)
