@@ -60,6 +60,9 @@ multimodal_cluster<-function(dat=dat,res=0.5,prefix="allcells"){
   dat <- RunUMAP(dat, 
     nn.name = paste(prefix,"weighted.nn",sep="."), 
     reduction.name = paste(prefix,"wnn.umap",sep="."), 
+    n.neighbors=200, ###UP THIS FOR LESS STRANDYNESS IN UMAP
+    n.epochs=200,
+    min.dist=0.1,
     reduction.key = "wnnUMAP_")
 
   dat <- FindClusters(dat, 
