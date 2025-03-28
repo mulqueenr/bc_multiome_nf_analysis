@@ -3,6 +3,7 @@
 
 library(Signac)
 library(Seurat)
+library(circlize)
 library(EnsDb.Hsapiens.v86)
 library(BSgenome.Hsapiens.UCSC.hg38)
 library(GenomeInfoDb)
