@@ -131,7 +131,7 @@ dat@meta.data[dat$seurat_clusters %in% c("40"),]$assigned_celltype<-"adipocyte"
 dat@meta.data[dat$seurat_clusters %in% c("11"),]$assigned_celltype<-"endothelial_vascular"
 dat@meta.data[dat$seurat_clusters %in% c("37"),]$assigned_celltype<-"endothelial_lymphatic"
 dat@meta.data[dat$seurat_clusters %in% c("33"),]$assigned_celltype<-"pericyte"
-dat@meta.data[dat$seurat_clusters %in% c("28","13","8"),]$assigned_celltype<-"fibroblast"
+dat@meta.data[dat$seurat_clusters %in% c("13","8"),]$assigned_celltype<-"fibroblast"
 
 dat@meta.data[dat$seurat_clusters %in% c("7"),]$assigned_celltype<-"myeloid"
 dat@meta.data[dat$seurat_clusters %in% c("34"),]$assigned_celltype<-"bcell"
