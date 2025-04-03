@@ -14,7 +14,7 @@ library(ggtern)
 
 set.seed(123)
 option_list = list(
-  make_option(c("-i", "--object_input"), type="character", default="5_merged.geneactivity.SeuratObject.rds", 
+  make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
               help="List of sample RDS files", metavar="character")
 );
 
@@ -45,6 +45,8 @@ module_feats[["LumA_SC"]]=as.vector(sigdat[,"LumA_SC"])
 module_feats[["LumB_SC"]]=as.vector(sigdat[,"LumB_SC"])
 module_feats<-lapply(module_feats,function(x) {x[x!=""]})
 
+dat_epi<-subset(dat,assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs"))
+dat_epi[["RNA"]]<-JoinLayers(dat_epi[["RNA"]])
 dat_epi<-AddModuleScore(dat_epi,module_feats,
   assay = "RNA",
   name = paste0("SC_Subtype_",c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC")),
@@ -52,7 +54,7 @@ dat_epi<-AddModuleScore(dat_epi,module_feats,
 
 scsubtype<-dat_epi@meta.data[grep("SC_Subtype",colnames(dat_epi@meta.data))]
 dat<-AddMetaData(dat,scsubtype)
-saveRDS(dat,file=opt$object_input)
+saveRDS(dat,file="8_merged.scsubtype.SeuratObject.rds")
 
 #group by scsubtype average scores per cell
 scsubtype<-dat_epi@meta.data[grep("SC_Subtype",colnames(dat_epi@meta.data))]
@@ -61,9 +63,11 @@ scsubtype[is.na(scsubtype$merge_cluster_50min),]$merge_cluster_50min<-"NaN"
 scsubtype<-scsubtype[startsWith(prefix=c("IDC"),scsubtype$merge_cluster_50min),] 
 scsubtype_sum<-as.data.frame(scsubtype %>% 
             group_by(merge_cluster_50min) %>% 
-            summarize(ploidy=first(ploidy),diag_moldiag=first(Diag_MolDiag),basal=mean(SC_Subtype_Basal_SC1),
-            her2=mean(SC_Subtype_Her2E_SC2),
-            lumA=mean(SC_Subtype_LumA_SC3),lumB=mean(SC_Subtype_LumB_SC4)))
+            summarize(ploidy=first(ploidy),diag_moldiag=first(Diag_MolDiag),
+              basal=mean(SC_Subtype_Basal_SC1),
+              her2=mean(SC_Subtype_Her2E_SC2),
+              lumA=mean(SC_Subtype_LumA_SC3),
+              lumB=mean(SC_Subtype_LumB_SC4)))
 row.names(scsubtype_sum)<-scsubtype_sum$merge_cluster_50min
 
 #cluster by all marker genes

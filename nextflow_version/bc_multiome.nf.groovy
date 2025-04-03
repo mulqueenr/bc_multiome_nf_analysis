@@ -242,12 +242,29 @@ process FIG1_MERGED_CLUSTER {
 
 	script:
 	"""
-	Rscript /src/7_preprocessing_cluster_data.R \\
+	Rscript /src/7_cluster_data.R \\
 	-i ${merged_in} \\
 	"""
 }
 
+process FIG2_PSEUDOBULK_ANALYSIS {
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.pdf"
 
+	label 'inhouse'
+	input:
+		path(merged_in)
+	output:
+		path("6_merged.celltyping.SeuratObject.rds"), emit: cluster_obj
+		path("*pdf"), emit: fig_pdf
+
+	script:
+	"""
+	Rscript /src/7_cluster_data.R \\
+	-i ${merged_in} \\
+	"""
+}
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true

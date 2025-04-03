@@ -180,12 +180,12 @@ hist_col=c("NAT"="#99CCFF",
 "IDC"="#FF9966",
 "ILC"="#006633")
 
-clin_col=c("IDC ER+/PR−/HER2+"="#f37872", 
+clin_col=c("IDC ER+/PR-/HER2+"="#f37872", 
 "DCIS"="#cccccb", 
-"IDC ER+/PR−/HER2−"="#7fd0df", 
-"IDC ER+/PR+/HER2−"="#8d86c0", 
-"ILC ER+/PR−/HER2−"="#b9db98", 
-"ILC ER+/PR+/HER2−"="#0f6bea1", 
+"IDC ER+/PR-/HER2-"="#7fd0df", 
+"IDC ER+/PR+/HER2-"="#8d86c0", 
+"ILC ER+/PR-/HER2-"="#b9db98", 
+"ILC ER+/PR+/HER2-"="#0f6bea1", 
 "NAT NA"="#c1e7f6")
 
 sampled_col=c("Primary"="#8A4C80",
