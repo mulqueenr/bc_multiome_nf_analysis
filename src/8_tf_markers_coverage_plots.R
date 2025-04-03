@@ -270,17 +270,17 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
       #motif_image<-anno_image(paste0(prefix,".tf.heatmap.motif.svg"))
 
       plt1<-draw(ga_auc+ga_plot+rna_auc+rna_plot+motif_auc+motif_plot,row_title=prefix)
-    pdf(paste0(prefix,".tf.heatmap.pdf"),height=(n_markers*length(o_col))/5)
+    pdf(paste0(prefix,".tf.heatmap.pdf"),height=(n_markers*length(o_col))/20)
     print(plt1)
     dev.off()
 }
 
 
-plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=20,order_by_idents=TRUE)
+plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=10,order_by_idents=TRUE)
 
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial"))
 dat_cancer$cellstate<-paste(dat_cancer$assigned_celltype,dat_cancer$Diagnosis,dat_cancer$Mol_Diagnosis)
-plot_top_tf_markers(x=dat_cancer,group_by="assigned_celltype",prefix="celltypes",n_markers=20,order_by_idents=TRUE)
+plot_top_tf_markers(x=dat_cancer,group_by="cellstate",prefix="epi_celltypes",n_markers=20,order_by_idents=TRUE)
 
 ####################################################
 #           Fig 2 Coverage Plots                  #
