@@ -1,5 +1,6 @@
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+#cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 
 library(Seurat)
 library(Signac)
@@ -31,6 +32,7 @@ library(dendextend)
 library(optparse)
 library(msigdbr) #local
 library(fgsea) #local
+library(BSgenome.Hsapiens.UCSC.hg38)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
@@ -78,6 +80,7 @@ dat[["ATAC"]]<-JoinLayers(dat[["ATAC"]])
 
 dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 DefaultAssay(dat)<-"ATAC"
+
 
 ####################################################
 #           Fig 2 Heatmap                         #
@@ -289,7 +292,7 @@ plot_top_tf_markers(x=dat_cancer,group_by="cellstate",prefix="epi_celltypes",n_m
 marker<-list()
 #iglesia et al
 marker[["her2_tumors"]]<-c("ERBB2","GRB7")
-marker[["lum_tumor"]]<-c("ESR1")
+marker[["lum_tumor"]]<-c("ESR1","GRHL2")
 marker[["basal-like"]]<-c("SFRP1","KRT17")
 #nakshatri et al
 marker[["tcells"]]<-c("IL7R","IFNG","GZMK","FCGR3A")
@@ -299,33 +302,42 @@ marker[["lum_hs"]]<-c("ESR1","FOXA1","GATA3")
 marker[["lum_hs_asp"]]<-c("EHF","ELF5","KIT")
 marker[["basal"]]<-c("TP63","KRT14")
 
+
+# first compute the GC content for each peak
+DefaultAssay(dat)<-"ATAC"
+dat <- RegionStats(dat, genome = BSgenome.Hsapiens.UCSC.hg38)
+
+# link peaks to genes
+dat <- LinkPeaks(
+  object = dat,
+  peak.assay = "ATAC",
+  expression.assay = "SCT",
+  genes.use = unlist(marker))
+
 for(i in names(marker)){
   for(x in marker[[i]]){
     print(paste("Plotting...",x))
-    gr=which(dat@assays$ATAC@annotation$gene_name==x)
-    chr=
-roi=dat@assays$ATAC@annotation[,]
-roi<-paste(seq(roi))
-cov_plot <- CoveragePlot(
-  object = dat,
-  region = roi,
-  annotation = FALSE,
-  peaks = FALSE) + scale_color_manual(values=celltype_col)
-  gene_plot <- AnnotationPlot(
-    object = dat,
-    region = roi)
-  link_plot <- LinkPlot(
-    object = dat,
-    region = roi) + scale_color_gradient2(low="white",high="magenta")
-  expr_plot <- ExpressionPlot(
-    object = dat,
-    features = roi,
-    assay = "RNA", slot="scale.data") + scale_fill_manual(values=celltype_col)
-  plt<-CombineTracks(
-    plotlist = list(cov_plot,  ggplot(), gene_plot, link_plot),
-    expression.plot = expr_plot,
-    heights = c(10, 1, 2, 3),
-    widths = c(10, 1))
+
+    cov_plot <- CoveragePlot(
+      object = dat,
+      region = x,
+      annotation = TRUE,
+      peaks = TRUE,links=FALSE)+ scale_color_manual(values=unname(celltype_col))
+
+    link_plot <- LinkPlot(
+      object = dat,
+      region = x)+scale_color_gradient2(limits=c(0,0.3),low="white",high="magenta")
+
+    expr_plot <- ExpressionPlot(
+      object = dat,
+      features = x,
+      assay = "SCT") + scale_color_manual(values=unname(celltype_col))
+
+    plt<-CombineTracks(
+      plotlist = list(cov_plot, link_plot),
+      expression.plot = expr_plot,
+      heights = c( 10, 3),
+      widths = c(10, 1))
     ggsave(plt,file=paste0("coverage.",i,".",x,".pdf"))
   }
 }
@@ -344,3 +356,34 @@ cov_plot <- CoveragePlot(
   peaks = TRUE)
 
 ggsave(cov_plot,file=paste0("coverage.",i,".",x,".pdf"))
+
+Idents(dat)<-dat$Diag_MolDiag
+dat_cancer<-subset(dat,cells=colnames(dat)[dat$assigned_celltype %in% c("cancer")])
+da_peaks<-FindAllMarkers(dat_cancer,assay="ATAC")
+#add chromvar motif scan of motifs per DA peaks
+da_peaks<-merge(da_peaks,as.data.frame(dat@assays$ATAC@motifs@data),by.x="gene",by.y= 'row.names')
+
+#run hypergeo per motif/mol_diag to look for peak enrichments of motifs, use all peaks as universe
+i="MA0904.2"
+x="DCIS DCIS"
+
+hypergeo_motif_da_peak_enrichment<-function(x,i){
+universe=as.data.frame(dat@assays$ATAC@motifs@data[,i])
+universe_count=nrow(universe)
+motif_count_in_universe=sum(universe)
+set_peaks=da_peaks[da_peaks$cluster==x,]
+peak_count_in_da=nrow(set_peaks)
+motif_count_in_da=sum(set_peaks[,i])
+pval<-phyper(q=motif_count_in_da,
+  m=motif_count_in_universe,
+  n=universe_count-motif_count_in_universe,
+  k=peak_count_in_da,lower.tail=FALSE)
+return(c(x,i,motif_count_in_universe,universe_count,motif_count_in_da,peak_count_in_da,pval))
+}
+
+dcis_motifs<-lapply(colnames(dat@assays$ATAC@motifs@data), function(j) {hypergeo_motif_da_peak_enrichment(x="DCIS DCIS",i=j)})
+dcis_motifs<-do.call("rbind",dcis_motifs)
+#install tornadoplot
+BiocManager::install("DelayedArray")
+
+devtools::install_github("teunbrand/tornadoplot")

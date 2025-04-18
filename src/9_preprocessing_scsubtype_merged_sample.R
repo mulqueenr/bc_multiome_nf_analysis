@@ -54,7 +54,7 @@ dat_epi<-AddModuleScore(dat_epi,module_feats,
 
 scsubtype<-dat_epi@meta.data[grep("SC_Subtype",colnames(dat_epi@meta.data))]
 dat<-AddMetaData(dat,scsubtype)
-saveRDS(dat,file="8_merged.scsubtype.SeuratObject.rds")
+saveRDS(dat,file="7_merged.scsubtype.SeuratObject.rds")
 
 #group by scsubtype average scores per cell
 scsubtype<-dat_epi@meta.data[grep("SC_Subtype",colnames(dat_epi@meta.data))]

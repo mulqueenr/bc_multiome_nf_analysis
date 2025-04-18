@@ -1,9 +1,11 @@
 ```bash
 cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round3
-module load singularity
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
 singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
 ```
+
+# use 30 cells as cutoff
+
 
 ```R
 
