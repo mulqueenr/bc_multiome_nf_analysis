@@ -514,8 +514,8 @@ workflow {
 		| MERGED_GENE_ACTIVITY \
 		| FIG1_MERGED_CLUSTER \
 		
-		FIG2_PSEUDOBULK_ANALYSIS(FIG1_MERGED_CLUSTER.out.cluster_obj)
-		FIG2_SCSUBTYPE(FIG1_MERGED_CLUSTER.out.tf_obj)
+		FIG2_PSEUDOBULK_ANALYSIS(FIG1_MERGED_CLUSTER.cluster_obj)
+		FIG2_SCSUBTYPE(FIG1_MERGED_CLUSTER.tf_obj)
 
 		//SCENIC BLOCK
 		scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
