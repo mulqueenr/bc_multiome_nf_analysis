@@ -67,13 +67,15 @@ hist_col=c("NAT"="#99CCFF",
 "IDC"="#FF9966",
 "ILC"="#006633")
 
-clin_col=c("IDC ER+/PR-/HER2+"="#f37872", 
+clin_col=c(
 "DCIS DCIS"="#cccccb", 
-"IDC ER+/PR-/HER2-"="#7fd0df", 
-"IDC ER+/PR+/HER2-"="#8d86c0", 
-"ILC ER+/PR-/HER2-"="#b9db98", 
 "ILC ER+/PR+/HER2-"="#f6bea1", 
-"NAT NA"="#c1e7f6")
+"ILC ER+/PR-/HER2-"="#b9db98", 
+"IDC ER+/PR-/HER2+"="#f37872", 
+"IDC ER+/PR+/HER2-"="#8d86c0", 
+"IDC ER+/PR-/HER2-"="#7fd0df", 
+"NAT NA"="#c2d9ea")
+
 
 dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
 dat[["ATAC"]]<-JoinLayers(dat[["ATAC"]])
@@ -343,47 +345,80 @@ for(i in names(marker)){
 }
 
 
-Idents(dat)<-dat$Diag_MolDiag
-dat_cancer<-subset(dat,assigned_celltype=="cancer")
-dat_cancer<-subset(dat_cancer,Diagnosis=="ILC")
-i="ILC"
-x<-"CDH1"
-print(paste("Plotting...",x))
-cov_plot <- CoveragePlot(
-  object = dat_cancer,
-  region = x, features=x, group.by="Diag_MolDiag",split.by="sample",tile=TRUE,
-  annotation = TRUE,links=TRUE,
-  peaks = TRUE)
-
-ggsave(cov_plot,file=paste0("coverage.",i,".",x,".pdf"))
-
+####################################################
+#           Fig 2 Tornado Plots                  #
+###################################################
+#write out DA sites for tornado plots
 Idents(dat)<-dat$Diag_MolDiag
 dat_cancer<-subset(dat,cells=colnames(dat)[dat$assigned_celltype %in% c("cancer")])
+
+Idents(dat_cancer)<-factor(dat_cancer$Diag_MolDiag,
+    levels=c("DCIS DCIS","ILC ER+/PR+/HER2-", "ILC ER+/PR-/HER2-", "IDC ER+/PR-/HER2+", "IDC ER+/PR+/HER2-", "IDC ER+/PR-/HER2-", "NAT NA"))
+
 da_peaks<-FindAllMarkers(dat_cancer,assay="ATAC")
+
 #add chromvar motif scan of motifs per DA peaks
 da_peaks<-merge(da_peaks,as.data.frame(dat@assays$ATAC@motifs@data),by.x="gene",by.y= 'row.names')
+write.table(da_peaks,file="diagnosis_da_peaks.csv",col.names=T,row.names=T,sep=",")
 
-#run hypergeo per motif/mol_diag to look for peak enrichments of motifs, use all peaks as universe
-i="MA0904.2"
-x="DCIS DCIS"
+#setup outnames to be more nice
+outnames=gsub(x=names(clin_col),pattern="[+]",replacement="plus")
+outnames=gsub(x=outnames,pattern="[-]",replacement="neg")
+outnames=gsub(x=outnames,pattern="[/]",replacement="_")
+outnames=gsub(x=outnames,pattern="[ ]",replacement="_")
+outnames=setNames(nm=names(clin_col),outnames)
 
-hypergeo_motif_da_peak_enrichment<-function(x,i){
-universe=as.data.frame(dat@assays$ATAC@motifs@data[,i])
-universe_count=nrow(universe)
-motif_count_in_universe=sum(universe)
-set_peaks=da_peaks[da_peaks$cluster==x,]
-peak_count_in_da=nrow(set_peaks)
-motif_count_in_da=sum(set_peaks[,i])
-pval<-phyper(q=motif_count_in_da,
-  m=motif_count_in_universe,
-  n=universe_count-motif_count_in_universe,
-  k=peak_count_in_da,lower.tail=FALSE)
-return(c(x,i,motif_count_in_universe,universe_count,motif_count_in_da,peak_count_in_da,pval))
+#making it smaller by removing other assays
+DefaultAssay(dat_cancer)<-"ATAC"
+
+#subsetting object 
+dat_cancer<-subset(x = dat_cancer, downsample = 500)
+
+table(Idents(dat_cancer))
+
+#all DA peaks
+tornado_plot<-function(obj=dat_cancer,da_peak_set=da_peaks,i=da_peaks$cluster,peak_count=100){
+    print(i)
+    top_peaks <- da_peak_set %>% filter(cluster==i) %>% arrange(p_val_adj) %>% slice_head(n=peak_count)
+    print(head(top_peaks))
+
+    obj<-RegionMatrix(obj,key="DA_mat",
+    regions=StringToGRanges(top_peaks$gene),
+    upstream=5000,downstream=5000,
+    assay="ATAC")
+
+    plt<-RegionHeatmap(obj,key="DA_mat",
+    upstream=5000,downstream=5000,
+    order=TRUE, window=(10000)/100,
+    assay="ATAC", idents=levels(Idents(obj)),
+    nrow=length(unique(da_peak_set$cluster)))+ 
+    scale_fill_gradient2(low="black",mid=unname(clin_col[i]),midpoint=0.08,high="white",na.value="black",breaks=seq(0.02,0.1,0.01))+
+    ggtitle(i)
+    #cols=setNames(nm=c("ATAC"),c(unname(clin_col[i]))),
+
+    print("Returning plot...")
+    return(plt)
 }
 
-dcis_motifs<-lapply(colnames(dat@assays$ATAC@motifs@data), function(j) {hypergeo_motif_da_peak_enrichment(x="DCIS DCIS",i=j)})
-dcis_motifs<-do.call("rbind",dcis_motifs)
-#install tornadoplot
-BiocManager::install("DelayedArray")
+plt<-tornado_plot(obj=dat_cancer,da_peak_set=da_peaks,i=x)
+ggsave(plt,file="tornado.all_da_peaks.diag.pdf",width=20,height=20)
 
-devtools::install_github("teunbrand/tornadoplot")
+#all peaks
+plt_list<-lapply(unique(da_peaks$cluster),function(x) {
+    tornado_plot(obj=dat_cancer,da_peak_set=da_peaks,i=x)
+    })
+plt<-wrap_plots(plt_list,nrow=1,guides='collect')
+ggsave(plt,file="tornado.all_da_peaks.diag.pdf",width=20,height=20)
+
+#da peaks that overlap with ESR1 motif only
+motif_name="ESR1"
+motif<-names(dat@assays$ATAC@motifs@motif.names[which(dat@assays$ATAC@motifs@motif.names==motif_name)])
+da_peaks_motif_filt<-da_peaks[da_peaks$gene %in% names(which(dat@assays$ATAC@motifs@data[,motif])),]
+
+plt_list<-lapply(unique(da_peaks_motif_filt$cluster),function(x) {
+    tornado_plot(obj=dat_cancer,da_peak_set=da_peaks_motif_filt,i=x)
+    })
+plt<-wrap_plots(plt_list,nrow=1)
+ggsave(plt,file="tornado.ESR1_overlap_da_peaks.diag.pdf",width=20,height=20)
+
+

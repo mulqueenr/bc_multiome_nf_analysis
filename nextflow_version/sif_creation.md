@@ -566,3 +566,76 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome/cellranger_data/third_round/IDC_4/out
 #test run
 
 ```
+
+
+# Making a container for deeptools and SCENIC
+
+
+scenic.def
+```bash
+Bootstrap: docker
+From: ubuntu:latest
+
+%environment
+    # set up all essential environment variables
+    export LC_ALL=C
+    export PATH=/opt/miniconda3/bin:$PATH
+    export PYTHONPATH=/opt/miniconda3/lib/python3.11/:$PYTHONPATH
+
+%post
+	# update and install essential dependencies
+	apt-get -y update
+	apt-get update && apt-get install -y automake \
+	build-essential \
+	bzip2 \
+	wget \
+	git \
+	default-jre \
+	unzip \
+	zlib1g-dev \
+	parallel \
+	nano \
+	bedtools
+
+	# download, install, and update miniconda3
+	wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+	bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /opt/miniconda3/
+	rm Miniconda3-latest-Linux-x86_64.sh
+	chmod --recursive a+rw /opt/miniconda3
+
+	# install dependencies via conda
+	export PATH="/opt/miniconda3/bin:$PATH"
+
+	#build full conda environment for sif
+	conda install -y python==3.11.8
+	conda config --add channels bioconda
+	conda config --add channels conda-forge
+	conda install -y -c bioconda pysam
+
+	#install deeptools
+	pip install deeptools
+
+	#install scenicplus
+	git clone https://github.com/aertslab/scenicplus
+	cd scenicplus
+	pip install .
+
+	pip install h5py numpy argparse pybedtools pandas scipy tables
+	pip install numpy scipy cython numba matplotlib scikit-learn h5py click
+	pip install velocyto
+
+%files
+	/home/ubuntu/Mallet-202108 /container_mallet
+
+%labels
+    Author Ryan Mulqueen
+    Version v0.2
+    MyLabel SCENIC+ and DeepTools Env
+```
+
+```bash
+#predownload mallet to include in container
+wget https://github.com/mimno/Mallet/releases/download/v202108/Mallet-202108-bin.tar.gz
+tar -xf Mallet-202108-bin.tar.gz
+sudo singularity build scenicplus.sif scenic.def
+```

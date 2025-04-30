@@ -1,5 +1,6 @@
 #sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
 #singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+#cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 
 library(Seurat)
 library(Signac)
@@ -148,10 +149,5 @@ Heatmap(Mydata@assays$RNA@scale.data,
   row_names_gp = grid::gpar(fontsize = 4)
 )
 dev.off()
-
-
-
-
-````
 
 

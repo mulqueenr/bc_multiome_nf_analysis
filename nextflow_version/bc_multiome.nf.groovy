@@ -13,7 +13,6 @@ params.src_dir="${params.proj_dir}/bc_multiome_nf_analysis/src"
 params.force_rewrite="false"
 params.merged_bed=null
 params.sample_metadata="${params.proj_dir}/sample_metadata.csv"
-
 log.info """
 
 		================================================
@@ -243,11 +242,32 @@ process FIG1_MERGED_CLUSTER {
 	script:
 	"""
 	Rscript /src/7_cluster_data.R \\
-	-i ${merged_in} \\
+	-i ${merged_in}
 	"""
 }
 
 process FIG2_PSEUDOBULK_ANALYSIS {
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
+	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
+	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.pdf"
+	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.tsv", optional: true
+
+	label 'inhouse'
+	input:
+		path(merged_in)
+	output:
+		path("6_merged.celltyping.SeuratObject.rds"), emit: tf_obj
+		path("*pdf"), emit: fig_pdf
+		path("*tsv"), emit: fig_tsv, optional: true
+
+	script:
+	"""
+	Rscript /src/8_tf_markers_coverage_plots.R \\
+	-i ${merged_in}
+	"""
+}
+
+process FIG2_SCSUBTYPE {
 	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.pdf"
@@ -256,15 +276,143 @@ process FIG2_PSEUDOBULK_ANALYSIS {
 	input:
 		path(merged_in)
 	output:
-		path("6_merged.celltyping.SeuratObject.rds"), emit: cluster_obj
+		path("7_merged.scsubtype.SeuratObject.rds"), emit: scsubtype_obj
 		path("*pdf"), emit: fig_pdf
 
 	script:
 	"""
-	Rscript /src/7_cluster_data.R \\
-	-i ${merged_in} \\
+	Rscript /src/9_scsubtype_merged_sample.R \\
+	-i ${merged_in}
 	"""
 }
+
+
+process SCENICPLUS_FORMATTING_FROM_SIGNAC {
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
+	publishDir "${params.outdir}/scenic_input", mode: 'copy', overwrite: true, pattern: "*.{csv,mtx}"
+
+	label 'inhouse'
+	input:
+		path(merged_in)
+	output:
+		tuple path("metadata.csv"),path("frag_paths.csv"),
+				path("atac_counts.cells.csv"),path("atac_counts.peaks.csv"),
+				path("atac_counts.mtx"), emit: scenic_all_cells_atac
+		tuple path("metadata.csv"),path("rna_counts.cells.csv"),
+				path("rna_counts.genes.csv"),path("rna_counts.mtx"), emit: scenic_all_cells_rna
+		tuple path("epi_metadata.csv"),path("epi_frag_paths.csv"),
+				path("epi_atac_counts.cells.csv"),path("epi_atac_counts.peaks.csv"),
+				path("epiatac_counts.mtx"), emit: scenic_epi_atac
+		tuple path("epi_metadata.csv"),path("epi_rna_counts.cells.csv"),
+				path("epi_rna_counts.genes.csv"),path("epi_rna_counts.mtx"), emit: scenic_epi_rna
+	script:
+	"""
+	Rscript /src/10_1_scenic_input_from_signac.R \\
+	-i ${merged_in} 
+	"""
+}
+
+
+process SCENICPLUS_RNA_PREPROCESSING {
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
+	publishDir "${params.outdir}/scenic_input/rna", mode: 'copy', overwrite: true, pattern: "*.{h5ad}"
+
+	label 'scenic'
+	input:
+		tuple path(meta),path(cells),path(genes),path(counts)
+	output:
+		path("*.h5ad")
+	script:
+	"""
+	python /src/10_2_scenic_rna_processing.py \\
+	--rna_genes $genes \\
+	--rna_cells $cells \\
+	--rna_matrix $counts \\
+	--meta $meta
+	"""
+}
+
+process SCENICPLUS_ATAC_PREPROCESSING {
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
+	publishDir "${params.outdir}/scenic_input/atac", mode: 'copy', overwrite: true, pattern: "*.{pkl}"
+
+	label 'scenic'
+	input:
+		tuple path(meta),path(cells),path(peaks),path(counts)
+	output:
+		path("*cistopic_obj.pkl"), emit: cistopic_obj
+	script:
+	"""
+	python /src/10_3_scenic_pycistopic_cistopicObj_generation.py \\
+	--frag_path  \\
+	--rna_cells $cells \\
+	--rna_matrix $counts \\
+	--meta $meta
+	"""
+}
+
+
+process SCENICPLUS_CISTARGET_ON_PEAKS {
+	//based on https://scenicplus.readthedocs.io/en/latest/human_cerebellum_ctx_db.html
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},${params.src_dir}:/ref/"
+	publishDir "${params.outdir}/scenic_input/atac", mode: 'copy', overwrite: true, pattern: "*.{pkl}"
+
+	label 'scenic'
+	input:
+		path(peaks)
+		path(scriptDir), stageAs: "/create_cisTarget_databases"
+	output:
+		path("bc_multiome/"), emit: cistarget_db
+	script:
+	"""
+	GENOME_FASTA="/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/fasta/genome.fa"
+	CHROMSIZES="ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/star/chrNameLength.txt"
+	CBDIR="/ref/aertslab_motif_collection/v10nr_clust_public/singletons"
+
+	#create peaks fasta with background
+	/create_cisTarget_databases/create_fasta_with_padded_bg_from_bed.sh \
+			\${GENOME_FASTA} \
+			\${CHROMSIZES} \
+			${peaks} \
+			bc_multiome.fa \
+			1000 \
+			yes
+	
+	ls \${CBDIR}/jaspar*cb > motifs.txt #list jaspar motifs
+
+	/create_cisTarget_databases/create_cistarget_motif_databases.py \
+		-f bc_multiome.fa \
+		-M \${CBDIR} \
+		-m motifs.txt \
+		-o bc_multiome \
+		--bgpadding 1000 \
+		-t ${task.cpus}
+	"""
+}
+
+process SCENIC_RUN_CISTOPIC {
+	//run pycistopic per topic 
+	publishDir "${params.outdir}/scenic_output/cistopic/topics", mode: 'copy', overwrite: true
+	executor 'slurm'
+	cpus '12'
+	memory '200G'
+	queue 'guest'
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	label 'scenic'
+	input:
+		val(topic_count)
+		path(cistopic)
+	output:
+		path("Topic*")
+	script:
+	"""
+	python pycistopic_run_topic.py \\
+	--topicCount ${topic_count} \\
+	--cistopicObj ${cistopic} \\
+	--outDir "."
+	"""
+}
+
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
@@ -308,7 +456,7 @@ process TITAN_PER_SAMPLE {
 	"""
 }
 
-//process MERGED_CELLTYPE_BARPLOTS_AND_ALLUVIAL {}
+//process  {}
 
 //process MOLECULAR_CHARACTERIZATION {}
 
@@ -364,7 +512,36 @@ workflow {
 		merged_seurat_object.seurat_obj \
 		| MERGED_CHROMVAR \
 		| MERGED_GENE_ACTIVITY \
-		| FIG1_MERGED_CLUSTER
+		| FIG1_MERGED_CLUSTER \
+		
+		FIG2_PSEUDOBULK_ANALYSIS(FIG1_MERGED_CLUSTER.out.cluster_obj)
+		FIG2_SCSUBTYPE(FIG1_MERGED_CLUSTER.out.tf_obj)
+
+		//SCENIC BLOCK
+		scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
+		topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
+
+		//Prepare for scanpy/cistopic
+		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.scsubtype_obj)
+		//Run scanpy
+		SCENICPLUS_RNA_PREPROCESSING(
+			list(
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_all_cells_rna,
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_epi_rna,
+			))
+		//Run cistopic
+		SCENICPLUS_ATAC_PREPROCESSING(
+			list(
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_all_cells_atac,
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_epi_atac,
+			))
+		SCENIC_RUN_CISTOPIC(topicList,SCENIC_ATAC_PREPROCESSING.cistopic_obj)
+		//Make cistarget db
+		SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
+
+
+
+
 }
 
 /*
