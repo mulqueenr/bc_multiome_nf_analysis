@@ -514,28 +514,28 @@ workflow {
 		| MERGED_GENE_ACTIVITY \
 		| FIG1_MERGED_CLUSTER \
 		
-		FIG2_PSEUDOBULK_ANALYSIS(FIG1_MERGED_CLUSTER.cluster_obj)
-		FIG2_SCSUBTYPE(FIG1_MERGED_CLUSTER.tf_obj)
+		FIG2_PSEUDOBULK_ANALYSIS(FIG1_MERGED_CLUSTER.outs.cluster_obj)
+		FIG2_SCSUBTYPE(FIG1_MERGED_CLUSTER.outs.tf_obj)
 
 		//SCENIC BLOCK
 		scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
 		topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
 
 		//Prepare for scanpy/cistopic
-		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.scsubtype_obj)
+		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.outs.scsubtype_obj)
 		//Run scanpy
 		SCENICPLUS_RNA_PREPROCESSING(
 			list(
-				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_all_cells_rna,
-				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_epi_rna,
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.outs.scenic_all_cells_rna,
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.outs.scenic_epi_rna,
 			))
 		//Run cistopic
 		SCENICPLUS_ATAC_PREPROCESSING(
 			list(
-				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_all_cells_atac,
-				SCENICPLUS_FORMATTING_FROM_SIGNAC.scenic_epi_atac,
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.outs.scenic_all_cells_atac,
+				SCENICPLUS_FORMATTING_FROM_SIGNAC.outs.scenic_epi_atac,
 			))
-		SCENIC_RUN_CISTOPIC(topicList,SCENIC_ATAC_PREPROCESSING.cistopic_obj)
+		SCENIC_RUN_CISTOPIC(topicList,SCENIC_ATAC_PREPROCESSING.outs.cistopic_obj)
 		//Make cistarget db
 		SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
 
