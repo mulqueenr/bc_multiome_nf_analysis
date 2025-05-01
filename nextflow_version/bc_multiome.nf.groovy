@@ -524,14 +524,12 @@ workflow {
 		//Prepare for scanpy/cistopic
 		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.out.scsubtype_obj)
 		//Run scanpy
-		SCENICPLUS_RNA_PREPROCESSING(
-			list(
+		SCENICPLUS_RNA_PREPROCESSING((
 				SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_all_cells_rna,
 				SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna,
 			))
 		//Run cistopic
-		SCENICPLUS_ATAC_PREPROCESSING(
-			list(
+		SCENICPLUS_ATAC_PREPROCESSING((
 				SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_all_cells_atac,
 				SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac,
 			))
