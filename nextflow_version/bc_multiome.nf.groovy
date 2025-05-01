@@ -354,7 +354,7 @@ process SCENICPLUS_ATAC_PREPROCESSING {
 
 process SCENICPLUS_CISTARGET_ON_PEAKS {
 	//based on https://scenicplus.readthedocs.io/en/latest/human_cerebellum_ctx_db.html
-	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},${params.src_dir}:/ref/"
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},${params.ref}:/ref/"
 	publishDir "${params.outdir}/scenic_input/atac", mode: 'copy', overwrite: true, pattern: "*.{pkl}"
 
 	label 'scenic'
