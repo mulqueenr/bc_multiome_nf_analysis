@@ -370,7 +370,7 @@ process SCENICPLUS_CISTARGET_ON_PEAKS {
 	CBDIR="/ref/aertslab_motif_collection/v10nr_clust_public/singletons"
 
 	#create peaks fasta with background
-	/create_cisTarget_databases/create_fasta_with_padded_bg_from_bed.sh \
+	create_cisTarget_databases/create_fasta_with_padded_bg_from_bed.sh \
 			\${GENOME_FASTA} \
 			\${CHROMSIZES} \
 			${peaks} \
@@ -380,7 +380,7 @@ process SCENICPLUS_CISTARGET_ON_PEAKS {
 	
 	ls \${CBDIR}/jaspar*cb > motifs.txt #list jaspar motifs
 
-	/create_cisTarget_databases/create_cistarget_motif_databases.py \
+	create_cisTarget_databases/create_cistarget_motif_databases.py \
 		-f bc_multiome.fa \
 		-M \${CBDIR} \
 		-m motifs.txt \
@@ -390,7 +390,7 @@ process SCENICPLUS_CISTARGET_ON_PEAKS {
 	"""
 }
 
-process SCENIC_RUN_CISTOPIC {
+process SCENICPLUS_RUN_CISTOPIC {
 	//run pycistopic per topic 
 	publishDir "${params.outdir}/scenic_output/cistopic/topics", mode: 'copy', overwrite: true
 	executor 'slurm'
@@ -529,7 +529,7 @@ workflow {
 		SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna,)
 		//Run cistopic
 		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
-		SCENIC_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
+		SCENICPLUS_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
 
 		//Make cistarget db
 		SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
