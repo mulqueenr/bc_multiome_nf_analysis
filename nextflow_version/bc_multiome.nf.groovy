@@ -365,9 +365,9 @@ process SCENICPLUS_CISTARGET_ON_PEAKS {
 		path("bc_multiome/"), emit: cistarget_db
 	script:
 	"""
-	GENOME_FASTA="/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/fasta/genome.fa"
+	GENOME_FASTA="ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/fasta/genome.fa"
 	CHROMSIZES="ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/star/chrNameLength.txt"
-	CBDIR="/ref/aertslab_motif_collection/v10nr_clust_public/singletons"
+	CBDIR="ref/aertslab_motif_collection/v10nr_clust_public/singletons"
 
 	#create peaks fasta with background
 	create_cisTarget_databases/create_fasta_with_padded_bg_from_bed.sh \
