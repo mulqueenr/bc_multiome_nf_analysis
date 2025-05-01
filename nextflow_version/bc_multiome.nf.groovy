@@ -521,17 +521,16 @@ workflow {
 		scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
 		topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
 
+		//just run epi only for now
+
 		//Prepare for scanpy/cistopic
 		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.out.scsubtype_obj)
 		//Run scanpy
-		//just run epi only for now
-		SCENICPLUS_RNA_PREPROCESSING(
-				SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna,
-			)
+		SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna,)
 		//Run cistopic
-		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac,
-			)
+		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
 		SCENIC_RUN_CISTOPIC(topicList,SCENIC_ATAC_PREPROCESSING.out.cistopic_obj)
+
 		//Make cistarget db
 		SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
 
