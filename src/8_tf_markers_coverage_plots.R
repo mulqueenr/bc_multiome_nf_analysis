@@ -78,7 +78,6 @@ clin_col=c(
 
 
 dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
-dat[["ATAC"]]<-JoinLayers(dat[["ATAC"]])
 
 dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 DefaultAssay(dat)<-"ATAC"
