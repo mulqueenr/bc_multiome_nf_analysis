@@ -268,7 +268,7 @@ process FIG2_PSEUDOBULK_ANALYSIS {
 }
 
 process FIG2_SCSUBTYPE {
-	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},/home/users/mulqueen/R"
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.pdf"
 
