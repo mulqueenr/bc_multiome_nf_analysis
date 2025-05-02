@@ -5,12 +5,18 @@ from pycisTopic.cistopic_class import *
 from scipy.io import mmread
 import pickle
 
+
+parser = argparse.ArgumentParser(
+    description="Function to run single cistopic model.")
+
 parser.add_argument("-f", "--frag_path", default = 'frag_paths.csv', help = "List of fragment locations, csv format")
 parser.add_argument("-n", "--atac_counts", default = 'atac_counts.mtx', help = "Raw counts, mtx")
 parser.add_argument("-c", "--atac_cells", default = 'atac_counts.cells.csv', help = "List of cells, csv")
 parser.add_argument("-p", "--atac_peaks", default = 'atac_counts.peaks.csv', help = "List of peaks, csv")
 parser.add_argument("-m", "--meta", default = 'metadata.csv', help = "Metadata table, csv")
 parser.add_argument("-o", "--outDir", default ="./", help = "Output Directory")
+
+args = parser.parse_args()
 
 # Project directory and files
 frag_path=args.frag_path
