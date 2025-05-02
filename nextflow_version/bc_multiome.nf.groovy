@@ -248,7 +248,7 @@ process FIG1_MERGED_CLUSTER {
 
 process FIG2_PSEUDOBULK_ANALYSIS {
 	//currently uses some local libraries, and so I bound that directory. to be fixed in the SIF
-	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},/home/rmulqueen/R/x86_64-conda-linux-gnu-library/4.4"
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3"
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.pdf"
 	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.tsv", optional: true
@@ -270,7 +270,7 @@ process FIG2_PSEUDOBULK_ANALYSIS {
 
 process FIG2_SCSUBTYPE {
 	//currently uses some local libraries, and so I bound that directory. to be fixed in the SIF
-	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},/home/rmulqueen/R/x86_64-conda-linux-gnu-library/4.4"
+	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir},/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3"
 	publishDir "${params.outdir}/seurat_objects", mode: 'copy', overwrite: true, pattern: "*.rds"
 	publishDir "${params.outdir}/plots/fig2", mode: 'copy', overwrite: true, pattern: "*.pdf"
 
