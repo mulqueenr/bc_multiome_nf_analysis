@@ -24,14 +24,14 @@ library(dplyr)
 library(ggplot2)
 library(ggrepel)
 library(patchwork)
-library(presto,lib="/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/presto/")
+library(presto,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
 library(seriation)
 library(org.Hs.eg.db)
 library(ggtern)
 library(dendextend)
 library(optparse)
-library(msigdbr) #local
-library(fgsea) #local
+library(msigdbr,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
+library(fgsea,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
 library(BSgenome.Hsapiens.UCSC.hg38)
 
 option_list = list(
