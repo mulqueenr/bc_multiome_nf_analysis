@@ -284,6 +284,9 @@ plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_mark
 
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial"))
 dat_cancer$cellstate<-paste(dat_cancer$assigned_celltype,dat_cancer$Diagnosis,dat_cancer$Mol_Diagnosis)
+
+
+#THIS IS THE PROBLEM
 plot_top_tf_markers(x=dat_cancer,group_by="cellstate",prefix="epi_celltypes",n_markers=20,order_by_idents=TRUE)
 
 ####################################################
