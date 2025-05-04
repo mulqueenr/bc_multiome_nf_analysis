@@ -3,6 +3,27 @@
 #--bind /home/groups/CEDAR/mulqueen/bc_multiome \
 #--bind /home/groups/CEDAR/mulqueen/bc_multiome/ref:/ref $sif
 #cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
+#Add great enrichment across peaks DA
+#add chromvar enrichment across da peaks
+
+  #find enrichment in c8 signatures
+ # top_p_C8 <- do.call("rbind",
+ #   lapply(unique(genes_out$metaprogram_cluster), 
+ #   function(i) {
+ #   program_name=i
+ #   program_genes=unlist(genes_out[genes_out$metaprogram_cluster==program_name,]$genes)
+ #   out<-runGSEA(program_genes, universe=row.names(dat@assays$RNA), category = "C8")
+ ##   out$program<-paste0(program_name)
+  #  return(out)
+  #  }
+  #  ))
+  #pltdat<-top_p_C8 %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
+
+  #plt<-ggplot(pltdat,aes(x=program,y=pathway))+
+  #geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
+  #theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  #ggsave(plt,file=paste0(prefix,"_metaprograms","_c8","_","TITAN",".pdf"),width=20)
+
 
 library(Seurat)
 library(Signac)

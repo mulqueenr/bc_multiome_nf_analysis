@@ -264,7 +264,7 @@ process FIG2_PSEUDOBULK_ANALYSIS {
 	script:
 	"""
 	Rscript /src/8_tf_markers_coverage_plots.R \\
-	-i ${merged_in}
+	-i ${merged_in} \\
 	-r /ref/nakshatri/nakshatri_multiome.rds
 	"""
 }
