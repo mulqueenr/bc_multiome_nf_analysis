@@ -59,17 +59,16 @@ saveRDS(dat,file="7_merged.scsubtype.SeuratObject.rds")
 
 #group by scsubtype average scores per cell
 scsubtype<-dat_epi@meta.data[grep("SC_Subtype",colnames(dat_epi@meta.data))]
-scsubtype<-cbind(scsubtype,dat_epi@meta.data[,c("merge_cluster_50min","ploidy","Diag_MolDiag")])
-scsubtype[is.na(scsubtype$merge_cluster_50min),]$merge_cluster_50min<-"NaN"
-scsubtype<-scsubtype[startsWith(prefix=c("IDC"),scsubtype$merge_cluster_50min),] 
+scsubtype<-cbind(scsubtype,sample=dat_epi@meta.data$sample,Diag_MolDiag=dat_epi@meta.data$Diag_MolDiag)
+
 scsubtype_sum<-as.data.frame(scsubtype %>% 
-            group_by(merge_cluster_50min) %>% 
-            summarize(ploidy=first(ploidy),diag_moldiag=first(Diag_MolDiag),
+            group_by(sample) %>% 
+            summarize(diag_moldiag=first(Diag_MolDiag),
               basal=mean(SC_Subtype_Basal_SC1),
               her2=mean(SC_Subtype_Her2E_SC2),
               lumA=mean(SC_Subtype_LumA_SC3),
               lumB=mean(SC_Subtype_LumB_SC4)))
-row.names(scsubtype_sum)<-scsubtype_sum$merge_cluster_50min
+row.names(scsubtype_sum)<-scsubtype_sum$sample
 
 #cluster by all marker genes
 sum_da_dend <- as.matrix(dist(scsubtype_sum[4:ncol(scsubtype_sum)])) %>% as.dist %>% hclust(method="ward.D2") %>% as.dendrogram 
@@ -79,15 +78,15 @@ member_split<-cutree(sum_da_dend,k_in$k)
 plot_order<-labels(sum_da_dend)
 
 ha = rowAnnotation(
-  Diag_MolDiag=scsubtype_sum$diag_moldiag,
-  Ploidy=scsubtype_sum$ploidy)
+  Diag_MolDiag=scsubtype_sum$diag_moldiag)
 
 #ha = rowAnnotation(foo = anno_density(m, type = "violin", p = gpar(fill = 1:10)))
 
-pdf("scsubtype_plot.pdf")
-Heatmap(scale(scsubtype_sum[4:ncol(scsubtype_sum)],scale=T),cluster_rows=sum_da_dend,  left_annotation=ha,)
-dev.off()
+#i dont think this is working very well
 
+pdf("scsubtype_plot.pdf")
+Heatmap(scale(scsubtype_sum[3:ncol(scsubtype_sum)],center=T,scale=F),cluster_rows=sum_da_dend,  left_annotation=ha,)
+dev.off()
 
 #plot per gene for subtypes for clones
 gene_class <- as.data.frame(rbind(cbind(as.vector(sigdat[,"Basal_SC"]),c("basal")),
@@ -97,7 +96,7 @@ gene_class <- as.data.frame(rbind(cbind(as.vector(sigdat[,"Basal_SC"]),c("basal"
 gene_class  <- unique(gene_class [!gene_class [,1] == "",])
 colnames(gene_class)<-c("gene","subtype")
 #group by scsubtype average scores per cell
-Mydata<-AggregateExpression(obj,assay="RNA",return.seurat=T,features=gene_class$gene,group.by="merge_cluster_50min")
+Mydata<-AggregateExpression(dat_epi,assay="RNA",return.seurat=T,features=gene_class$gene,group.by="sample")
 Mydata <- ScaleData(Mydata,assay="RNA") #running only on aneuploid epithelial cells
 Mydata[["RNA"]] <- as(object = Mydata[["RNA"]], Class = "Assay")
 #cluster by all marker genes
@@ -111,7 +110,7 @@ ha = rowAnnotation(
   gene_class=gene_class[gene_class$gene %in% row.names(Mydata@assays$RNA@scale.data),]$subtype)
 
 pdf("scsubtype_plot.genes.pdf",height=15)
-Heatmap(Mydata@assays$RNA@data, 
+Heatmap(Mydata@assays$RNA@scale.data, 
   row_order=which(row.names(Mydata@assays$RNA@scale.data) %in% gene_class$gene),  
   left_annotation=ha,
   row_names_gp = grid::gpar(fontsize = 4)
