@@ -332,6 +332,9 @@ process SCENICPLUS_RNA_PREPROCESSING {
 		path("*.h5ad")
 	script:
 	"""
+	export NUMBA_CACHE_DIR=\${PWD}/.tmp
+	mkdir -p \$NUMBA_CACHE_DIR
+	
 	python /src/10_2_scenic_rna_processing.py \\
 	--rna_genes $genes \\
 	--rna_cells $cells \\
