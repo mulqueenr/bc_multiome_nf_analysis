@@ -424,7 +424,7 @@ process SCENICPLUS_RUN_CISTOPIC {
 		path("Topic*")
 	script:
 	"""
-	python pycistopic_run_topic.py \\
+	python /src/pycistopic_run_topic.py \\
 	--topicCount ${topic_count} \\
 	--cistopicObj ${cistopic} \\
 	--outDir "."
@@ -535,7 +535,7 @@ workflow {
 		FIG2_PSEUDOBULK_ANALYSIS(FIG1_MERGED_CLUSTER.out.cluster_obj)
 		FIG2_SCSUBTYPE(FIG2_PSEUDOBULK_ANALYSIS.out.tf_obj)
 
-		//SCENIC BLOCK
+	//SCENIC BLOCK
 		scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
 		topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
 
@@ -548,8 +548,10 @@ workflow {
 		
 		//Run cistopic
 		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
-		topics=SCENICPLUS_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
-
+		
+		//topics =
+		//SCENICPLUS_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
+		combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj,topicList)
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
 
