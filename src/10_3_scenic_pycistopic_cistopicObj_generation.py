@@ -4,16 +4,17 @@ import os
 from pycisTopic.cistopic_class import *
 from scipy.io import mmread
 import pickle
+import argparse
 
 
 parser = argparse.ArgumentParser(
     description="Function to run single cistopic model.")
 
-parser.add_argument("-f", "--frag_path", default = 'frag_paths.csv', help = "List of fragment locations, csv format")
-parser.add_argument("-n", "--atac_counts", default = 'atac_counts.mtx', help = "Raw counts, mtx")
-parser.add_argument("-c", "--atac_cells", default = 'atac_counts.cells.csv', help = "List of cells, csv")
-parser.add_argument("-p", "--atac_peaks", default = 'atac_counts.peaks.csv', help = "List of peaks, csv")
-parser.add_argument("-m", "--meta", default = 'metadata.csv', help = "Metadata table, csv")
+parser.add_argument("-f", "--frag_path", default = 'epi_frag_paths.csv', help = "List of fragment locations, csv format")
+parser.add_argument("-n", "--atac_counts", default = 'epi_atac_counts.mtx', help = "Raw counts, mtx")
+parser.add_argument("-c", "--atac_cells", default = 'epi_atac_counts.cells.csv', help = "List of cells, csv")
+parser.add_argument("-p", "--atac_peaks", default = 'epi_atac_counts.peaks.csv', help = "List of peaks, csv")
+parser.add_argument("-m", "--meta", default = 'epi_metadata.atac.csv', help = "Metadata table, csv")
 parser.add_argument("-o", "--outDir", default ="./", help = "Output Directory")
 
 args = parser.parse_args()
@@ -24,10 +25,6 @@ meta=args.meta
 atac_counts=args.atac_counts
 atac_cells=args.atac_cells
 atac_peaks=args.atac_peaks
-
-# Output directory
-if not os.path.exists(outDir):
-    os.makedirs(outDir)
 
 # Create cisTopic object
 atac_counts = mmread(atac_counts)
@@ -45,5 +42,5 @@ cistopic_obj = create_cistopic_object(fragment_matrix=atac_counts.tocsr(),
 cistopic_obj.add_cell_data(cell_data)
 pickle.dump(
     cistopic_obj,
-    open(os.path.join(outDir, "scenicplus"+args.atac_counts.split('_')[0]+"_cistopic_obj.pkl"), "wb")
+    open(os.path.join(outDir, "scenicplus_"+args.atac_counts.split('_')[0]+"_cistopic_obj.pkl"), "wb")
 )

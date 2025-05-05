@@ -9,24 +9,22 @@ import argparse
 parser = argparse.ArgumentParser(
     description="Function to run single cistopic model.")
 
-parser.add_argument("-g", "--rna_genes", default = "rna_counts.genes.csv", help = "Genes list csv format")
-parser.add_argument("-c", "--rna_cells", default = "rna_counts.cells.csv", help = "Cells list csv format")
-parser.add_argument("-n", "--rna_matrix", default = "rna_counts.mtx", help = "Raw counts, mtx")
-parser.add_argument("-m", "--meta", default = 'metadata.csv', help = "Metadata table, csv")
+parser.add_argument("-g", "--rna_genes", default = "epi_rna_counts.genes.csv", help = "Genes list csv format")
+parser.add_argument("-c", "--rna_cells", default = "epi_rna_counts.cells.csv", help = "Cells list csv format")
+parser.add_argument("-n", "--rna_matrix", default = "epi_rna_counts.mtx", help = "Raw counts, mtx")
+parser.add_argument("-m", "--meta", default = 'epi_metadata.rna.csv', help = "Metadata table, csv")
 parser.add_argument("-o", "--outDir", default ="./", help = "Output Directory")
 
 args = parser.parse_args()
 
 # Project directory and files
 outDir = args.outDir
-# Output directory
-if not os.path.exists(outDir):
-    os.makedirs(outDir)
+
 
 rna_genes =  pd.read_csv(args.rna_genes)
 rna_cells =  pd.read_csv(args.rna_cells)
 cell_data =  pd.read_csv(args.meta)
-adata = sc.read_mtx(args.rna_counts)
+adata = sc.read_mtx(args.rna_matrix)
 
 #standard QC processing
 adata = adata.transpose()
@@ -46,5 +44,5 @@ sc.pp.scale(adata, max_value=10)
 sc.tl.pca(adata)
 sc.pp.neighbors(adata)
 sc.tl.umap(adata)
-adata.write(os.path.join(outDir, "scenicplus"+args.rna_genes.split('.')[0]+"_rna.h5ad"))
+adata.write(os.path.join(outDir, "scenicplus_"+args.rna_genes.split('.')[0]+"_rna.h5ad"))
 
