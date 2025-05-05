@@ -419,12 +419,17 @@ process SCENICPLUS_RUN_CISTOPIC {
 
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'scenic'
+
 	input:
 		tuple val(topic_count), path(cistopic)
 	output:
 		path("Topic*")
 	script:
 	"""
+	export NUMBA_CACHE_DIR=\${PWD}/.tmp
+	export MPLCONFIGDIR=\${PWD}/.tmp
+	mkdir -p \$NUMBA_CACHE_DIR
+
 	python /src/pycistopic_run_topic.py \\
 	--topicCount ${topic_count} \\
 	--cistopicObj ${cistopic} \\
