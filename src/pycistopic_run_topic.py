@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("-c", "--topicCount", required = False, default = 5, help = "Integer of topic count to be used in run_cgs_models_mallet.",dtype=int)
 parser.add_argument("-d", "--outDir", required = False, default = '/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects/output_epi/', help = "The project directory directory containing the cistopic object.")
 parser.add_argument("-o", "--cistopicObj", required = False, default = "epi_cistopic_obj.pkl", help = "Cistopic object pkl.")
-parser.add_argument("-m", "--memory", required = False, default = '750G', help = "Memory for MALLET_MEMORY")
+parser.add_argument("-m", "--memory", required = False, default = '200G', help = "Memory for MALLET_MEMORY")
 parser.add_argument("-t", "--taskCpus", required = False, default = 10, help = "CPUS to run",dtype=int)
 parser.add_argument("-M", "--mallet", required = False, default ="/container_mallet/bin/mallet", help = "Mallet path, built into container")
 
