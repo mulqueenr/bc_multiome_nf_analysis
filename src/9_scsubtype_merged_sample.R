@@ -25,12 +25,9 @@ dat=readRDS(opt$object_input)
 
 
 #downloading PAM50 gene list from SCSubtype git repo
-if(!file.exists("/ref/NatGen_Supplementary_table_S4.csv")){
-  system("wget https://raw.githubusercontent.com/Swarbricklab-code/BrCa_cell_atlas/main/scSubtype/NatGen_Supplementary_table_S4.csv")
-  sigdat <- read.csv("NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
-} else {
-  sigdat <- read.csv("/ref/NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
-}
+system("wget https://raw.githubusercontent.com/Swarbricklab-code/BrCa_cell_atlas/main/scSubtype/NatGen_Supplementary_table_S4.csv")
+sigdat <- read.csv("NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
+
 
 # read in scsubtype gene signatures
 temp_allgenes <- c(as.vector(sigdat[,"Basal_SC"]),
