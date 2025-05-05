@@ -25,6 +25,7 @@ meta=args.meta
 atac_counts=args.atac_counts
 atac_cells=args.atac_cells
 atac_peaks=args.atac_peaks
+outDir=args.outDir
 
 # Create cisTopic object
 atac_counts = mmread(atac_counts)
