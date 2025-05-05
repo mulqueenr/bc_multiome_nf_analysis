@@ -418,8 +418,7 @@ process SCENICPLUS_RUN_CISTOPIC {
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'scenic'
 	input:
-		val(topic_count)
-		path(cistopic)
+		tuple val(topic_count), path(cistopic)
 	output:
 		path("Topic*")
 	script:
