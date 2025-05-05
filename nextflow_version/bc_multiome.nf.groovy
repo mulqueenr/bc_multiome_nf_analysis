@@ -411,10 +411,10 @@ process SCENICPLUS_CISTARGET_ON_PEAKS {
 process SCENICPLUS_RUN_CISTOPIC {
 	//run pycistopic per topic 
 	publishDir "${params.outdir}/scenic_output/cistopic/topics", mode: 'copy', overwrite: true
-	executor 'slurm'
-	cpus '12'
-	memory '200G'
-	queue 'guest'
+	//executor 'slurm'
+	//cpus '12'
+	//memory '200G'
+	//queue 'guest'
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'scenic'
 	input:
