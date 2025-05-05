@@ -298,15 +298,18 @@ process SCENICPLUS_FORMATTING_FROM_SIGNAC {
 	input:
 		path(merged_in)
 	output:
-		tuple path("metadata.csv"),path("frag_paths.csv"),
+		tuple path("metadata.atac.csv"),path("frag_paths.csv"),
 				path("atac_counts.cells.csv"),path("atac_counts.peaks.csv"),
 				path("atac_counts.mtx"), emit: scenic_all_cells_atac
-		tuple path("metadata.csv"),path("rna_counts.cells.csv"),
+
+		tuple path("metadata.rna.csv"),path("rna_counts.cells.csv"),
 				path("rna_counts.genes.csv"),path("rna_counts.mtx"), emit: scenic_all_cells_rna
-		tuple path("epi_metadata.csv"),path("epi_frag_paths.csv"),
+
+		tuple path("epi_metadata.atac.csv"),path("epi_frag_paths.csv"),
 				path("epi_atac_counts.cells.csv"),path("epi_atac_counts.peaks.csv"),
-				path("epiatac_counts.mtx"), emit: scenic_epi_atac
-		tuple path("epi_metadata.csv"),path("epi_rna_counts.cells.csv"),
+				path("epi_atac_counts.mtx"), emit: scenic_epi_atac
+
+		tuple path("epi_metadata.rna.csv"),path("epi_rna_counts.cells.csv"),
 				path("epi_rna_counts.genes.csv"),path("epi_rna_counts.mtx"), emit: scenic_epi_rna
 	script:
 	"""
@@ -525,11 +528,12 @@ workflow {
 		topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
 
 		//just run epi only for now
-
 		//Prepare for scanpy/cistopic
 		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.out.scsubtype_obj)
+
 		//Run scanpy
 		SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna,)
+		
 		//Run cistopic
 		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
 		topics=SCENICPLUS_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)

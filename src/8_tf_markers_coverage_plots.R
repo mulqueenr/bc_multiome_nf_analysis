@@ -509,3 +509,62 @@ plt_list<-lapply(unique(da_peaks_motif_filt$cluster),function(x) {
 plt<-wrap_plots(plt_list,nrow=1)
 ggsave(plt,file="tornado.FOXA1_overlap_da_peaks.diag.pdf",width=20,height=20)
 
+
+# #GSEA of clone DMRs
+# gsea_enrichment<-function(prefix,dmrs,gene_universe,category="C3",subcategory="TFT:GTRD",out_setname="TFT"){
+#   top_p_gsea <- do.call("rbind",
+#     lapply(unique(dmrs$celltype), 
+#     function(i) {
+#     #gene set
+#     gene_list<-dmrs |> dplyr::filter(celltype==i) |> pull(gene_names)
+#     gene_list<-str_replace_all(unlist(lapply(strsplit(gene_list, ","),unlist)), " ", "") 
+#     out<-runGSEA(gene_list, universe=gene_universe, category = category,subcategory=subcategory)
+#     out$celltype<-i
+#     return(out)
+#     }
+#     ))
+# pltdat<-top_p_gsea %>% group_by(celltype) %>% slice_max(order_by = -padj, n = 5)
+# plt<-ggplot(pltdat,aes(x=celltype,y=pathway))+
+# geom_point(aes(size = -log10(padj), fill = overlap/size), shape=21)+
+# theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+# ggsave(plt,file=paste0(prefix,"_GSEA","_",out_setname,".pdf"),width=20)
+# saveRDS(top_p_gsea,file=paste0(prefix,"_GSEA","_",out_setname,".rds"))
+# }
+
+# clone_dmr<-function(obj=obj,sample=c("DCIS-41T"),prefix="DCIS-41T",k_phenograph=50){
+#   dcis<-subsetObject(obj, cells = row.names(obj@metadata[obj@metadata$sample %in% sample,]))
+#   #recluster just 41 on 100kb windows
+#   dcis<-cluster_by_windows(obj=dcis,
+#                           prefix=prefix,
+#                           window_name="cg_100k_score",
+#                           stepsize=100000,
+#                           threads=200,
+#                           neighbors=50,
+#                           distance=0.05,
+#                           overwrite_windows=FALSE,
+#                           k_phenograph=200)
+#   p1 <- dimFeature(dcis, colorBy = subclones, reduction = "umap") + ggtitle(paste(prefix, "Subclones"))
+#   ggsave(p1,file=paste(prefix,"subclones_umap.pdf",sep="."))     
+#   dcis<-dmr_and_1kb_window_gen(obj=dcis,prefix=prefix,groupBy="subclones")
+#   dcis<-dmr_and_1kb_window_gen(obj=dcis,prefix=prefix,groupBy="cluster_id")
+#   saveRDS(dcis,paste0(prefix,".amethyst.rds"))
+#   #GSEA processing to make some sense of DMRS
+#   dmrs<-readRDS(paste0(prefix,".dmr.subclones.collapsed.rds"))
+#   dmrs <- dmrs |> dplyr::filter(direction=="hypo") |> dplyr::filter(gene_names != "NA") 
+
+#   #set up gene universe
+#   gene_universe<-dmrs |> pull(gene_names)
+#   gene_universe<-str_replace_all(unlist(lapply(strsplit(gene_universe, ","),unlist)), " ", "") #flatten and remove 
+#   gene_universe<-gene_universe[!duplicated(gene_universe)]
+
+#   #run gsea enrichment at gene level on different sets
+#   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+#   category="C3",subcategory="TFT:GTRD",out_setname="TFT") #find enrichment in tft (transcription factor targets)
+
+#   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+#   category="C1",subcategory=NULL,out_setname="position") #find enrichment in c1 signatures (positional)
+
+#   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+#   category="H",subcategory=NULL,out_setname="hallmark") #find cancer hallmark signatures
+
+# }

@@ -18,7 +18,6 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 
-
 ### RUN FOR ALL CELLS ###
 #write out fragment paths per cell
 fragment_paths<-lapply(1:length(dat@assays$ATAC@fragments),function(x) cbind(dat@assays$ATAC@fragments[[x]]@path,unlist(names(dat@assays$ATAC@fragments[[x]]@cells)),unlist(unname(dat@assays$ATAC@fragments[[x]]@cells))))
@@ -27,7 +26,8 @@ row.names(fragment_paths)<-fragment_paths$V2
 write.table(fragment_paths,file="frag_paths.csv",sep=",",col.names=F,row.names=T)
 
 #write out metadata
-write.table(dat@meta.data,file="metadata.csv",col.names=T,row.names=T,sep=",")
+write.table(dat@meta.data,file="metadata.atac.csv",col.names=T,row.names=T,sep=",")
+write.table(dat@meta.data,file="metadata.rna.csv",col.names=T,row.names=T,sep=",")
 
 #write out ATAC counts matrix
 write.table(colnames(dat@assays$ATAC@counts),file="atac_counts.cells.csv",sep=",")
@@ -41,7 +41,7 @@ write.table(colnames(dat@assays$RNA@counts),file="rna_counts.cells.csv",sep=",")
 write.table(row.names(dat@assays$RNA@counts),file="rna_counts.genes.csv",sep=",")
 writeMM(dat@assays$RNA@counts,file="rna_counts.mtx")
 
-### RUN FOR EPI AND CANCER ###
+### RUN FOR EPI AND CANCER CELLS ###
 dat=readRDS(opt$object_input)
 
 dat<-subset(dat,assigned_celltype %in% c("cancer","luminal_asp","luminal_hs","basal_myoepithelial"))
@@ -52,7 +52,8 @@ row.names(fragment_paths)<-fragment_paths$V2
 write.table(fragment_paths,file="epi_frag_paths.csv",sep=",",col.names=F,row.names=T)
 
 #write out metadata
-write.table(dat@meta.data,file="epi_metadata.csv",col.names=T,row.names=T,sep=",")
+write.table(dat@meta.data,file="epi_metadata.atac.csv",col.names=T,row.names=T,sep=",")
+write.table(dat@meta.data,file="epi_metadata.rna.csv",col.names=T,row.names=T,sep=",")
 
 #write out ATAC counts matrix
 write.table(colnames(dat@assays$ATAC@counts),file="epi_atac_counts.cells.csv",sep=",")
