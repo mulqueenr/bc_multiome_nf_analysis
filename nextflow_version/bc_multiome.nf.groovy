@@ -332,9 +332,11 @@ process SCENICPLUS_RNA_PREPROCESSING {
 		path("*.h5ad")
 	script:
 	"""
+	#make tmp directories for numba processing
 	export NUMBA_CACHE_DIR=\${PWD}/.tmp
+	export MPLCONFIGDIR=\${PWD}/.tmp
 	mkdir -p \$NUMBA_CACHE_DIR
-	
+
 	python /src/10_2_scenic_rna_processing.py \\
 	--rna_genes $genes \\
 	--rna_cells $cells \\
@@ -354,10 +356,15 @@ process SCENICPLUS_ATAC_PREPROCESSING {
 		path("*cistopic_obj.pkl"), emit: cistopic_obj
 	script:
 	"""
+	export NUMBA_CACHE_DIR=\${PWD}/.tmp
+	export MPLCONFIGDIR=\${PWD}/.tmp
+	mkdir -p \$NUMBA_CACHE_DIR
+
 	python /src/10_3_scenic_pycistopic_cistopicObj_generation.py \\
 	--frag_path $frag  \\
-	--rna_cells $cells \\
-	--rna_matrix $counts \\
+	--atac_cells $cells \\
+	--atac_peaks $cells \\
+	--atac_counts $counts \\
 	--meta $meta
 	"""
 }
