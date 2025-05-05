@@ -326,6 +326,8 @@ process SCENICPLUS_RNA_PREPROCESSING {
 	label 'scenic'
 	input:
 		tuple path(meta),path(cells),path(genes),path(counts)
+
+		
 	output:
 		path("*.h5ad")
 	script:
@@ -344,13 +346,13 @@ process SCENICPLUS_ATAC_PREPROCESSING {
 
 	label 'scenic'
 	input:
-		tuple path(meta),path(cells),path(peaks),path(counts)
+		tuple path(meta),path(frag),path(cells),path(peaks),path(counts)
 	output:
 		path("*cistopic_obj.pkl"), emit: cistopic_obj
 	script:
 	"""
 	python /src/10_3_scenic_pycistopic_cistopicObj_generation.py \\
-	--frag_path  \\
+	--frag_path $frag  \\
 	--rna_cells $cells \\
 	--rna_matrix $counts \\
 	--meta $meta
