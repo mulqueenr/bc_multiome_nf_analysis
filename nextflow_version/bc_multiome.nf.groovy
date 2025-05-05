@@ -544,15 +544,21 @@ workflow {
 		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.out.scsubtype_obj)
 
 		//Run scanpy
-		SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna,)
+		SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna)
 		
 		//Run cistopic
 		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
 		
 		//topics =
-		//SCENICPLUS_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
-		combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj,topicList) |
-		view
+		topics = 
+		topicList \
+		| map { topic ->
+        		def cistopic = SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj
+        		return tuple(topic, cistopic)
+     		}
+		
+		SCENICPLUS_RUN_CISTOPIC(topics)
+
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
 
