@@ -363,7 +363,7 @@ process SCENICPLUS_ATAC_PREPROCESSING {
 	python /src/10_3_scenic_pycistopic_cistopicObj_generation.py \\
 	--frag_path $frag  \\
 	--atac_cells $cells \\
-	--atac_peaks $cells \\
+	--atac_peaks $peaks \\
 	--atac_counts $counts \\
 	--meta $meta
 	"""
