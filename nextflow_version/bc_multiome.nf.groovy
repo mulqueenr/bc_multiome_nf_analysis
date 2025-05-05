@@ -551,7 +551,7 @@ workflow {
 		
 		//topics =
 		//SCENICPLUS_RUN_CISTOPIC(topicList,SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
-		combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj,topicList)
+		combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj,topicList).view()
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
 
