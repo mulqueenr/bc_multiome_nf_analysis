@@ -552,8 +552,7 @@ workflow {
 		topics = 
 		topicList \
 		| map { topic ->
-        		def cistopic = SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj
-        		return tuple(topic, cistopic)
+        		return tuple(topic, SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
      		}
 		
 		SCENICPLUS_RUN_CISTOPIC(topics)
