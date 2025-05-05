@@ -31,16 +31,11 @@ parser.add_argument("-M", "--mallet", required = False, default ="/container_mal
 
 args = parser.parse_args()
 
-# Project directory and files
-os.chdir(args.outDir)
-
 #tmp dir
-tmpDir = projDir + '/tmp_epi/'
-if not os.path.exists(tmpDir):
-    os.makedirs(tmpDir)
+tmpDir = './'
 
 
-cistopic_obj=pickle.load(open(os.path.join(args.outDir, args.cistopicObj), "rb"))
+cistopic_obj=pickle.load(open(args.cistopicObj), "rb")
 
 # Run models with mallet
 os.environ['MALLET_MEMORY'] = args.memory
