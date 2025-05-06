@@ -348,7 +348,6 @@ process SCENICPLUS_RNA_PREPROCESSING {
 process SCENICPLUS_ATAC_PREPROCESSING {
 	containerOptions "--bind ${params.proj_dir},${params.src_dir}:/src/,${params.outdir}"
 	publishDir "${params.outdir}/scenic_input/atac", mode: 'copy', overwrite: true, pattern: "*.{pkl}"
-
 	label 'scenic'
 	input:
 		tuple path(meta),path(frag),path(cells),path(peaks),path(counts)
@@ -415,7 +414,9 @@ process SCENICPLUS_RUN_CISTOPIC {
 	cpus 12
 	time 16.hour
 	memory 450.GB
-	queue 'guest'
+	errorStrategy 'retry'
+	maxRetries 3
+	queue 'batch'
 
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
 	label 'scenic'
