@@ -411,9 +411,9 @@ process SCENICPLUS_RUN_CISTOPIC {
 	//run pycistopic per topic 
 	publishDir "${params.outdir}/scenic_output/cistopic/topics", mode: 'copy', overwrite: true
 	executor 'slurm'
-	cpus 12
+	cpus 8
 	time 16.hour
-	memory 450.GB
+	memory 200.GB
 	errorStrategy 'retry'
 	maxRetries 3
 	queue 'batch'
@@ -434,7 +434,8 @@ process SCENICPLUS_RUN_CISTOPIC {
 	python /src/pycistopic_run_topic.py \\
 	--topicCount ${topic_count} \\
 	--cistopicObj ${cistopic} \\
-	--outDir "."
+	--outDir "." \\
+	--taskCpus 5
 	"""
 }
 
