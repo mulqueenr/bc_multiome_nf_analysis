@@ -23,8 +23,8 @@ parser = argparse.ArgumentParser(
     description="Function to run single cistopic model.")
 
 parser.add_argument("-c", "--topicCount", required = False, default = 5, help = "Integer of topic count to be used in run_cgs_models_mallet.")
-parser.add_argument("-d", "--outDir", required = False, default = '/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects/output_epi/', help = "The project directory directory containing the cistopic object.")
-parser.add_argument("-o", "--cistopicObj", required = False, default = "epi_cistopic_obj.pkl", help = "Cistopic object pkl.")
+parser.add_argument("-d", "--outDir", required = False, default = './', help = "The project directory directory containing the cistopic object.")
+parser.add_argument("-o", "--cistopicObj", required = False, default = "scenicplus_epi_cistopic_obj.pkl", help = "Cistopic object pkl.")
 parser.add_argument("-m", "--memory", required = False, default = '400G', help = "Memory for MALLET_MEMORY")
 parser.add_argument("-t", "--taskCpus", required = False, default = 10, help = "CPUS to run")
 parser.add_argument("-M", "--mallet", required = False, default ="/container_mallet/bin/mallet", help = "Mallet path, built into container")
@@ -35,11 +35,10 @@ args = parser.parse_args()
 tmpDir = './'
 
 
-cistopic_obj=pickle.load(open(args.cistopicObj), "rb")
+cistopic_obj=pickle.load(open(args.cistopicObj, "rb"))
 
 # Run models with mallet
 os.environ['MALLET_MEMORY'] = args.memory
-mallet_path= args.mallet
 
 # Run models
 models=run_cgs_models_mallet(
@@ -54,5 +53,5 @@ models=run_cgs_models_mallet(
     eta_by_topic=False,
     tmp_path=tmpDir,
     save_path=tmpDir,
-    mallet_path=mallet_path,
+    mallet_path=args.mallet,
 )
