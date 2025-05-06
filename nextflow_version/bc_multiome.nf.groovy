@@ -413,8 +413,8 @@ process SCENICPLUS_RUN_CISTOPIC {
 	publishDir "${params.outdir}/scenic_output/cistopic/topics", mode: 'copy', overwrite: true
 	executor 'slurm'
 	cpus 12
-	time 12.hour
-	memory 200.GB
+	time 16.hour
+	memory 450.GB
 	queue 'guest'
 
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
@@ -426,8 +426,8 @@ process SCENICPLUS_RUN_CISTOPIC {
 		path("Topic*")
 	script:
 	"""
-	export NUMBA_CACHE_DIR=\${PWD}/.tmp
-	export MPLCONFIGDIR=\${PWD}/.tmp
+	export NUMBA_CACHE_DIR=\${PWD}/tmp
+	export MPLCONFIGDIR=\${PWD}/tmp
 	mkdir -p \$NUMBA_CACHE_DIR
 
 	python /src/pycistopic_run_topic.py \\
