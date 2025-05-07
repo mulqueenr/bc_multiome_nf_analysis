@@ -43,8 +43,8 @@ os.environ['MALLET_MEMORY'] = args.memory
 # Run models
 models=run_cgs_models_mallet(
     cistopic_obj,
-    n_topics=[args.topicCount], 
-    n_cpu=args.taskCpus,
+    n_topics=[int(args.topicCount)], 
+    n_cpu=int(args.taskCpus),
     n_iter=500,
     random_state=555,
     alpha=50,

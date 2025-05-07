@@ -435,7 +435,8 @@ process SCENICPLUS_RUN_CISTOPIC {
 	--topicCount ${topic_count} \\
 	--cistopicObj ${cistopic} \\
 	--outDir "." \\
-	--taskCpus 5
+	--taskCpus 5 \\
+	--memory 200G
 	"""
 }
 
