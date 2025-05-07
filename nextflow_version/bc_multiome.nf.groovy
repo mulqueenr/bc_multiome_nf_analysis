@@ -445,11 +445,10 @@ process SCENICPLUS_MERGE_CISTOPICS {
 	//merge all topic models and select best. output merged cistopic object
 	publishDir "${params.outdir}/scenic_output/cistopic/plots", mode: 'copy', overwrite: true, pattern="*pdf"
 	publishDir "${params.outdir}/scenic_output/cistopic/topic_specificity", mode: 'copy', overwrite: true, pattern="*csv"
-	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/topic_bed", mode: 'copy', overwrite: true, pattern="*bed"
-	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/celltype_dar_bed", mode: 'copy', overwrite: true, pattern="*bed"
+	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/", mode: 'copy', overwrite: true, pattern="./region_sets/**bed"
 	publishDir "${params.outdir}/scenic_output/cistopic", mode: 'copy', overwrite: true, pattern="cistopic_obj.pkl"
 
-	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.outdir}/tmp:/tmp,"
 	label 'scenic'
 
 	input:
@@ -459,8 +458,7 @@ process SCENICPLUS_MERGE_CISTOPICS {
 		path("*pdf"), emit: cistopic_plots
 		path("*csv"), emit: cistopic_specificity
 		path("cistopic_obj.pkl"), emit: cistopic_obj, includeInputs: true
-		path("./region_sets/Topics_otsu/*bed"), emit: topic_bed
-		path("./region_sets/DARs_cell_type/*bed"), emit: celltype_bed
+		path("./region_sets/**"), emit: bed_files
 
 
 	script:
@@ -472,7 +470,7 @@ process SCENICPLUS_MERGE_CISTOPICS {
 	python /src/10_4_scenic_cistopic_combine_topics.py \\
 	--cistopicObj ${cistopic_obj} \\
 	--outDir "./" \\
-	--tmpDir "./"
+	--tmpDir "/tmp"
 	"""
 }
 

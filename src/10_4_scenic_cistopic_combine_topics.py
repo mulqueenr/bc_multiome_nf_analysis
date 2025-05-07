@@ -1,3 +1,5 @@
+#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome /home/groups/CEDAR/mulqueen/bc_multiome/scenicplus.sif
+#cd /home/groups/CEDAR/mulqueen/bc_multiome/work/aa/694d374fe06ea3411b146e2793fa95
 import os
 import pickle
 import scanpy as sc
@@ -15,12 +17,19 @@ from pycisTopic.topic_binarization import binarize_topics
 from pycisTopic.topic_qc import compute_topic_metrics, plot_topic_qc, topic_annotation
 import matplotlib.pyplot as plt
 from pycisTopic.utils import fig2img
+from pycisTopic.diff_features import (
+    impute_accessibility,
+    normalize_scores,
+    find_highly_variable_features,
+    find_diff_features
+)
+import numpy as np
 
 import argparse
 
 parser = argparse.ArgumentParser(
     description="Function to run single cistopic model.")
-parser.add_argument("-t", "--tmpDir", default ="./", help= "Temporary Directory")
+parser.add_argument("-t", "--tmpDir", default ="/tmp", help= "Temporary Directory")
 parser.add_argument("-o", "--outDir", default ="./", help = "Output Directory")
 parser.add_argument("-c", "--cistopicObj", default ="scenicplus_epi_cistopic_obj.pkl", help = "Output Directory")
 args = parser.parse_args()
@@ -172,13 +181,7 @@ topic_annot_diagmoldiag.to_csv("topic_specificity_diag_moldiag.csv")
 
 
 #find DARs
-from pycisTopic.diff_features import (
-    impute_accessibility,
-    normalize_scores,
-    find_highly_variable_features,
-    find_diff_features
-)
-import numpy as np
+
 
 imputed_acc_obj = impute_accessibility(
     cistopic_obj,
