@@ -40,7 +40,7 @@ outDir=args.outDir
 models = []
 for file in os.listdir(tmpDir):
     if file.endswith(".pkl") and file.startswith("Topic"):
-        model = pickle.load(open(os.path.join(tmpDir, file), "rb"))
+        model = pickle.load(open( file, "rb"))
         models.append(model)
 
 #output all together as model list
