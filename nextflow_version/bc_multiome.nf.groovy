@@ -454,10 +454,11 @@ process SCENICPLUS_MERGE_CISTOPICS {
 
 	input:
 		path(topics)
+		path(cistopic_obj)
 	output:
 		path("*pdf"), emit: cistopic_plots
 		path("*csv"), emit: cistopic_specificity
-		path("cistopic_obj.pkl"), emit: cistopic_obj
+		path("cistopic_obj.pkl"), emit: cistopic_obj, includeInputs: true
 		path("./region_sets/Topics_otsu/*bed"), emit: topic_bed
 		path("./region_sets/DARs_cell_type/*bed"), emit: celltype_bed
 
@@ -597,9 +598,11 @@ workflow {
 		topicList.combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj) \
 		| map { topic, obj -> tuple(topic, obj)}
 		
-		SCENICPLUS_RUN_CISTOPIC(topics) \
-		| collect \
-		| SCENICPLUS_MERGE_CISTOPICS
+		topics = SCENICPLUS_RUN_CISTOPIC(topics) \
+		| collect
+
+		SCENICPLUS_MERGE_CISTOPICS(topics,
+			SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
 
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
