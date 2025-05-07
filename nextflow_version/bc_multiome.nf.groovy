@@ -440,6 +440,40 @@ process SCENICPLUS_RUN_CISTOPIC {
 	"""
 }
 
+
+process SCENICPLUS_MERGE_CISTOPICS {
+	//merge all topic models and select best. output merged cistopic object
+	publishDir "${params.outdir}/scenic_output/cistopic/plots", mode: 'copy', overwrite: true, pattern="*pdf"
+	publishDir "${params.outdir}/scenic_output/cistopic/topic_specificity", mode: 'copy', overwrite: true, pattern="*csv"
+	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/topic_bed", mode: 'copy', overwrite: true, pattern="*bed"
+	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/celltype_dar_bed", mode: 'copy', overwrite: true, pattern="*bed"
+	publishDir "${params.outdir}/scenic_output/cistopic", mode: 'copy', overwrite: true, pattern="cistopic_obj.pkl"
+
+	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir}"
+	label 'scenic'
+
+	input:
+		path(topics)
+	output:
+		path("*pdf"), emit: cistopic_plots
+		path("*csv"), emit: cistopic_specificity
+		path("cistopic_obj.pkl"), emit: cistopic_obj
+		path("./region_sets/Topics_otsu/*bed"), emit: topic_bed
+		path("./region_sets/DARs_cell_type/*bed"), emit: celltype_bed
+
+
+	script:
+	"""
+	export NUMBA_CACHE_DIR=\${PWD}/tmp
+	export MPLCONFIGDIR=\${PWD}/tmp
+	mkdir -p \$NUMBA_CACHE_DIR
+
+	python /src/10_4_scenic_cistopic_combine_topics.py \\
+	--outDir "./" \\
+	--tmpDir "./"
+	"""
+}
+
 process CISTOPIC_PER_SAMPLE {
 	//Run cisTopic on sample ATAC data
 	publishDir "${params.outdir}/seurat_objects/cistopic", mode: 'copy', overwrite: true
@@ -563,7 +597,9 @@ workflow {
 		topicList.combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj) \
 		| map { topic, obj -> tuple(topic, obj)}
 		
-		SCENICPLUS_RUN_CISTOPIC(topics)
+		SCENICPLUS_RUN_CISTOPIC(topics) \
+		| collect \
+		SCENICPLUS_MERGE_CISTOPICS
 
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)

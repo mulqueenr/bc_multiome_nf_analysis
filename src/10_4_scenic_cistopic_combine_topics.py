@@ -16,8 +16,16 @@ from pycisTopic.topic_qc import compute_topic_metrics, plot_topic_qc, topic_anno
 import matplotlib.pyplot as plt
 from pycisTopic.utils import fig2img
 
-tmpDir="./"
-outDir="./"
+import argparse
+
+parser = argparse.ArgumentParser(
+    description="Function to run single cistopic model.")
+parser.add_argument("-t", "--tmpDir", default ="./", help= "Temporary Directory")
+parser.add_argument("-o", "--outDir", default ="./", help = "Output Directory")
+args = parser.parse_args()
+
+tmpDir=args.tmpDir
+outDir=args.outDir
 
 models = []
 for file in os.listdir(tmpDir):
@@ -202,7 +210,7 @@ markers_dict_celltype = find_diff_features(
     adjpval_thr=0.05,
     log2fc_thr=np.log2(1.5),
     n_cpu=5,
-    _temp_dir="/home/users/mulqueen/tmp",
+    _temp_dir=tmpDir,
     split_pattern = '-'
 )
 
@@ -216,7 +224,7 @@ markers_dict_diag_moldiag = find_diff_features(
     adjpval_thr=0.05,
     log2fc_thr=np.log2(1.5),
     n_cpu=5,
-    _temp_dir="/home/users/mulqueen/tmp",
+    _temp_dir=tmpDir,
     split_pattern = '-'
 )
 
