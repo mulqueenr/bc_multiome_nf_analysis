@@ -470,6 +470,7 @@ process SCENICPLUS_MERGE_CISTOPICS {
 	mkdir -p \$NUMBA_CACHE_DIR
 
 	python /src/10_4_scenic_cistopic_combine_topics.py \\
+	--cistopicObj ${cistopic_obj} \\
 	--outDir "./" \\
 	--tmpDir "./"
 	"""

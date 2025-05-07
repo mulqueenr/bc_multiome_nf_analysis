@@ -22,6 +22,7 @@ parser = argparse.ArgumentParser(
     description="Function to run single cistopic model.")
 parser.add_argument("-t", "--tmpDir", default ="./", help= "Temporary Directory")
 parser.add_argument("-o", "--outDir", default ="./", help = "Output Directory")
+parser.add_argument("-c", "--cistopicObj", default ="scenicplus_epi_cistopic_obj.pkl", help = "Output Directory")
 args = parser.parse_args()
 
 tmpDir=args.tmpDir
@@ -40,7 +41,7 @@ pickle.dump(
 )
 
 cistopic_models=pickle.load(open(os.path.join(outDir, "models.pkl"),"rb"))
-cistopic_obj=pickle.load(open(os.path.join(outDir, "cistopic_obj.pkl"),"rb"))
+cistopic_obj=pickle.load(open(os.path.join(outDir, args.cistopicObj),"rb"))
 
 #i think 40 is right
 cistopic_model = evaluate_models(
