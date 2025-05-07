@@ -599,7 +599,7 @@ workflow {
 		
 		SCENICPLUS_RUN_CISTOPIC(topics) \
 		| collect \
-		SCENICPLUS_MERGE_CISTOPICS
+		| SCENICPLUS_MERGE_CISTOPICS
 
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)
