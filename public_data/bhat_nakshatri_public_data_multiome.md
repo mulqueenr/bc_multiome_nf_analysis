@@ -8,7 +8,7 @@ https://pubmed.ncbi.nlm.nih.gov/39122969/
 
 ```bash
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-ref = "${proj_dir}/ref"
+ref="${proj_dir}/ref"
 mkdir -p $ref
 ```
 
@@ -16,6 +16,7 @@ mkdir -p $ref
 mkdir -p ${ref}/nakshatri_multiome
 cd ${ref}/nakshatri_multiome
 wget https://datasets.cellxgene.cziscience.com/63a485bc-cac7-49d2-83ed-8e07ca4efa2a.rds
+
 #curl download of fastq files
 curl --location --fail https://service.azul.data.humancellatlas.org/manifest/files/ksQwlKVkY3A0NKRjdXJsxBDVqi-KPW5cZIBunIwUGnbJxBDNWgLvW59Vl54jxXbB21J3xCAWcw-YKqAgo8jjf-6V_OLtqiQl2o01JAye0IwhVslyhg | curl --fail-early --continue-at - --retry 15 --retry-delay 10 --config -
 
@@ -65,7 +66,7 @@ ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pat
 seqlevels(annotation) <- ucsc.levels #standard seq level change threw error, using a string replace instead
 
 proj_dir="/home/groups/CEDAR/mulqueen/bc_multiome"
-setwd("/home/groups/CEDAR/mulqueen/ref/nakshatri_multiome")
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/ref/nakshatri_multiome")
 
 ref<-readRDS("63a485bc-cac7-49d2-83ed-8e07ca4efa2a.rds")
 #added cell id names are pools 1-16
@@ -220,7 +221,6 @@ combined <- NormalizeData(
 
 
 saveRDS(combined,file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.geneactivity.rds"))
-combined<-readRDS(file=paste0(proj_dir,"/ref/nakshatri/","nakshatri_multiome.rds"))
 
 run_top_TFs(combined,prefix="ref_cell_type",i="author_cell_type",n_markers=5) #generate top TF markers per cell type
 

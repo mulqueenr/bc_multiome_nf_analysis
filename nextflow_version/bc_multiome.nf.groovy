@@ -445,7 +445,7 @@ process SCENICPLUS_MERGE_CISTOPICS {
 	//merge all topic models and select best. output merged cistopic object
 	publishDir "${params.outdir}/scenic_output/cistopic/plots", mode: 'copy', overwrite: true, pattern="*pdf"
 	publishDir "${params.outdir}/scenic_output/cistopic/topic_specificity", mode: 'copy', overwrite: true, pattern="*csv"
-	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/", mode: 'copy', overwrite: true, pattern="./region_sets/**bed"
+	publishDir "${params.outdir}/scenic_output/cistopic/region_sets/", mode: 'copy', overwrite: true, pattern="./region_sets/*/*bed"
 	publishDir "${params.outdir}/scenic_output/cistopic", mode: 'copy', overwrite: true, pattern="cistopic_obj.pkl"
 
 	containerOptions "--bind ${params.src_dir}:/src/,${params.outdir},${params.outdir}/tmp:/tmp,"
@@ -458,7 +458,7 @@ process SCENICPLUS_MERGE_CISTOPICS {
 		path("*pdf"), emit: cistopic_plots
 		path("*csv"), emit: cistopic_specificity
 		path("cistopic_obj.pkl"), emit: cistopic_obj, includeInputs: true
-		path("./region_sets/**"), emit: bed_files
+		path("region_sets/*/*bed"), emit: bed_files
 
 
 	script:
@@ -579,29 +579,29 @@ workflow {
 		FIG2_SCSUBTYPE(FIG2_PSEUDOBULK_ANALYSIS.out.tf_obj)
 
 	//SCENIC BLOCK
-		scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
-		topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
+		//scriptDir=Channel.fromPath("${params.proj_dir}/src/create_cisTarget_databases/")
+		//topicList=Channel.of(15,20,25,30,35,40,45,50,55,60)
 
 		//just run epi only for now
 		//Prepare for scanpy/cistopic
-		SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.out.scsubtype_obj)
+		//SCENICPLUS_FORMATTING_FROM_SIGNAC(FIG2_SCSUBTYPE.out.scsubtype_obj)
 
 		//Run scanpy
-		SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna)
+		//SCENICPLUS_RNA_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_rna)
 		
 		//Run cistopic
-		SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
+		//SCENICPLUS_ATAC_PREPROCESSING(SCENICPLUS_FORMATTING_FROM_SIGNAC.out.scenic_epi_atac)
 		
 		//topics =
-		topics = 
-		topicList.combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj) \
-		| map { topic, obj -> tuple(topic, obj)}
+		//topics = 
+		//topicList.combine(SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj) \
+		//| map { topic, obj -> tuple(topic, obj)}
 		
-		topics = SCENICPLUS_RUN_CISTOPIC(topics) \
-		| collect
+		//topics = SCENICPLUS_RUN_CISTOPIC(topics) \
+		//| collect
 
-		SCENICPLUS_MERGE_CISTOPICS(topics,
-			SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
+		//SCENICPLUS_MERGE_CISTOPICS(topics,
+		//	SCENICPLUS_ATAC_PREPROCESSING.out.cistopic_obj)
 
 		//Make cistarget db
 		//SCENICPLUS_CISTARGET_ON_PEAKS(merged_peaks,scriptDir)

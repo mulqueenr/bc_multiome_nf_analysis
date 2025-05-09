@@ -1,29 +1,10 @@
-#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
-#singularity shell \
-#--bind /home/groups/CEDAR/mulqueen/bc_multiome \
-#--bind /home/groups/CEDAR/mulqueen/bc_multiome/ref:/ref $sif
-#cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
+sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
+singularity shell \
+--bind /home/groups/CEDAR/mulqueen/bc_multiome \
+$sif
+cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 #Add great enrichment across peaks DA
 #add chromvar enrichment across da peaks
-
-  #find enrichment in c8 signatures
- # top_p_C8 <- do.call("rbind",
- #   lapply(unique(genes_out$metaprogram_cluster), 
- #   function(i) {
- #   program_name=i
- #   program_genes=unlist(genes_out[genes_out$metaprogram_cluster==program_name,]$genes)
- #   out<-runGSEA(program_genes, universe=row.names(dat@assays$RNA), category = "C8")
- ##   out$program<-paste0(program_name)
-  #  return(out)
-  #  }
-  #  ))
-  #pltdat<-top_p_C8 %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
-
-  #plt<-ggplot(pltdat,aes(x=program,y=pathway))+
-  #geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
-  #theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-  #ggsave(plt,file=paste0(prefix,"_metaprograms","_c8","_","TITAN",".pdf"),width=20)
-
 
 library(Seurat)
 library(Signac)
@@ -48,7 +29,7 @@ library(BSgenome.Hsapiens.UCSC.hg38)
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
               help="Sample input seurat object", metavar="character"),
-  make_option(c("-r", "--ref_object"), type="character", default="/ref/nakshatri/nakshatri_multiome.rds", 
+  make_option(c("-r", "--ref_object"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref/nakshatri/nakshatri_multiome.geneactivity.rds", 
               help="Nakshatri reference object for epithelial comparisons", metavar="character")
 );
 
@@ -300,31 +281,32 @@ dat_cancer<-subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_a
 dat_cancer$cellstate<-paste(dat_cancer$assigned_celltype,dat_cancer$Diagnosis,dat_cancer$Mol_Diagnosis)
 plot_top_tf_markers(x=dat_cancer,group_by="cellstate",prefix="epi_celltypes",n_markers=20,order_by_idents=FALSE)
 
-
 #cancer only by diag
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
 dat_cancer$cellstate<-paste(dat_cancer$assigned_celltype,dat_cancer$Diagnosis,dat_cancer$Mol_Diagnosis)
 plot_top_tf_markers(x=dat_cancer,group_by="cellstate",prefix="cancer_diag",n_markers=20,order_by_idents=FALSE)
 
-
 #epi only with ref
+bhat_nakshatri<-readRDS(opt$ref_object)
+table(bhat_nakshatri$cell_type)
+bhat_nakshatri$assigned_celltype<-bhat_nakshatri$cell_type
+bhat_nakshatri<-subset(bhat_nakshatri,assigned_celltype %in% c("luminal adaptive secretory precursor cell of mammary gland",
+"luminal hormone-sensing cell of mammary gland","basal-myoepithelial cell of mammary gland"))
 
-#bhat_nakshatri<-readRDS(opt$ref_object)
-#table(bhat_nakshatri$cell_type)
-#bhat_nakshatri$assigned_celltype<-bhat_nakshatri$cell_type
-#bhat_nakshatri<-subset(bhat_nakshatri,assigned_celltype %in% c("luminal adaptive secretory precursor cell of mammary gland",
-#"luminal hormone-sensing cell of mammary gland","basal-myoepithelial cell of mammary gland"))
+bhat_nakshatri$Diag<-"normal"
+bhat_nakshatri$Mol_Diag<-"normal"
+bhat_nakshatri[["ATAC"]]<-bhat_nakshatri[["our_peaks"]]
+DefaultAssay(bhat_nakshatri)<-"ATAC"
 
-#bhat_nakshatri$Diag<-"normal"
-#bhat_nakshatri$Mol_Diag<-"normal"
-#dat_epi<-merge(
-#  subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial")),
-#  bhat_nakshatri)
 
-#dat_epi$cellstate<-paste(dat_epi$assigned_celltype,dat_epi$Diagnosis,dat_epi$Mol_Diagnosis)
+dat_epi<-merge(
+  subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial")),
+  bhat_nakshatri)
+dat_epi$cellstate<-pa
+ste(dat_epi$assigned_celltype,dat_epi$Diagnosis,dat_epi$Mol_Diagnosis)
 
-#dat_epi<-subset(dat_epi,cellstate %in% names(table(dat_epi$cellstate))[which(table(dat_epi$cellstate)>200)])
-#plot_top_tf_markers(x=dat_epi,group_by="cellstate",prefix="nakshatri_epi_diag",n_markers=20,order_by_idents=FALSE)
+dat_epi<-subset(dat_epi,cellstate %in% names(table(dat_epi$cellstate))[which(table(dat_epi$cellstate)>200)])
+plot_top_tf_markers(x=dat_epi,group_by="cellstate",prefix="nakshatri_epi_diag",n_markers=20,order_by_idents=FALSE)
 
 ####################################################
 #           Fig 2 Coverage Plots                  #
@@ -508,6 +490,27 @@ plt_list<-lapply(unique(da_peaks_motif_filt$cluster),function(x) {
     })
 plt<-wrap_plots(plt_list,nrow=1)
 ggsave(plt,file="tornado.FOXA1_overlap_da_peaks.diag.pdf",width=20,height=20)
+
+
+
+  #find enrichment in c8 signatures
+ # top_p_C8 <- do.call("rbind",
+ #   lapply(unique(genes_out$metaprogram_cluster), 
+ #   function(i) {
+ #   program_name=i
+ #   program_genes=unlist(genes_out[genes_out$metaprogram_cluster==program_name,]$genes)
+ #   out<-runGSEA(program_genes, universe=row.names(dat@assays$RNA), category = "C8")
+ ##   out$program<-paste0(program_name)
+  #  return(out)
+  #  }
+  #  ))
+  #pltdat<-top_p_C8 %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
+
+  #plt<-ggplot(pltdat,aes(x=program,y=pathway))+
+  #geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
+  #theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  #ggsave(plt,file=paste0(prefix,"_metaprograms","_c8","_","TITAN",".pdf"),width=20)
+
 
 
 # #GSEA of clone DMRs
