@@ -37,7 +37,6 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 
-
 celltype_col=c("cancer"="#9e889e",
 "luminal_hs"="#4c3c97",
 "luminal_asp"="#7161ab",
@@ -83,7 +82,9 @@ DefaultAssay(dat)<-"ATAC"
 
 #Identify top markers
 Identify_Marker_TFs<-function(x,group_by,assay,pval_filt=1,assay_name){
-    x[[assay]]<-as(object = x[[assay]], Class = "Assay")
+      if (assay != "chromvar") {
+        x[[assay]]<-as(object = x[[assay]], Class = "Assay")
+        }
     markers <- presto:::wilcoxauc.Seurat(X = x, group_by = group_by, 
       groups_use=unname(unlist(unique(x@meta.data[group_by]))),
       y=unname(unlist(unique(x@meta.data[group_by]))), 
@@ -92,7 +93,7 @@ Identify_Marker_TFs<-function(x,group_by,assay,pval_filt=1,assay_name){
     colnames(markers) <- paste(assay_name, colnames(markers),sep=".")
     if (assay == "chromvar") {
       motif.names <- markers[,paste0(assay_name,".feature")]
-      markers$gene <- ConvertMotifID(x, id = motif.names,assay="ATAC")
+      markers$gene <- ConvertMotifID(x, id = motif.names,assay="ATAC") #or ATAC as assay
     } else {
     markers$gene <- markers[,paste0(assay_name,".feature")]
     }
@@ -180,8 +181,8 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
     tf_motif<-tf_motif[markers_list,]
     tf_ga<-tf_ga[markers_list,]
     average_matrix=(tf_rna+tf_motif+tf_ga)/3. #matrix averages for clustering
-
-    #set up heatmap seriation and order by RNA
+    #average_matrix=tf_ga #just cluster by GENE activity expression
+    #set up heatmap seriation and order by GA
     o_rows =dist(average_matrix) %>%
                           hclust() %>%
                           as.dendrogram()  #%>%
@@ -266,10 +267,9 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
           right_annotation=gene_ha)
       
       #motif_image<-anno_image(paste0(prefix,".tf.heatmap.motif.svg"))
-
-      plt1<-draw(ga_auc+ga_plot+rna_auc+rna_plot+motif_auc+motif_plot,row_title=prefix)
-    pdf(paste0(prefix,".tf.heatmap.pdf"),height=(n_markers*length(o_col))/20)
-    print(plt1)
+    
+    pdf(paste0(prefix,".tf.heatmap.pdf"))
+    print(draw(ga_auc+ga_plot+rna_auc+rna_plot+motif_auc+motif_plot,row_title=prefix))
     dev.off()
 }
 
@@ -290,27 +290,148 @@ plot_top_tf_markers(x=dat_cancer,group_by="cellstate",prefix="cancer_diag",n_mar
 bhat_nakshatri<-readRDS(opt$ref_object)
 table(bhat_nakshatri$cell_type)
 bhat_nakshatri$assigned_celltype<-bhat_nakshatri$cell_type
-bhat_nakshatri<-subset(bhat_nakshatri,assigned_celltype %in% c("luminal adaptive secretory precursor cell of mammary gland",
-"luminal hormone-sensing cell of mammary gland","basal-myoepithelial cell of mammary gland"))
-
-bhat_nakshatri$Diag<-"normal"
-bhat_nakshatri$Mol_Diag<-"normal"
 bhat_nakshatri[["ATAC"]]<-bhat_nakshatri[["our_peaks"]]
 DefaultAssay(bhat_nakshatri)<-"ATAC"
-
+bhat_nakshatri<-subset(bhat_nakshatri,assigned_celltype %in% c("luminal adaptive secretory precursor cell of mammary gland",
+"luminal hormone-sensing cell of mammary gland","basal-myoepithelial cell of mammary gland"))
+bhat_nakshatri$Diagnosis<-"normal"
+bhat_nakshatri$Mol_Diagnosis<-"normal"
 
 dat_epi<-merge(
   subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial")),
   bhat_nakshatri)
-dat_epi$cellstate<-pa
-ste(dat_epi$assigned_celltype,dat_epi$Diagnosis,dat_epi$Mol_Diagnosis)
 
-dat_epi<-subset(dat_epi,cellstate %in% names(table(dat_epi$cellstate))[which(table(dat_epi$cellstate)>200)])
-plot_top_tf_markers(x=dat_epi,group_by="cellstate",prefix="nakshatri_epi_diag",n_markers=20,order_by_idents=FALSE)
+dat_epi$cellstate<-ifelse(dat_epi$assigned_celltype=="cancer",
+paste(dat_epi$assigned_celltype,dat_epi$Diagnosis),
+paste(dat_epi$assigned_celltype))
+
+#dat_epi<-subset(dat_epi,cellstate %in% names(table(dat_epi$cellstate))[which(table(dat_epi$cellstate)>200)])
+dat_epi[["RNA"]]<-JoinLayers(dat_epi[["RNA"]])
+dat_epi<-ScaleData(dat_epi,assay="RNA")
+dat_epi[["ATAC"]]@motifs<-dat_epi@assays$our_peaks@motifs
+plot_top_tf_markers(x=dat_epi,group_by="cellstate",prefix="nakshatri_epi_diag",n_markers=5,order_by_idents=FALSE)
+
+#similarity matrix for diagnoses on chromvar motifs
+#define markers
+markers<-Identify_Marker_TFs(x=dat_epi,group_by="cellstate",assay="chromvar",assay_name="chromvar")
+markers_out <- markers %>% group_by(chromvar.group) %>% filter(chromvar.padj<0.05)
+markers_out<-markers_out[!duplicated(markers_out$chromvar.feature),]
+tf_motif<-average_features(x=dat_epi,features=markers_out$chromvar.feature,assay="chromvar",group_by="cellstate")
+row.names(tf_motif)<-markers_out$gene
+colfun_motif=colorRamp2(c(0,0.5,1),cividis(3))
+motif_plot<-Heatmap(cor(tf_motif),
+    name="TF Motif",
+    column_title="TF Motif",
+    col=colfun_motif,
+    column_names_gp = gpar(fontsize = 8),
+    show_row_names=TRUE,
+    column_names_rot=90)
+pdf("test_motif.distance.pdf")
+print(motif_plot)
+dev.off()
+
+#tornado plot and hypergeo
+Idents(dat_epi)<-dat_epi$cellstate
+markers <- presto:::wilcoxauc.Seurat(X = dat_epi, group_by = "cellstate", 
+  groups_use=unname(unlist(unique(dat_epi$cellstate))),
+  y=unname(unlist(unique(dat_epi$cellstate))), 
+  assay = 'data', seurat_assay = "ATAC")
+
+da_peaks <- markers %>% filter(padj<0.01) %>% filter(logFC>0.25)
+#[1] 39525    10
+
+#add chromvar motif scan of motifs per DA peaks
+da_peaks<-merge(da_peaks,as.data.frame(dat@assays$ATAC@motifs@data),by.x="feature",by.y= 'row.names')
+#add closest gene
+annot<-ClosestFeature(
+  object = dat_epi,
+  regions = da_peaks$feature
+)
+da_peaks<-merge(da_peaks,annot,by.x="feature",by.y= 'query_region')
+da_peaks <- da_peaks %>% filter(distance<2000)
+
+write.table(da_peaks,file="epithelial_diagnosis_da_peaks.csv",col.names=T,row.names=T,sep=",")
+
+library(GeneNMF)
+library(rGREAT)
+
+# #GSEA of clone DMRs
+gsea_enrichment<-function(prefix,dmrs,
+gene_universe,
+category="C3",subcategory="TFT:GTRD",
+out_setname="TFT"){
+  top_p_gsea <- do.call("rbind",
+    lapply(unique(dmrs$group), 
+    function(i) {
+    #gene set
+    gene_list<-dmrs |> dplyr::filter(group==i) |> pull(gene_name)
+    out<-runGSEA(gene_list, universe=gene_universe, category = category,subcategory=subcategory)
+    out$celltype<-i
+    return(out)
+    }
+    ))
+ pltdat<-top_p_gsea %>% group_by(celltype) %>% slice_max(order_by = -padj, n = 5)
+ plt<-ggplot(pltdat,aes(x=celltype,y=pathway))+
+ geom_point(aes(size = -log10(padj), fill = overlap/size), shape=21)+
+ theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ ggsave(plt,file=paste0(prefix,"_GSEA","_",out_setname,".pdf"),width=20)
+ saveRDS(top_p_gsea,file=paste0(prefix,"_GSEA","_",out_setname,".rds"))
+ }
+
+
+   #set up gene universe
+  prefix="epi_diag"
+  dmrs=da_peaks
+   gene_universe<-dmrs %>% pull(gene_name)
+   gene_universe<-gene_universe[!duplicated(gene_universe)]
+
+   #run gsea enrichment at gene level on different sets
+   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+   category="C3",subcategory="TFT:GTRD",out_setname="TFT") #find enrichment in tft (transcription factor targets)
+
+   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+   category="C1",subcategory=NULL,out_setname="position") #find enrichment in c1 signatures (positional)
+
+   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+   category="H",subcategory=NULL,out_setname="hallmark") #find cancer hallmark signatures
+
+
+rna<-FindAllMarkers(dat_epi,assay="RNA")
+
+
+
+
+
+
+
 
 ####################################################
 #           Fig 2 Coverage Plots                  #
 ###################################################
+Idents(dat_epi)<-dat_epi$cellstate
+clin_col=c(
+"cancer ILC ER+/PR+/HER2-"="#f6bea1", 
+"cancer ILC ER+/PR-/HER2-"="#b9db98", 
+"cancer IDC ER+/PR-/HER2+"="#f37872", 
+"cancer IDC ER+/PR+/HER2-"="#8d86c0", 
+"cancer IDC ER+/PR-/HER2-"="#7fd0df", 
+"luminal_hs"="#4c3c97",
+"luminal_asp"="#7161ab",
+"basal_myoepithelial"="#ee6fa0",
+"basal-myoepithelial cell of mammary gland"="#c497a9",
+"luminal adaptive secretory precursor cell of mammary gland"="#6c6585",
+"luminal hormone-sensing cell of mammary gland"="#6f6799")
+
+
+marker_list<-FindAllMarkers(dat_epi,assay="GeneActivity")
+#dat_epi<-PrepSCTFindMarkers(dat_epi)
+#rna_marker_list<-FindAllMarkers(dat_epi,assay="SCT")
+
+marker_subset<-marker_list %>% filter(p_val_adj<0.05) %>% filter(avg_log2FC>1) %>% 
+group_by(cluster) %>% 
+slice_max(n=20,order_by=avg_log2FC,with_ties=FALSE)
+#filter by RNA sig
+#marker_subset[marker_subset$gene %in% rna_marker_list$gene,]
 
 marker<-list()
 #iglesia et al
@@ -327,43 +448,53 @@ marker[["basal"]]<-c("TP63","KRT14")
 
 
 # first compute the GC content for each peak
-DefaultAssay(dat)<-"ATAC"
-dat <- RegionStats(dat, genome = BSgenome.Hsapiens.UCSC.hg38)
+DefaultAssay(dat_epi)<-"ATAC"
+dat_epi <- RegionStats(dat_epi, genome = BSgenome.Hsapiens.UCSC.hg38)
 
 # link peaks to genes
-dat <- LinkPeaks(
-  object = dat,
+dat_epi <- LinkPeaks(
+  object = dat_epi,
   peak.assay = "ATAC",
   expression.assay = "SCT",
-  genes.use = unlist(marker))
+  genes.use = unlist(marker_subset))
 
-for(i in names(marker)){
-  for(x in marker[[i]]){
-    print(paste("Plotting...",x))
+for(i in 1:nrow(marker_subset)){
+    x<-marker_subset$gene[i]
+    if (x in row.names(dat_epi@assays$SCT@data)){
+      celltype<-marker_subset$cluster[i]
+      col<-clin_col[celltype]
+      celltype<-gsub(celltype,pattern="[+]",replacement="plus")
+      celltype<-gsub(celltype,pattern="[-]",replacement="minus")
+      celltype<-gsub(celltype,pattern="[ ]",replacement="_")
+      celltype<-gsub(celltype,pattern="[/]",replacement="_")
+      print(paste("Plotting...",x))
+      print(celltype)
 
-    cov_plot <- CoveragePlot(
-      object = dat,
-      region = x,
-      annotation = TRUE,
-      peaks = TRUE,links=FALSE)+ scale_color_manual(values=unname(celltype_col))
+      cov_plot <- CoveragePlot(
+        object = dat_epi,
+        region = x,
+        annotation = TRUE,
+        peaks = TRUE,links=FALSE)+ scale_color_manual(values=col)
 
-    link_plot <- LinkPlot(
-      object = dat,
-      region = x)+scale_color_gradient2(limits=c(0,0.3),low="white",high="magenta")
+      link_plot <- LinkPlot(
+        object = dat_epi,
+        region = x)+scale_color_gradient2(limits=c(0,0.3),low="white",high="magenta")
 
-    expr_plot <- ExpressionPlot(
-      object = dat,
-      features = x,
-      assay = "SCT") + scale_color_manual(values=unname(celltype_col))
+      expr_plot <- ExpressionPlot(
+        object = dat_epi,
+        features = x,
+        assay = "SCT") + scale_color_manual(values=col)
 
-    plt<-CombineTracks(
-      plotlist = list(cov_plot, link_plot),
-      expression.plot = expr_plot,
-      heights = c( 10, 3),
-      widths = c(10, 1))
-    ggsave(plt,file=paste0("coverage.",i,".",x,".pdf"))
+      plt<-CombineTracks(
+        plotlist = list(cov_plot, link_plot),
+        expression.plot = expr_plot,
+        heights = c( 10, 3),
+        widths = c(10, 1))
+      ggsave(plt,file=paste0("coverage.",celltype,".",x,".pdf"))
+    }
   }
-}
+
+da_peaks<-FindAllMarkers(dat_epi,assay="ATAC")
 
 
 ####################################################
@@ -492,82 +623,3 @@ plt<-wrap_plots(plt_list,nrow=1)
 ggsave(plt,file="tornado.FOXA1_overlap_da_peaks.diag.pdf",width=20,height=20)
 
 
-
-  #find enrichment in c8 signatures
- # top_p_C8 <- do.call("rbind",
- #   lapply(unique(genes_out$metaprogram_cluster), 
- #   function(i) {
- #   program_name=i
- #   program_genes=unlist(genes_out[genes_out$metaprogram_cluster==program_name,]$genes)
- #   out<-runGSEA(program_genes, universe=row.names(dat@assays$RNA), category = "C8")
- ##   out$program<-paste0(program_name)
-  #  return(out)
-  #  }
-  #  ))
-  #pltdat<-top_p_C8 %>% group_by(program) %>% slice_max(order_by = -padj, n = 5)
-
-  #plt<-ggplot(pltdat,aes(x=program,y=pathway))+
-  #geom_point(aes(size = -log10(padj), fill = overlap), shape=21)+
-  #theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-  #ggsave(plt,file=paste0(prefix,"_metaprograms","_c8","_","TITAN",".pdf"),width=20)
-
-
-
-# #GSEA of clone DMRs
-# gsea_enrichment<-function(prefix,dmrs,gene_universe,category="C3",subcategory="TFT:GTRD",out_setname="TFT"){
-#   top_p_gsea <- do.call("rbind",
-#     lapply(unique(dmrs$celltype), 
-#     function(i) {
-#     #gene set
-#     gene_list<-dmrs |> dplyr::filter(celltype==i) |> pull(gene_names)
-#     gene_list<-str_replace_all(unlist(lapply(strsplit(gene_list, ","),unlist)), " ", "") 
-#     out<-runGSEA(gene_list, universe=gene_universe, category = category,subcategory=subcategory)
-#     out$celltype<-i
-#     return(out)
-#     }
-#     ))
-# pltdat<-top_p_gsea %>% group_by(celltype) %>% slice_max(order_by = -padj, n = 5)
-# plt<-ggplot(pltdat,aes(x=celltype,y=pathway))+
-# geom_point(aes(size = -log10(padj), fill = overlap/size), shape=21)+
-# theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-# ggsave(plt,file=paste0(prefix,"_GSEA","_",out_setname,".pdf"),width=20)
-# saveRDS(top_p_gsea,file=paste0(prefix,"_GSEA","_",out_setname,".rds"))
-# }
-
-# clone_dmr<-function(obj=obj,sample=c("DCIS-41T"),prefix="DCIS-41T",k_phenograph=50){
-#   dcis<-subsetObject(obj, cells = row.names(obj@metadata[obj@metadata$sample %in% sample,]))
-#   #recluster just 41 on 100kb windows
-#   dcis<-cluster_by_windows(obj=dcis,
-#                           prefix=prefix,
-#                           window_name="cg_100k_score",
-#                           stepsize=100000,
-#                           threads=200,
-#                           neighbors=50,
-#                           distance=0.05,
-#                           overwrite_windows=FALSE,
-#                           k_phenograph=200)
-#   p1 <- dimFeature(dcis, colorBy = subclones, reduction = "umap") + ggtitle(paste(prefix, "Subclones"))
-#   ggsave(p1,file=paste(prefix,"subclones_umap.pdf",sep="."))     
-#   dcis<-dmr_and_1kb_window_gen(obj=dcis,prefix=prefix,groupBy="subclones")
-#   dcis<-dmr_and_1kb_window_gen(obj=dcis,prefix=prefix,groupBy="cluster_id")
-#   saveRDS(dcis,paste0(prefix,".amethyst.rds"))
-#   #GSEA processing to make some sense of DMRS
-#   dmrs<-readRDS(paste0(prefix,".dmr.subclones.collapsed.rds"))
-#   dmrs <- dmrs |> dplyr::filter(direction=="hypo") |> dplyr::filter(gene_names != "NA") 
-
-#   #set up gene universe
-#   gene_universe<-dmrs |> pull(gene_names)
-#   gene_universe<-str_replace_all(unlist(lapply(strsplit(gene_universe, ","),unlist)), " ", "") #flatten and remove 
-#   gene_universe<-gene_universe[!duplicated(gene_universe)]
-
-#   #run gsea enrichment at gene level on different sets
-#   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
-#   category="C3",subcategory="TFT:GTRD",out_setname="TFT") #find enrichment in tft (transcription factor targets)
-
-#   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
-#   category="C1",subcategory=NULL,out_setname="position") #find enrichment in c1 signatures (positional)
-
-#   gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
-#   category="H",subcategory=NULL,out_setname="hallmark") #find cancer hallmark signatures
-
-# }
