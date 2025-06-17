@@ -1,10 +1,8 @@
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
-singularity shell \
---bind /home/groups/CEDAR/mulqueen/bc_multiome \
-$sif
-cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
-#Add great enrichment across peaks DA
-#add chromvar enrichment across da peaks
+#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
+#singularity shell \
+#--bind /home/groups/CEDAR/mulqueen/bc_multiome \
+#$sif
+#cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 
 library(Seurat)
 library(Signac)
@@ -74,6 +72,78 @@ dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
 
 dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 DefaultAssay(dat)<-"ATAC"
+
+
+
+####################################################
+#           Fig 2 Coverage Plots of Promoters     #
+###################################################
+#ALL
+
+marker<-list()
+#iglesia et al
+marker[["her2_tumors"]]<-c("ERBB2","GRB7")
+marker[["lum_tumor"]]<-c("ESR1","GRHL2")
+marker[["basal-like"]]<-c("SFRP1","KRT17")
+#nakshatri et al
+marker[["tcells"]]<-c("IL7R","IFNG","GZMK","FCGR3A")
+marker[["macrophage"]]<-c("LYVE1","ACKR1")
+marker[["fibroblast"]]<-c("CXCL12","GLI2")
+marker[["lum_hs"]]<-c("ESR1","FOXA1","GATA3")
+marker[["lum_hs_asp"]]<-c("EHF","ELF5","KIT")
+marker[["basal"]]<-c("TP63","KRT14")
+
+
+# first compute the GC content for each peak
+DefaultAssay(dat)<-"ATAC"
+dat <- RegionStats(dat, genome = BSgenome.Hsapiens.UCSC.hg38)
+
+# link peaks to genes
+dat<- LinkPeaks(
+  object = dat,
+  peak.assay = "ATAC",
+  expression.assay = "SCT",
+  genes.use = unlist(marker))
+
+#set regions to print (promoter region + 10kb into gene)
+markers<-c(
+"FOXA1", #lum_hs
+"EPCAM", #epi
+"ELF5",#lum_asp
+"KRT17", #basal
+"ACACB", #adipo
+"LAMA2",#fibro
+"VWF", #endo
+"CD163", #myeloid
+"IL7R"#tcell
+)
+
+
+for(i in markers){
+    x<-i
+    col<-celltype_col
+    gene_annot=dat@assays$ATAC@annotation[dat@assays$ATAC@annotation$gene_name==i,]
+    gene_region<-GetTSSPositions(gene_annot, biotypes = "protein_coding")
+    promoter_chr<-seqnames(gene_region)
+    promoter_start=ifelse(strand(gene_region)=="-",start(gene_region)+2000,start(gene_region)-2000)
+    promoter_end=ifelse(strand(gene_region)=="-",start(gene_region)-10000,start(gene_region)+10000)
+
+    if(promoter_start<promoter_end){
+      promoter_region=StringToGRanges(paste(promoter_chr,promoter_start,promoter_end,sep="-"))
+    } else {
+      promoter_region=StringToGRanges(paste(promoter_chr,promoter_end,promoter_start,sep="-"))
+    }
+    if(x %in% row.names(dat@assays$SCT@data)){
+      print(paste("Plotting...",x,"promoter."))
+
+      cov_plot <- CoveragePlot(
+        object = dat,
+        region = promoter_region,features = x,
+        annotation = TRUE,
+        peaks = TRUE,links=FALSE)+ scale_color_manual(values=col)
+      ggsave(cov_plot,file=paste0("set_region_coverage.",x,".pdf"),width=3,height=10)
+    }
+  }
 
 
 ####################################################
@@ -276,6 +346,90 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
 #all cells
 plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=10,order_by_idents=TRUE)
 
+
+####################################################
+#           Fig 2 DA TF motifs IDC v ILC           #
+###################################################
+
+#similarity matrix for diagnoses on chromvar motifs
+#define markers
+dat_sub<-subset(dat_epi,cellstate %in% c("cancer IDC","cancer ILC") )
+dat_sub<-subset(dat_sub,Diagnosis %in% c("ILC","IDC"))
+Idents(dat_sub)<-dat_sub$sample
+dat_sub<-subset(dat_sub,downsample=100)
+Idents(dat_sub)<-dat_sub$cellstate
+
+#following https://stuartlab.org/signac/articles/motif_vignette
+markers <- FindMarkers(
+  object =dat_sub,
+  assay="chromvar",
+  ident.1 = "cancer IDC",
+  ident.2 = 'cancer ILC',
+  only.pos = FALSE,
+  mean.fxn = rowMeans,
+  logfc.threshold=0,
+  fc.name = "avg_diff"
+)
+motif.names <- row.names(markers)
+markers$gene <- ConvertMotifID(dat_epi, id = motif.names,assay="ATAC") #or ATAC as assay
+
+#filter motifs by those differentially expressed as well
+rna_markers <- presto:::wilcoxauc.Seurat(X = dat_sub, group_by = "cellstate", 
+  groups_use=c("cancer IDC","cancer ILC"),
+  y=c("cancer IDC","cancer ILC"), 
+  assay = 'data', seurat_assay = "SCT")
+rna_markers_idc <- rna_markers %>% filter(padj<0.05) %>% filter(group=="cancer IDC") %>% filter(logFC>0)
+rna_markers_ilc <- rna_markers %>% filter(padj<0.05) %>% filter(group=="cancer ILC") %>% filter(logFC>0)
+
+chromvar_markers_idc <- markers %>% filter(avg_diff > 0)  %>% filter(gene %in% rna_markers_idc$feature)
+chromvar_markers_ilc <- markers %>% filter(avg_diff < 0)  %>% filter(gene %in% rna_markers_ilc$feature)
+
+markers <- rbind(chromvar_markers_idc,chromvar_markers_ilc)
+markers$fill_col<-"gray"
+markers[markers$p_val_adj<0.05 & markers$avg_diff>0.25,]$fill_col<-"idc"
+markers[markers$p_val_adj<0.05 & markers$avg_diff<as.numeric(-0.25),]$fill_col<-"ilc"
+
+markers$label_name<-NA
+
+min_label<-markers %>% filter(p_val_adj<0.05) %>% filter(avg_diff<0)%>% slice_min(avg_diff,n=10)
+max_label<-markers %>% filter(p_val_adj<0.05) %>% filter(avg_diff>0) %>% slice_max(avg_diff,n=10)
+
+markers[row.names(min_label),]$label_name<-min_label$gene
+markers[row.names(max_label),]$label_name<-max_label$gene
+plt<-ggplot(markers,aes(x=avg_diff,y=-log10(p_val_adj),color=fill_col,label=label_name))+geom_point()+geom_text_repel(max.overlaps=Inf)+theme_minimal()
+ggsave(plt,file="ILC_IDC.chromvar_DE.pdf")
+
+markers<-Identify_Marker_TFs(x=dat_sub,group_by="cellstate",assay="chromvar",assay_name="chromvar")
+markers_out <- markers %>% group_by(chromvar.group) %>% filter(abs(chromvar.logFC)>2)
+
+
+length(unique(markers_out$chromvar.feature))
+markers_out<-markers_out[!duplicated(markers_out$chromvar.feature),]
+tf_motif<-average_features(x=dat_sub,features=markers_out$chromvar.feature,assay="chromvar",group_by="cellstate")
+row.names(tf_motif)<-markers_out$gene
+colfun_motif=colorRamp2(c(0,0.5,1),cividis(3))
+cell_counts=as.data.frame(table(dat_sub$cellstate))
+row.names(cell_counts)<-cell_counts$Var1
+row_ha = rowAnnotation(cell_count = anno_barplot(log10(cell_counts[colnames(tf_motif),]$Freq)))
+
+motif_plot<-Heatmap(cor(tf_motif,method="spearman"),
+    name="TF Motif",
+    column_title="TF Motif",
+    col=colfun_motif,
+    column_names_gp = gpar(fontsize = 5),
+    row_names_gp = gpar(fontsize = 5),
+    show_row_names=TRUE,
+    column_names_rot=90, right_annotation = row_ha)
+pdf("test_motif.distance.pdf")
+print(motif_plot)
+dev.off()
+#69 motifs
+
+
+####################################################
+#           Extra Plots                         #
+###################################################
+
 #epi only
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial"))
 dat_cancer$cellstate<-paste(dat_cancer$assigned_celltype,dat_cancer$Diagnosis,dat_cancer$Mol_Diagnosis)
@@ -301,36 +455,14 @@ dat_epi<-merge(
   subset(dat,assigned_celltype %in% c("cancer","luminal_hs","luminal_asp","basal_myoepithelial")),
   bhat_nakshatri)
 
-dat_epi$cellstate<-ifelse(dat_epi$assigned_celltype=="cancer",
-paste(dat_epi$assigned_celltype,dat_epi$Diagnosis),
-paste(dat_epi$assigned_celltype))
+dat_epi$cellstate<-paste(dat_epi$assigned_celltype,dat_epi$Diagnosis)
 
-#dat_epi<-subset(dat_epi,cellstate %in% names(table(dat_epi$cellstate))[which(table(dat_epi$cellstate)>200)])
+dat_epi<-subset(dat_epi,cellstate %in% names(table(dat_epi$cellstate))[which(table(dat_epi$cellstate)>200)])
 dat_epi[["RNA"]]<-JoinLayers(dat_epi[["RNA"]])
 dat_epi<-ScaleData(dat_epi,assay="RNA")
 dat_epi[["ATAC"]]@motifs<-dat_epi@assays$our_peaks@motifs
 plot_top_tf_markers(x=dat_epi,group_by="cellstate",prefix="nakshatri_epi_diag",n_markers=5,order_by_idents=FALSE)
 
-#similarity matrix for diagnoses on chromvar motifs
-#define markers
-markers<-Identify_Marker_TFs(x=dat_epi,group_by="cellstate",assay="chromvar",assay_name="chromvar")
-markers_out <- markers %>% group_by(chromvar.group) %>% filter(chromvar.padj<0.05)
-markers_out<-markers_out[!duplicated(markers_out$chromvar.feature),]
-tf_motif<-average_features(x=dat_epi,features=markers_out$chromvar.feature,assay="chromvar",group_by="cellstate")
-row.names(tf_motif)<-markers_out$gene
-colfun_motif=colorRamp2(c(0,0.5,1),cividis(3))
-motif_plot<-Heatmap(cor(tf_motif),
-    name="TF Motif",
-    column_title="TF Motif",
-    col=colfun_motif,
-    column_names_gp = gpar(fontsize = 8),
-    show_row_names=TRUE,
-    column_names_rot=90)
-pdf("test_motif.distance.pdf")
-print(motif_plot)
-dev.off()
-
-#tornado plot and hypergeo
 Idents(dat_epi)<-dat_epi$cellstate
 markers <- presto:::wilcoxauc.Seurat(X = dat_epi, group_by = "cellstate", 
   groups_use=unname(unlist(unique(dat_epi$cellstate))),
@@ -379,13 +511,13 @@ out_setname="TFT"){
  }
 
 
-   #set up gene universe
+  #set up gene universe on atac peaks
   prefix="epi_diag"
   dmrs=da_peaks
-   gene_universe<-dmrs %>% pull(gene_name)
-   gene_universe<-gene_universe[!duplicated(gene_universe)]
+  gene_universe<-dmrs %>% pull(gene_name)
+  gene_universe<-gene_universe[!duplicated(gene_universe)]
 
-   #run gsea enrichment at gene level on different sets
+  #run gsea enrichment at gene level on different sets
    gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
    category="C3",subcategory="TFT:GTRD",out_setname="TFT") #find enrichment in tft (transcription factor targets)
 
@@ -395,19 +527,32 @@ out_setname="TFT"){
    gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
    category="H",subcategory=NULL,out_setname="hallmark") #find cancer hallmark signatures
 
-
+#run on RNA
 rna<-FindAllMarkers(dat_epi,assay="RNA")
+rna$group<-rna$cluster
+rna$gene_name<-rna$gene
+
+#set up gene universe on RNA
+prefix="epi_diag_rna"
+dmrs=rna
+gene_universe<-dmrs %>% pull(gene_name)
+gene_universe<-gene_universe[!duplicated(gene_universe)]
+
+#run gsea enrichment at gene level on different sets
+gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+category="C3",subcategory="TFT:GTRD",out_setname="TFT") #find enrichment in tft (transcription factor targets)
+
+gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+category="C1",subcategory=NULL,out_setname="position") #find enrichment in c1 signatures (positional)
+
+gsea_enrichment(prefix=prefix,dmrs=dmrs,gene_universe=gene_universe,
+category="H",subcategory=NULL,out_setname="hallmark") #find cancer hallmark signatures
 
 
 
 
 
-
-
-
-####################################################
-#           Fig 2 Coverage Plots                  #
-###################################################
+#EPI
 Idents(dat_epi)<-dat_epi$cellstate
 clin_col=c(
 "cancer ILC ER+/PR+/HER2-"="#f6bea1", 
