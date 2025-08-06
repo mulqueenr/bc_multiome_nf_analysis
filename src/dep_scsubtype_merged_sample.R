@@ -28,7 +28,6 @@ dat=readRDS(opt$object_input)
 system("wget https://raw.githubusercontent.com/Swarbricklab-code/BrCa_cell_atlas/main/scSubtype/NatGen_Supplementary_table_S4.csv")
 sigdat <- read.csv("NatGen_Supplementary_table_S4.csv",col.names=c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
 
-
 # read in scsubtype gene signatures
 temp_allgenes <- c(as.vector(sigdat[,"Basal_SC"]),
                    as.vector(sigdat[,"Her2E_SC"]),

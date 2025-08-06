@@ -3,7 +3,7 @@ singularity shell \
 --bind /home/groups/CEDAR/mulqueen/bc_multiome \
 --bind /home/groups/CEDAR/scATACcnv/Hisham_data \
 $sif
-#cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
+cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 
 library(Seurat)
 library(Signac)
@@ -24,55 +24,182 @@ library(dendextend)
 library(msigdbr,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
 library(fgsea,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
 library(BSgenome.Hsapiens.UCSC.hg38)
+library(dendextend)
+library(ggdendro)
+library(circlize)
+library(ggtern)
 
 option_list = list(
-  make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
+  make_option(c("-i", "--object_input"), type="character", default="7_merged.scsubtype.SeuratObject.rds", 
               help="Sample input seurat object", metavar="character")
 );
 
-opt_parser = OptionParser(option_list=option_list);
-opt = parse_args(opt_parser);
-dat=readRDS(opt$object_input)
-dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
 
-############# Add clone and filtering info to object
-read_clone_annot<-function(i){
-clone_annot<-list.files(i,pattern="_ATAC_anno.csv",full.names=T)
-  if(length(clone_annot)!= 0 ){
-    sample_name<-gsub(basename(clone_annot),pattern="_ATAC_anno.csv",replace="")
-    clones<-read.csv(clone_annot,row.names=1)
-    row.names(clones)<-gsub(row.names(clones),pattern="[.]",replace="-")
-    row.names(clones)<-paste(sample_name,row.names(clones),sep="_")
-    clones$merge_cluster<-paste(sample_name,clones$merge_cluster,sep="_")
-    clones$atac_cluster<-paste(sample_name,clones$atac_cluster,sep="_")
-    clones$rna_cluster<-paste(sample_name,clones$rna_cluster,sep="_")
-    return(clones)
-  }
+####################################################
+#           Fig 2 Molecular type Tornado Plot      #
+###################################################
+#similarity matrix for diagnoses on chromvar motifs
+#define markers
+#define markers
+dat$cellstate<-paste(dat$assigned_celltype,dat$Diagnosis)
+dat_sub<-subset(dat,assigned_celltype %in% c("cancer","luminal_hs")) #epi/cancer only
+dat_sub<-subset(dat_sub, cells=row.names(dat_sub@meta.data[!(dat_sub@meta.data$merged_assay_clones %in% c("contamination")),]) )
+Idents(dat_sub)<-dat_sub$Diag_MolDiag
+dat_sub<-subset(dat_sub,downsample=1000)
+
+table(Idents(dat_sub))
+
+#use wilcox
+da_peaks <- presto:::wilcoxauc.Seurat(X = dat_sub, group_by = "Diag_MolDiag", 
+  y=Idents(dat_sub), 
+  assay = 'data', seurat_assay = "ATAC")
+
+#use LR for peaks with counts as latent vars
+#da_peaks<-FindAllMarkers(dat_sub,assay="ATAC",test.use="LR",latent.vars="nCount_ATAC",min.pct=0.1)
+
+#add chromvar motif scan of motifs per DA peaks
+da_peaks<-merge(da_peaks,as.data.frame(dat@assays$ATAC@motifs@data),by.x="feature",by.y= 'row.names')
+write.table(da_peaks,file="epithelial_diagnosis_da_peaks.csv",col.names=T,row.names=T,sep=",")
+
+clin_col=c(
+"DCIS DCIS"="#cccccb", 
+"ILC ER+/PR+/HER2-"="#f6bea1", 
+"ILC ER+/PR-/HER2-"="#b9db98", 
+"IDC ER+/PR-/HER2+"="#f37872", 
+"IDC ER+/PR+/HER2-"="#8d86c0", 
+"IDC ER+/PR-/HER2-"="#7fd0df", 
+"NAT NA"="#c2d9ea")
+
+#setup outnames to be more nice
+outnames=gsub(x=names(clin_col),pattern="[+]",replacement="plus")
+outnames=gsub(x=outnames,pattern="[-]",replacement="neg")
+outnames=gsub(x=outnames,pattern="[/]",replacement="_")
+outnames=gsub(x=outnames,pattern="[ ]",replacement="_")
+outnames=setNames(nm=names(clin_col),outnames)
+
+
+#all DA peaks
+tornado_plot<-function(obj=dat_sub,da_peak_set=da_peaks,i,peak_count=100){
+    print(i)
+    top_peaks <- da_peak_set %>% filter(group==i) %>%  filter(logFC>0) %>% arrange(padj) %>% slice_head(n=peak_count)
+    print(head(top_peaks))
+
+    obj<-RegionMatrix(obj,key="DA_mat",
+    regions=StringToGRanges(top_peaks$feature),
+    upstream=5000,downstream=5000,
+    assay="ATAC")
+
+    plt<-RegionHeatmap(obj,key="DA_mat",
+    upstream=5000,downstream=5000,
+    order=TRUE, window=(10000)/100,normalize=FALSE,
+    assay="ATAC", idents=levels(Idents(obj)),
+    nrow=length(unique(da_peak_set$group)))+ 
+    #scale_fill_gradient2(low="black",mid=unname(clin_col[i]),midpoint=0.04,high="white",na.value="black",breaks=seq(0,0.05,0.005))+
+    ggtitle(i)
+    #cols=setNames(nm=c("ATAC"),c(unname(clin_col[i]))),
+
+    print("Returning plot...")
+    return(plt)
 }
 
-clone_annot_list<-list.files("/home/groups/CEDAR/scATACcnv/Hisham_data/new_seq/CNV_validate/",pattern="*clone_val",full.name=T)
-clone_annot<-do.call("rbind",lapply(clone_annot_list,read_clone_annot))
-colnames(clone_annot)<-c("merged_assay_clones","atac_clones","rna_clones","clones_celltype","clones_log2reads")
-dat<-AddMetaData(dat,clone_annot)
+#all peaks
+plt_list<-lapply(names(clin_col),function(x) {
+    tornado_plot(obj=dat_sub,da_peak_set=da_peaks,i=x)
+    })
+plt<-wrap_plots(plt_list,nrow=1,guides='collect')
+ggsave(plt,file="tornado.all_da_peaks.epi_diag.pdf",width=20,height=20)
 
-#normal clones based on lack of CNV calls
-normal_clones<-c(
-"DCIS_03_1",
-"IDC_01_4",
-"IDC_02_1",
-"IDC_05_1",
-"IDC_06_3",
-"IDC_08_2",
-"IDC_09_2",
-"IDC_10_3",
-"IDC_11_2",
-"IDC_12_4",
-"ILC_02_1",
-"ILC_04_2")
+#da peaks that overlap with ESR1 motif only
+motif_name="ESR1"
+motif<-names(dat@assays$ATAC@motifs@motif.names[which(dat@assays$ATAC@motifs@motif.names==motif_name)])
+da_peaks_motif_filt<-da_peaks[da_peaks$gene %in% names(which(dat@assays$ATAC@motifs@data[,motif])),]
 
-dat@meta.data[dat@meta.data$merged_assay_clones %in% normal_clones,]$merged_assay_clones<-"normal"
+plt_list<-lapply(unique(da_peaks_motif_filt$cluster),function(x) {
+    tornado_plot(obj=dat_cancer,da_peak_set=da_peaks_motif_filt,i=x)
+    })
+plt<-wrap_plots(plt_list,nrow=1)
+ggsave(plt,file="tornado.ESR1_overlap_da_peaks.diag.pdf",width=20,height=20)
 
-saveRDS(dat,file="7_merged.cnv_clones.SeuratObject.rds")
+
+
+####################################################
+#           Fig 2  TF motifs IDC v ILC           #
+###################################################
+#define markers
+dat$cellstate<-paste(dat$assigned_celltype,dat$Diagnosis)
+dat_sub<-subset(dat,assigned_celltype %in% c("cancer","luminal_hs")) #epi/cancer only
+dat_sub<-subset(dat_sub, cells=row.names(dat_sub@meta.data[!(dat_sub@meta.data$merged_assay_clones %in% c("contamination")),]) )
+dat_sub<-subset(dat_sub,cellstate %in% c("cancer IDC","cancer ILC") )
+dat_sub<-subset(dat_sub,Diagnosis %in% c("ILC","IDC"))
+Idents(dat_sub)<-dat_sub$sample
+
+dat_sub<-subset(dat_sub,downsample=100)
+Idents(dat_sub)<-dat_sub$Diagnosis
+dat_sub<-subset(dat_sub,downsample=310) #min ILC
+
+#following https://stuartlab.org/signac/articles/motif_vignette
+markers <- FindMarkers(
+  object =dat_sub,
+  assay="chromvar",
+  ident.1 = "IDC",
+  ident.2 = 'ILC',
+  only.pos = FALSE,
+  mean.fxn = rowMeans,
+  logfc.threshold=0,
+  fc.name = "avg_diff"
+)
+motif.names <- row.names(markers)
+markers$gene <- ConvertMotifID(dat_sub, id = motif.names,assay="ATAC") #or ATAC as assay
+
+#filter motifs by those differentially expressed as well
+rna_markers <- presto:::wilcoxauc.Seurat(X = dat_sub, group_by = "Diagnosis", 
+  y=c("IDC","ILC"), 
+  assay = 'data', seurat_assay = "SCT")
+rna_markers_idc <- rna_markers %>% filter(padj<0.05) %>% filter(group=="IDC") %>% filter(logFC>0)
+rna_markers_ilc <- rna_markers %>% filter(padj<0.05) %>% filter(group=="ILC") %>% filter(logFC>0)
+
+chromvar_markers_idc <- markers %>% filter(avg_diff > 0)  %>% filter(gene %in% rna_markers_idc$feature)
+chromvar_markers_ilc <- markers %>% filter(avg_diff < 0)  %>% filter(gene %in% rna_markers_ilc$feature)
+
+markers <- rbind(chromvar_markers_idc,chromvar_markers_ilc)
+markers$fill_col<-"gray"
+markers[markers$p_val_adj<0.05 & markers$avg_diff>0.25,]$fill_col<-"idc"
+markers[markers$p_val_adj<0.05 & markers$avg_diff<as.numeric(-0.25),]$fill_col<-"ilc"
+
+markers$label_name<-NA
+
+min_label<-markers %>% filter(p_val_adj<0.05) %>% filter(avg_diff<0)%>% slice_min(avg_diff,n=20)
+max_label<-markers %>% filter(p_val_adj<0.05) %>% filter(avg_diff>0) %>% slice_max(avg_diff,n=20)
+
+markers[row.names(min_label),]$label_name<-min_label$gene
+markers[row.names(max_label),]$label_name<-max_label$gene
+plt<-ggplot(markers,aes(x=avg_diff,y=-log10(p_val_adj),color=fill_col,label=label_name))+geom_point()+geom_text_repel(max.overlaps=Inf)+theme_minimal()
+ggsave(plt,file="ILC_IDC.chromvar_DE.pdf")
+
+markers<-Identify_Marker_TFs(x=dat_sub,group_by="cellstate",assay="chromvar",assay_name="chromvar")
+markers_out <- markers %>% group_by(chromvar.group) %>% filter(abs(chromvar.logFC)>2)
+
+length(unique(markers_out$chromvar.feature))
+markers_out<-markers_out[!duplicated(markers_out$chromvar.feature),]
+tf_motif<-average_features(x=dat_sub,features=markers_out$chromvar.feature,assay="chromvar",group_by="cellstate")
+row.names(tf_motif)<-markers_out$gene
+colfun_motif=colorRamp2(c(0,0.5,1),cividis(3))
+cell_counts=as.data.frame(table(dat_sub$cellstate))
+row.names(cell_counts)<-cell_counts$Var1
+row_ha = rowAnnotation(cell_count = anno_barplot(log10(cell_counts[colnames(tf_motif),]$Freq)))
+
+motif_plot<-Heatmap(cor(tf_motif,method="spearman"),
+    name="TF Motif",
+    column_title="TF Motif",
+    col=colfun_motif,
+    column_names_gp = gpar(fontsize = 5),
+    row_names_gp = gpar(fontsize = 5),
+    show_row_names=TRUE,
+    column_names_rot=90, right_annotation = row_ha)
+pdf("test_motif.distance.pdf")
+print(motif_plot)
+dev.off()
+#69 motifs
 
 ####################################################
 #           Fig 3 Heatmap By Clones                #
@@ -272,8 +399,13 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
     dev.off()
 }
 
-#all cells
-plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=10,order_by_idents=TRUE)
+#merged clone calls
+underpower_clones<-names(which(table(dat$merged_assay_clones)<30))
+dat@meta.data[dat@meta.data$merged_assay_clones %in% underpower_clones,]$merged_assay_clones<-NA
+table(dat$merged_assay_clones)
+
+dat_cnv<-subset(dat,cells=names(dat$merged_assay_clones[!is.na(dat$merged_assay_clones)]))
+plot_top_tf_markers(x=dat_cnv,group_by="merged_assay_clones",prefix="clones",n_markers=3,order_by_idents=FALSE)
 
 
 ####################################################
