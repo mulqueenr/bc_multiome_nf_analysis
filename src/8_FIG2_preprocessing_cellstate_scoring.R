@@ -18,9 +18,7 @@ setseed(123)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
-              help="Sample input seurat object", metavar="character"),
-  make_option(c("-r", "--ref_object"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref/nakshatri/nakshatri_multiome.geneactivity.rds", 
-              help="Nakshatri reference object for epithelial comparisons", metavar="character")
+              help="Sample input seurat object", metavar="character")
 );
 
 opt_parser = OptionParser(option_list=option_list);
@@ -29,6 +27,7 @@ dat=readRDS(opt$object_input)
 
 dat_epi<-subset(dat,assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs"))
 dat_epi[["RNA"]]<-JoinLayers(dat_epi[["RNA"]])
+dat_epi<-SCTransform(dat_epi)
 
 #downloading gene list from SCSubtype git repo
 system("wget https://raw.githubusercontent.com/Swarbricklab-code/BrCa_cell_atlas/main/scSubtype/NatGen_Supplementary_table_S4.csv")
@@ -43,10 +42,10 @@ module_feats<-lapply(module_feats,function(x) {x[x!=""]}) #remove empty
 module_feats<-lapply(module_feats,function(x) {unlist(lapply(x, function(gene) gsub(gene,pattern=".",replace="-",fixed=TRUE)))}) #correct syntax
 
 #find genes with name changes
-module_feats[["Basal_SC"]][!module_feats[["Basal_SC"]] %in% Features(dat_epi@assays$RNA)]
-module_feats[["Her2E_SC"]][!module_feats[["Her2E_SC"]] %in% Features(dat_epi@assays$RNA)]
-module_feats[["LumA_SC"]][!module_feats[["LumA_SC"]] %in% Features(dat_epi@assays$RNA)]
-module_feats[["LumB_SC"]][!module_feats[["LumB_SC"]] %in% Features(dat_epi@assays$RNA)]
+module_feats[["Basal_SC"]][!module_feats[["Basal_SC"]] %in% Features(dat_epi@assays$SCT)]
+module_feats[["Her2E_SC"]][!module_feats[["Her2E_SC"]] %in% Features(dat_epi@assays$SCT)]
+module_feats[["LumA_SC"]][!module_feats[["LumA_SC"]] %in% Features(dat_epi@assays$SCT)]
+module_feats[["LumB_SC"]][!module_feats[["LumB_SC"]] %in% Features(dat_epi@assays$SCT)]
 #limit to protein coding genes
 
 rename_genes<-c(
@@ -65,13 +64,10 @@ rename_genes<-c(
 #"GPX1"
 #"AP000769-1"
 
-
 #rename some gene symbols
 module_feats<-lapply(module_feats,function(i){
     unlist(lapply(i,function(gene){ifelse(gene %in% names(rename_genes),yes=rename_genes[gene],no=gene)}
 ))}) #rename select genes
-
-
 
 #From Regner et al.
 #"To assign a subtype call to a cell, 
@@ -79,7 +75,7 @@ module_feats<-lapply(module_feats,function(i){
 #read counts for each of the four signatures for each cell. 
 #The SC subtype with the highest signature score was then assigned to each cell."
 
-rna_dat<-GetAssayData(dat_epi,assay="RNA",layer="scale.data")
+rna_dat<-GetAssayData(dat_epi,assay="RNA",layer="data")
 
 scsubtype_scores<-lapply(module_feats,function(scsubtype){
   base::colMeans(as.data.frame(rna_dat[row.names(rna_dat) %in% scsubtype,]),na.rm=TRUE)
@@ -87,7 +83,7 @@ scsubtype_scores<-lapply(module_feats,function(scsubtype){
 names(scsubtype_scores)<-paste0("SC_Subtype_",c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC"))
 scsubtype_scores<-as.data.frame(scsubtype_scores)
 
-scsubtype_scores <- scsubtype_scores %>%
+scsubtype_scores <- scsubtype_scores %>% 
   mutate(scsubtype = case_when(
     SC_Subtype_Basal_SC == pmax(SC_Subtype_Basal_SC, SC_Subtype_Her2E_SC, SC_Subtype_LumA_SC, SC_Subtype_LumB_SC) ~ "SC_Subtype_Basal_SC",
     SC_Subtype_Her2E_SC == pmax(SC_Subtype_Basal_SC, SC_Subtype_Her2E_SC, SC_Subtype_LumA_SC, SC_Subtype_LumB_SC) ~ "SC_Subtype_Her2E_SC",
@@ -137,13 +133,8 @@ dat<-AddMetaData(dat,emt_scores,col.name="Wu_EMTScores")
 
 saveRDS(dat,file="7_merged.scsubtype.SeuratObject.rds")
 
-#use only clones with at least 50 cell 
-clone_filter<-names(which(table(dat$merged_assay_clones)>=50))
-clone_filter<-clone_filter[clone_filter!="normal"]
-
-cancercell_filter<-names(which(table(subset(dat,assigned_celltype=="cancer")$sample)>=50))
-
-epicell_filter<-names(which(table(subset(dat,assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs"))$sample)>=50))
+epicell_filter<-names(which(table(subset(dat,assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs"))$sample)>=30))
+cancercell_filter<-names(which(table(subset(dat,assigned_celltype=="cancer")$sample)>=30))
 
 #barplot of cell types across samples
 celltype_col=c("cancer"="#9e889e",
@@ -160,18 +151,6 @@ celltype_col=c("cancer"="#9e889e",
 "plasma"="#742b8c",
 "tcell"="#003147")
 
-celltype_freq<-dat@meta.data %>% 
-  group_by(sample,Diagnosis,Mol_Diagnosis,assigned_celltype) %>% 
-  count(assigned_celltype,.drop=FALSE)
-
-plt<-ggplot(celltype_freq, aes(fill=factor(assigned_celltype,levels=names(celltype_col)), y=n, x=sample)) + 
-  geom_bar(position="fill", stat="identity",width = 1) +
-  scale_fill_manual(values=celltype_col)+ 
-  facet_grid(~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")
-
-ggsave(plt,file="celltype_percbarplot.pdf",width=10,height=10)
-
-#barplot of scsubtype,  
 scsubtype_col=c(
   "SC_Subtype_Basal_SC"="#da3932",
   "SC_Subtype_Her2E_SC"="#f0c2cb",
@@ -179,7 +158,24 @@ scsubtype_col=c(
   "SC_Subtype_LumB_SC"="#86cada"
 )
 
-#per sample 50 epi cells minimum
+Phase_col=c(
+  "G1"="#e5f5e0",
+  "S"="#a1d99b",
+  "G2M"="#00441b"
+)
+
+celltype_freq<-dat@meta.data %>% 
+  group_by(sample,Diagnosis,Mol_Diagnosis,assigned_celltype) %>% 
+  count(assigned_celltype,.drop=FALSE)
+
+plt<-ggplot(celltype_freq, aes(fill=factor(assigned_celltype,levels=names(celltype_col)), y=n, x=sample)) + 
+  geom_bar(position="fill", stat="identity",width = 1) +
+  scale_fill_manual(values=celltype_col)+ 
+  facet_grid(~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")+ theme(axis.text.x = element_text(angle = 90))
+
+ggsave(plt,file="celltype_percbarplot.pdf",width=10,height=10)
+
+#barplot of scsubtype,  
 scsubtype_freq<-dat@meta.data %>% 
   filter(assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs")) %>% 
   filter(sample %in% epicell_filter) %>% 
@@ -188,38 +184,11 @@ scsubtype_freq<-dat@meta.data %>%
 
 plt<-ggplot(scsubtype_freq, aes(fill=factor(scsubtype,levels=names(scsubtype_col)), y=n, x=sample)) + 
   geom_bar(position="fill", stat="identity",width = 1) +
-  scale_fill_manual(values=scsubtype_col)+ 
+  scale_fill_manual(values=scsubtype_col)+ theme(axis.text.x = element_text(angle = 90))+
   facet_grid(assigned_celltype~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")
   ggsave(plt,file="scsubtype_percbarplot.pdf",width=10,height=10)
 
-#per clone, 50 cells per clone minimum
-scsubtype_freq<-dat@meta.data %>% 
-  filter(!isNA(merged_assay_clones) & !isNA(scsubtype)) %>% 
-  filter(merged_assay_clones %in% clone_filter) %>%
-  group_by(sample,Diagnosis,Mol_Diagnosis,scsubtype,merged_assay_clones) %>% 
-  count(scsubtype,.drop=TRUE)
-
-plt<-ggplot(scsubtype_freq, aes(fill=factor(scsubtype,levels=names(scsubtype_col)), y=n, x=merged_assay_clones)) + 
-  geom_bar(position="fill", stat="identity",width = 1) +
-  scale_fill_manual(values=scsubtype_col)+ 
-  facet_grid(~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")
-
-ggsave(plt,file="scsubtype_perclone_percbarplot.pdf",width=10,height=10)
-
 #barplot of S/G2M cells
-#per clone, 50 cancer cells minimum
-Phase_col=c(
-  "G1"="#e5f5e0",
-  "S"="#a1d99b",
-  "G2M"="#00441b"
-)
-
-cellcycle_freq<-dat@meta.data %>% 
-  filter(assigned_celltype=="cancer") %>%
-  filter(sample %in% cancercell_filter) %>%
-  group_by(sample,Diagnosis,Mol_Diagnosis,Phase,merged_assay_clones) %>% 
-  count(Phase,.drop=TRUE)
-
 plt<-ggplot(cellcycle_freq, aes(fill=factor(Phase,levels=names(Phase_col)), y=n, x=sample)) + 
   geom_bar(position="fill", stat="identity",width = 1) +
   scale_fill_manual(values=Phase_col)+ 
@@ -228,40 +197,4 @@ plt<-ggplot(cellcycle_freq, aes(fill=factor(Phase,levels=names(Phase_col)), y=n,
 ggsave(plt,file="phase_percbarplot.pdf",width=10,height=10)
 
 
-cellcycle_freq<-dat@meta.data %>% 
-  filter(!isNA(merged_assay_clones) & !isNA(scsubtype)) %>% 
-  filter(merged_assay_clones %in% clone_filter) %>%
-  group_by(sample,Diagnosis,Mol_Diagnosis,scsubtype,merged_assay_clones) %>% 
-  count(Phase,.drop=TRUE)
-
-plt<-ggplot(cellcycle_freq, aes(fill=factor(Phase,levels=names(Phase_col)), y=n, x=merged_assay_clones)) + 
-  geom_bar(position="fill", stat="identity",width = 1) +
-  scale_fill_manual(values=Phase_col)+ 
-  facet_grid(~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")
-
-ggsave(plt,file="phase_perclone_percbarplot.pdf",width=10,height=10)
-
-
-#box plot of wu scores
-emt_and_d_scores<-dat@meta.data %>% 
-  filter(!isNA(merged_assay_clones) & !isNA(scsubtype)) %>%
-  filter(merged_assay_clones %in% clone_filter) %>%
-  group_by(sample,Diagnosis,Mol_Diagnosis,merged_assay_clones) 
-
-plt<-ggplot(emt_and_d_scores, aes(y=Wu_EMTScores, x=merged_assay_clones)) + 
-  geom_boxplot(width=1) +
-  geom_jitter(width = 1) +
-  facet_grid(~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")
-
-ggsave(plt,file="emtscore_perclone_boxplot.pdf",width=10,height=10)
-
-
-plt<-ggplot(emt_and_d_scores, aes(y=Wu_DScores, x=merged_assay_clones,fill=assigned_celltype,color=assigned_celltype)) + 
-  geom_boxplot(width=1,outlier.shape = NA,fill=NA,color="black") +
-  geom_jitter(width = 0.5) +
-  facet_grid(~paste(Diagnosis,Mol_Diagnosis),scale="free_x",space="free")
-
-ggsave(plt,file="dscore_perclone_boxplot.pdf",width=10,height=10)
-
 #and stem cell and/or TICs features (CD44, CD24, ALDH1A1, EPCAM) across the cell line database.
-
