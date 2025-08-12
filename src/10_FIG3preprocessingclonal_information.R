@@ -37,7 +37,6 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
-dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
 
 ############# Add clone and filtering info to object
 read_clone_annot<-function(i){
@@ -53,8 +52,6 @@ clone_annot<-list.files(i,pattern="_ATAC_anno.csv",full.names=T)
     return(clones)
   }
 }
-
-
 
 ############# Add clone and filtering info to object
 read_cnv_plots<-function(i){
@@ -111,6 +108,8 @@ saveRDS(dat,file="8_merged.cnv_clones.SeuratObject.rds")
 
 
 #####Plot of heatmap of all clones ####
+dat<-subset(dat,merged_assay_clones != "contamination")
+
 cnv_col<-c("0"="#002C3E", "0.5"="#78BCC4", "1"="#F7F8F3", "1.5"="#F7444E", "2"="#aa1407", "3"="#440803")
 #from Curtis et al.
 
@@ -120,7 +119,7 @@ windows<-data.frame(chr=unlist(lapply(strsplit(row.names(dat@assays$cnv@counts),
           
 windows<-makeGRangesFromDataFrame(windows)
 
-
+#relevant CNV genes from curtis work
 #from https://www.nature.com/articles/s41416-024-02804-6#Sec20
 #change RAB7L1 to RAB29
 #lost RAB7L1
@@ -144,8 +143,6 @@ hc = columnAnnotation(common_cnv = anno_mark(at = annot$window_loc,
                         which="column",side="bottom",
                         labels_gp=gpar(col=annot$col)))
 
-
-
 pdf("all_samples.cnv.heatmap.pdf",height=50,width=50)
 Heatmap(t(as.data.frame(dat@assays$cnv@counts)),
   col=cnv_col,
@@ -159,6 +156,10 @@ Heatmap(t(as.data.frame(dat@assays$cnv@counts)),
   column_split=factor(unlist(lapply(strsplit(row.names(dat@assays$cnv@counts),"-"),"[",1)),levels=paste0("chr",1:22)),
   border = TRUE)
 dev.off()
+
+#clonal level analyses
+epicell_filter<-names(which(table(subset(dat,assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs"))$sample)>=30))
+cancercell_filter<-names(which(table(subset(dat,assigned_celltype=="cancer")$sample)>=30))
 
 
 
@@ -216,7 +217,6 @@ plt<-ggplot(cellcycle_freq, aes(fill=factor(Phase,levels=names(Phase_col)), y=n,
 
 ggsave(plt,file="phase_perclone_percbarplot.pdf",width=10,height=10)
 
-
 #box plot of wu scores
 emt_and_d_scores<-dat@meta.data %>% 
   filter(assigned_celltype=="cancer") %>%
@@ -241,6 +241,8 @@ ggsave(plt,file="dscore_perclone_boxplot.pdf",width=10,height=10)
 
 
 #check esr1 expression on clones
+dat<-SCTransform(dat)
+
 gene_expression<-FetchData(object = dat, vars = c("ESR1","KRT5"), assay="SCT")
 chromatin_expression<-FetchData(object = dat, vars = c("MA0112.3"), assay="chromvar")
 dat_tmp<-AddMetaData(dat,gene_expression)
@@ -272,7 +274,7 @@ ggsave(plt1/plt2/plt3,file="ESR1_perclone_boxplot.pdf",width=10,height=10)
 
 
 
-#per clone, 50 cells per clone minimum
+#per clone, 30 cells per clone minimum
 scsubtype_freq<-dat@meta.data %>% 
   filter(!isNA(merged_assay_clones) & !isNA(scsubtype)) %>% 
   filter(merged_assay_clones %in% clone_filter) %>%
@@ -489,10 +491,90 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
 }
 
 #merged clone calls
-underpower_clones<-names(which(table(dat$merged_assay_clones)<30))
-dat@meta.data[dat@meta.data$merged_assay_clones %in% underpower_clones,]$merged_assay_clones<-NA
+dat@meta.data[!(dat@meta.data$merged_assay_clones %in% clone_filter),]$merged_assay_clones<-NA
 table(dat$merged_assay_clones)
 
 dat_cnv<-subset(dat,cells=names(dat$merged_assay_clones[!is.na(dat$merged_assay_clones)]))
 plot_top_tf_markers(x=dat_cnv,group_by="merged_assay_clones",prefix="clones",n_markers=3,order_by_idents=FALSE)
 
+################################################
+####Correlation of CNV count to SCT value####
+################################################
+
+clone_filter<-names(which(table(dat$merged_assay_clones)>=30))
+dat_cnv<-subset(dat,cells=names(dat$merged_assay_clones[!is.na(dat$merged_assay_clones)]))
+
+windows<-data.frame(chr=unlist(lapply(strsplit(row.names(dat@assays$cnv@counts),"-"),"[",1)),
+                    start=unlist(lapply(strsplit(row.names(dat@assays$cnv@counts),"-"),"[",2)),
+                    end=unlist(lapply(strsplit(row.names(dat@assays$cnv@counts),"-"),"[",3)))
+windows<-makeGRangesFromDataFrame(windows)
+
+#fetch cnv relevant to each gene and correlate cnv profile of cells with RNA expression
+gene_cnv_cor<-function(i,assay="SCT"){
+  cnv_name<-windows[queryHits(hits)[i],]
+  cnv_name<-paste(seqnames(cnv_name),start(cnv_name),end(cnv_name),sep="-")
+  cnv_val<-FetchData(dat_cnv[["cnv"]],vars=cnv_name,layer="data")
+
+  gene_name<-cnv_genes_windows[subjectHits(hits)[i],]$gene_name
+  gene_val<-FetchData(dat_cnv[[assay]],vars=gene_name,layer="data")
+
+  out<-cor(gene_val,cnv_val)
+  out<-c(row.names(out),colnames(out),unname(out))
+
+  return(out)
+  }
+
+
+#process RNA
+all_genes<-Features(dat_cnv,assay="SCT")
+annot<-dat@assays$ATAC@annotation
+all_genes<-all_genes[all_genes %in% annot$gene_name]
+cnv_genes_windows<-annot[annot$gene_name %in% all_genes,] #filter annotation to genes we want
+cnv_genes_windows<-cnv_genes_windows[!duplicated(cnv_genes_windows$gene_name),] #remove duplicates
+hits<-findOverlaps(query=windows,subject=cnv_genes_windows)
+
+rna_out<-mclapply(1:length(hits),gene_cnv_cor,mc.cores=10)
+rna_out<-as.data.frame(do.call("rbind",rna_out))
+
+colnames(rna_out)<-c("gene","cnv_window","rna_correlation")
+rna_out<-rna_out[complete.cases(rna_out),]
+rna_out$rna_correlation<-as.numeric(rna_out$rna_correlation)
+
+
+#process GeneActivity
+all_genes<-Features(dat_cnv,assay="GeneActivity")
+annot<-dat@assays$ATAC@annotation
+all_genes<-all_genes[all_genes %in% annot$gene_name]
+cnv_genes_windows<-annot[annot$gene_name %in% all_genes,] #filter annotation to genes we want
+cnv_genes_windows<-cnv_genes_windows[!duplicated(cnv_genes_windows$gene_name),] #remove duplicates
+hits<-findOverlaps(query=windows,subject=cnv_genes_windows)
+
+ga_out<-mclapply(1:length(hits),gene_cnv_cor,mc.cores=10,assay="GeneActivity")
+ga_out<-as.data.frame(do.call("rbind",ga_out))
+colnames(ga_out)<-c("gene","cnv_window","ga_correlation")
+ga_out<-ga_out[complete.cases(ga_out),]
+ga_out$ga_correlation<-as.numeric(ga_out$ga_correlation)
+
+combined_out<-merge(rna_out,ga_out,by=c("gene","cnv_window"))
+
+#add cnv variance per window
+cnv_var<-apply(dat_cnv[["cnv"]]@data, 1, var)
+combined_out$cnv_var<-cnv_var[combined_out$cnv_window]
+
+combined_out$label<-NA
+top_cor<-combined_out %>% arrange(desc(rna_correlation)) %>% head(n=20)
+bottom_cor<-combined_out %>% arrange(desc(rna_correlation)) %>% tail(n=10)
+
+combined_out[combined_out$gene %in% top_cor$gene,]$label<-top_cor$gene
+combined_out[combined_out$gene %in% bottom_cor$gene,]$label<-bottom_cor$gene
+
+plt<-ggplot(combined_out,
+            aes(
+              x=rna_correlation,
+              y=ga_correlation,
+              color=cnv_var,
+              label=label))+
+              geom_point()+
+              geom_text_repel(max.overlaps=Inf)+
+              theme_minimal()
+ggsave(plt,file="rna_ga_cnv_correlation.dotplot.pdf")

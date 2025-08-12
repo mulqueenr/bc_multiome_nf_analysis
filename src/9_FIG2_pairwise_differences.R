@@ -32,6 +32,8 @@ library(ggdendro)
 library(circlize)
 library(ggtern)
 library(GeneNMF)
+library(fgsea)
+library(msigdbr)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="7_merged.scsubtype.SeuratObject.rds", 
@@ -42,51 +44,34 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 
-celltype_col=c("cancer"="#9e889e",
-"luminal_hs"="#4c3c97",
-"luminal_asp"="#7161ab",
-"basal_myoepithelial"="#ee6fa0",
-"adipocyte"="#af736d",
-"endothelial_vascular"="#72c8f1",
-"endothelial_lymphatic"="#b8dca5",
-"pericyte"="#edb379",
-"fibroblast"="#e12228",
-"myeloid"="#239ba8",
-"bcell"="#243d97",
-"plasma"="#742b8c",
-"tcell"="#003147")
-
-Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
-"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
-"myeloid","bcell","plasma","tcell"))
-
-hist_col=c("NAT"="#99CCFF",
-"DCIS"="#CCCCCC",
-"IDC"="#FF9966",
-"ILC"="#006633")
+hist_col=c(
+  "IDC"="#FF9966",
+  "ILC"="#006633")
 
 clin_col=c(
-"DCIS DCIS"="#cccccb", 
-"ILC ER+/PR+/HER2-"="#f6bea1", 
-"ILC ER+/PR-/HER2-"="#b9db98", 
-"IDC ER+/PR-/HER2+"="#f37872", 
-"IDC ER+/PR+/HER2-"="#8d86c0", 
-"IDC ER+/PR-/HER2-"="#7fd0df", 
-"NAT NA"="#c2d9ea")
+  "ER+/PR+/HER2-"="#8d86c0", 
+  "ER+/PR-/HER2-"="#7fd0df")
+
+scsubtype_col=c(
+  "SC_Subtype_LumA_SC"="#2b2c76",
+  "SC_Subtype_LumB_SC"="#86cada")
 
 dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 DefaultAssay(dat)<-"ATAC"
 
 
 #### Pairwise comparisons
+#tornado plot of top DA peaks
+#volcano plot of top DE genes, geneactivity, and chromvar TFs
+#gsea of top DE genes, geneactivity
 
 #add cols in regionheatmap call
-tornado_plot<-function(obj=obj,da_peak_set=markers,i="IDC",peak_count=100){
+tornado_plot<-function(obj=obj,da_peak_set=markers,i="IDC",peak_count=100,col=col){
     print(i)
     top_peaks <- da_peak_set %>% 
                   filter(group==i) %>%  
                   filter(logFC>0) %>% 
-                  arrange(desc(logFC)) %>% 
+                  arrange(padj,desc(logFC)) %>% 
                   slice_head(n=peak_count)
     print(head(top_peaks))
 
@@ -96,93 +81,128 @@ tornado_plot<-function(obj=obj,da_peak_set=markers,i="IDC",peak_count=100){
     assay="ATAC")
 
     plt<-RegionHeatmap(obj_mat,key="DA_mat",
-    upstream=5000,downstream=5000,
-    order=TRUE, window=(10000)/100,normalize=TRUE,
-    assay="ATAC", idents=levels(Idents(obj)),
-    nrow=length(unique(da_peak_set$group)))+ 
+      upstream=5000,downstream=5000,
+      order=TRUE, 
+      window=(10000)/100, normalize=TRUE,
+      assay="ATAC", 
+      idents=levels(Idents(obj)),
+      cols=col[i],
+      nrow=length(unique(da_peak_set$group)))+ 
     ggtitle(i)
 
     print("Returning plot...")
     return(plt)
 }
 
-volcano_plot<-function(obj=obj,de_features_set=markers,prefix,feature_count=25,outname,assay){
-  feature_markers_group1<-de_features_set %>% filter(p_val_adj<0.05) %>% arrange(desc(avg_log2FC)) %>% head(n=feature_count)
-  feature_markers_group2<-de_features_set %>% filter(p_val_adj<0.05) %>% arrange(avg_log2FC) %>% head(n=feature_count)
+volcano_plot<-function(obj=obj,de_features_set=markers,prefix,feature_count=25,outname,assay,group1,group2,col){
   
-  de_features_set$fill_col<-"gray"
-  de_features_set[row.names(de_features_set) %in% row.names(feature_markers_group1),]$fill_col<-group1
-  de_features_set[row.names(de_features_set) %in% row.names(feature_markers_group2),]$fill_col<-group2
+  de_features_set<-de_features_set %>% filter(group==group1)
+  feature_markers_group1<-de_features_set %>% filter(padj<0.05) %>% arrange(desc(logFC)) %>% head(n=feature_count)
+  feature_markers_group2<-de_features_set %>% filter(padj<0.05) %>% arrange(logFC) %>% head(n=feature_count)
+  group_1_count=de_features_set %>% filter(padj<0.05) %>% filter(logFC>0) %>% nrow()
+  group_2_count=de_features_set %>% filter(padj<0.05) %>% filter(logFC<0) %>% nrow()
+
+  de_features_set$fill_col<-"#808080"
+  de_features_set[de_features_set$padj<0.05 & de_features_set$logFC>0,]$fill_col<-col[group1]
+  de_features_set[de_features_set$padj<0.05 & de_features_set$logFC<0,]$fill_col<-col[group2]
 
   de_features_set$label<-NA
-  de_features_set[row.names(de_features_set) %in% row.names(feature_markers_group1),]$label<-row.names(feature_markers_group1)
-  de_features_set[row.names(de_features_set) %in% row.names(feature_markers_group2),]$label<-row.names(feature_markers_group2)
+  de_features_set[de_features_set$feature %in% feature_markers_group1$feature,]$label<-feature_markers_group1$feature
+  de_features_set[de_features_set$feature %in% feature_markers_group2$feature,]$label<-feature_markers_group2$feature
 
   plt<-ggplot(de_features_set,
-              aes(x=avg_log2FC,
-                  y=-log10(p_val_adj),
+              aes(x=logFC,
+                  y=-log10(padj),
                   color=fill_col,
                   label=label))+
-        geom_point()+
-        geom_text_repel()+
-        theme_minimal()
+        geom_point()+geom_hline(yintercept=-log10(0.05))+
+        scale_color_identity()+
+        geom_text_repel(max.overlaps=Inf)+
+        theme_minimal()+ggtitle(paste(group1,":",as.character(group_1_count),
+        "\n",group2,":",as.character(group_2_count)))
 
   ggsave(plt,file=paste0("pairwise.volcano.",assay,".",outname,".pdf"))
 }
 
-gsea_enrichment<-function(dmrs,
-                          gene_universe,
+####ADD COVERAGE PLOT FOR HIGH GA DIFFERENCES ACROSS MARKERS
+gsea_enrichment<-function(species="human",
                           category="C3",
                           subcategory="TFT:GTRD",
-                          out_setname="TFT"){
-  top_p_gsea <- do.call("rbind",
-    lapply(unique(dmrs$group), 
-    function(i) {
-      #gene set
-      gene_list<-dmrs %>% 
-                  dplyr::filter(group==i) %>% 
-                  dplyr::filter(p_val_adj<0.05) %>% 
-                  pull(feature)
-      out<-runGSEA(gene_list, 
-                  universe=gene_universe, 
-                  category = category,
-                  subcategory=subcategory)
-      out$group<-i
-      return(out)
-      }))
- 
- pltdat<-top_p_gsea %>% 
-        group_by(group) %>% 
-        slice_max(order_by = -padj, n = 5)
+                          out_setname="TFT",
+                          de_features_set,
+                          col){
+  pathwaysDF <- msigdbr(species=species, 
+                        category=category, 
+                        subcategory = subcategory)
+  pathways <- split(pathwaysDF$gene_symbol, pathwaysDF$gs_name)
 
- plt<-ggplot(pltdat,
-              aes(x=group,y=pathway))+
-      geom_point(aes(size = -log10(padj), fill = overlap/size), shape=21)+
-      theme_minimal() +  
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
- return(plt)
+  group1_features<-de_features_set %>%
+    dplyr::filter(group == group1) %>%
+    dplyr::filter(padj<0.05) %>% 
+    dplyr::arrange(desc(logFC)) %>%
+    dplyr::select(feature, logFC)
+
+  ranks<-setNames(nm=group1_features$feature,group1_features$logFC)
+
+  fgseaRes <- fgsea(pathways = pathways, 
+                    stats    = ranks,
+                    minSize  = 10,
+                    maxSize  = 500,
+                    nproc = 1)
+
+  topPathwaysUp <- fgseaRes[ES > 0][head(order(pval), n=10), pathway]
+  topPathwaysDown <- fgseaRes[ES < 0][head(order(pval), n=10), pathway]
+  topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
+
+  plt<-plotGseaTable(pathways[topPathways], ranks, fgseaRes, gseaParam=0.5)
+  #plot gsea ranking of genes by top pathways
+  pdf(paste0("pairwise.",outname,".",assay,".",out_setname,"gsea.pdf"),width=20,height=10)
+  print(plt)
+  dev.off()
+
+  # only plot the top 20 pathways NES scores
+  nes_plt_dat<-rbind(
+    fgseaRes  %>% arrange(desc(NES)) %>% head(n= 10),
+    fgseaRes  %>% arrange(desc(NES)) %>% tail(n= 10))
+  
+  nes_plt_dat$col<-"#808080"
+  nes_plt_dat[nes_plt_dat$NES>0 & nes_plt_dat$padj<0.05,]$col<-col[group1]
+  nes_plt_dat[nes_plt_dat$NES<0 & nes_plt_dat$padj<0.05,]$col<-col[group2]
+
+  plt<-ggplot(nes_plt_dat, aes(reorder(pathway, NES), NES)) +
+    geom_col(aes(fill= col)) +
+    coord_flip() +
+    labs(x="Pathway", y="Normalized Enrichment Score",
+        title="Hallmark pathways NES from GSEA") + 
+    theme_minimal()+scale_fill_identity()
+  ggsave(plt,file=paste0("pairwise.",outname,".",assay,".",out_setname,".gsea.NES.pdf"),width=20,height=10)
 }
 
-plot_gsea<-function(obj=obj,
-                    de_features_set=markers,
+plot_gsea<-function(obj,dmrs,
                     outname=outname,
-                    gene_universe=gene_universe,
-                    assay=assay){
-  
+                    assay=assay,col=col){
+
   #run gsea enrichment on different sets
-  plt1<-gsea_enrichment(dmrs=de_features_set,gene_universe=gene_universe,
-    category="C3",subcategory="TFT:GTRD",out_setname="TFT") #find enrichment in tft (transcription factor targets)
+  gsea_enrichment(species="human",
+              category="C3",
+              subcategory="TFT:GTRD",
+              out_setname="TFT",
+              de_features_set=dmrs,
+              col=col)
 
-  plt2<-gsea_enrichment(dmrs=de_features_set,gene_universe=gene_universe,
-    category="C1",subcategory=NULL,out_setname="position") #find enrichment in c1 signatures (positional)
+  gsea_enrichment(species="human",
+              category="C1",
+              subcategory=NULL,
+              out_setname="position",
+              de_features_set=dmrs,
+              col=col)
 
-  plt3<-gsea_enrichment(dmrs=de_features_set,gene_universe=gene_universe,
-    category="H",subcategory=NULL,out_setname="hallmark") #find cancer hallmark signatures
-
-  plt<-(plt1|plt2|plt3)
-  ggsave(plt,width=20,height=20,limitsize = FALSE,
-  file=paste0("pairwise.GSEA.",assay,".",outname,".pdf"))
-
+  gsea_enrichment(species="human",
+              category="H",
+              subcategory=NULL,
+              out_setname="hallmark",
+              de_features_set=dmrs,
+              col=col)
 }
 
 pairwise_comparison<-function(obj=dat_cancer,
@@ -190,7 +210,8 @@ pairwise_comparison<-function(obj=dat_cancer,
                               group1="IDC",
                               group2="ILC",
                               outname="diagnosis",
-                              motif_name="ESR1"){
+                              motif_name="ESR1",
+                              col){
   #subset to relavent groups
   obj <-subset(obj, cells=row.names(obj@meta.data)[obj@meta.data[,group_by] %in% c(group1,group2)])
   Idents(obj)<-obj@meta.data[,group_by]
@@ -206,7 +227,7 @@ pairwise_comparison<-function(obj=dat_cancer,
     seurat_assay = assay)
   
   plt_list<-lapply(unique(markers$group),function(j) {
-      tornado_plot(obj=obj,da_peak_set=markers,i=j)})
+      tornado_plot(obj=obj,da_peak_set=markers,i=j,col=col)})
   plt<-wrap_plots(plt_list,nrow=1,guides='collect')
   ggsave(plt,file=paste0("pairwise.tornado.all_da_peaks.",outname,".pdf"),width=20,height=20)
   
@@ -215,105 +236,89 @@ pairwise_comparison<-function(obj=dat_cancer,
   motif<-names(obj@assays$ATAC@motifs@motif.names[which(obj@assays$ATAC@motifs@motif.names==motif_name)])
   da_peaks_motif_filt<-markers[markers$feature %in% names(which(obj@assays$ATAC@motifs@data[,motif])),]
   plt_list<-lapply(unique(da_peaks_motif_filt$group),function(j) {
-      tornado_plot(obj=obj,da_peak_set=da_peaks_motif_filt,i=j)
+      tornado_plot(obj=obj,da_peak_set=da_peaks_motif_filt,i=j,col=col)
       })
   plt<-wrap_plots(plt_list,nrow=1,guides='collect')
   ggsave(plt,file=paste0("pairwise.tornado.ESR1only_peaks.",outname,".pdf"),width=20,height=20)
   
   ##########SCT plots##############
   assay="SCT"
-  #markers <- presto:::wilcoxauc.Seurat(X = obj, 
-  #                                    group_by = group_by,
-  #                                    seurat_assay = assay)
+  markers <- presto:::wilcoxauc.Seurat(X = obj, 
+                                      group_by = group_by,
+                                      groups_use=c(group1,group2),
+                                      seurat_assay = assay,
+                                      assay="scale.data")
   
-  obj<-PrepSCTFindMarkers(obj)
-  markers<-FindMarkers(object=obj,
-                      test.use="wilcox",
-                      assay=assay,
-                      only.pos=FALSE,
-                      ident.1=group1,
-                      ident.2=group2)
-  markers$feature<-row.names(markers)
-  markers$group<-ifelse(markers$avg_log2FC>0,group1,group2)
-
   #all genes
   volcano_plot(obj=obj,
               de_features_set=markers,
               feature_count=25,
               outname=paste0(outname,".allgenes"),
-              assay=assay)
+              assay=assay,group1=group1,group2=group2,col=col)
 
-  gene_universe<-Features(obj,assay=assay)
   plot_gsea(obj=obj,
-            de_features_set=markers,
+            dmrs=markers,
             outname=paste0(outname,".allgenes"),
-            gene_universe=gene_universe,
-            assay=assay)
+            assay=assay,col=col)
   
 
   #protein coding only
-  annot<-Annotation(dat)
-  markers<-markers[row.names(markers) %in% annot[annot$gene_biotype=="protein_coding",]$gene_name,]
+  annot<-Annotation(obj)
+  markers<-markers[markers$feature %in% annot[annot$gene_biotype=="protein_coding",]$gene_name,]
   volcano_plot(obj=obj,
               de_features_set=markers,
               feature_count=25,
               outname=paste0(outname,".proteincoding"),
-              assay=assay)
+              assay=assay,group1=group1,group2=group2,col=col)
 
-  gene_universe<-unique(annot[annot$gene_biotype=="protein_coding",]$gene_name)
   plot_gsea(obj=obj,
-            de_features_set=markers,
+            dmrs=markers,
             outname=paste0(outname,".proteincoding"),
-            gene_universe=gene_universe,
-            assay=assay)
+            assay=assay,col=col)
 
-  ##########GENE ACTIVITY plots##############
-  assay="GeneActivity"
-  markers<-FindMarkers(object=obj,
-                      test.use="wilcox",
-                      assay=assay,
-                      only.pos=FALSE,
-                      ident.1=group1,
-                      ident.2=group2)
-  markers$feature<-row.names(markers)
-  markers$group<-ifelse(markers$avg_log2FC>0,group1,group2)
+  # ##########GENE ACTIVITY plots##############
+  # assay="GeneActivity"
 
-  volcano_plot(obj=obj,
-              de_features_set=markers,
-              feature_count=25,
-              outname=outname,
-              assay=assay)
+  # obj<-ScaleData(obj,
+  #   assay="GeneActivity",
+  #   vars.to.regress="nCount_GeneActivity",
+  #   features=Features(obj,assay="GeneActivity"))
 
-  gene_universe<-Features(obj,assay=assay)
-  plot_gsea(obj=obj,
-            de_features_set=markers,
-            outname=outname,
-            gene_universe=gene_universe,
-            assay=assay)
+  # markers <- presto:::wilcoxauc.Seurat(X = obj, 
+  #                                     group_by = group_by,
+  #                                     seurat_assay = assay,
+  #                                     assay="scale.data")
+
+  # volcano_plot(obj=obj,
+  #             de_features_set=markers,
+  #             feature_count=25,
+  #             outname=outname,
+  #             assay=assay,
+  #             group1=group1,group2=group2,col=col)
+
+  # plot_gsea(obj=obj,
+  #           dmrs=markers,
+  #           outname=outname,
+  #           assay=assay,col=col)
 
   ##########CHROMVAR plots##############
   assay="chromvar"
-  markers<-FindMarkers(object=obj,
-                      test.use="wilcox",
-                      assay=assay,
-                      only.pos=FALSE,
-                      ident.1=group1,
-                      ident.2=group2)
-  markers$feature<-row.names(markers)
-  markers$group<-ifelse(markers$avg_log2FC>0,group1,group2)
+  markers <- presto:::wilcoxauc.Seurat(X = obj, 
+                                      group_by = group_by,
+                                      seurat_assay = assay,
+                                      assay="scale.data")
 
-  markers$feature<-ConvertMotifID(object=x,
+  markers$feature<-ConvertMotifID(object=obj,
                                   assay="ATAC",
                                   id=markers$feature)
-
+  row.names(markers)<-markers$feature   
   volcano_plot(obj=obj,
               de_features_set=markers,
               feature_count=25,
               outname=outname,
-              assay=assay)
+              assay=assay,group1=group1,group2=group2)
 
 }
-
 
 #cancer only idc and ilc
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
@@ -322,27 +327,30 @@ pairwise_comparison(obj=dat_cancer,
                     group1="IDC",
                     group2="ILC",
                     outname="diagnosis",
-                    motif_name="ESR1")
+                    motif_name="ESR1",
+                    col=hist_col)
 
 #PR+/- of cancer only IDC
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
 dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
 pairwise_comparison(obj=dat_cancer,
                     group_by="Mol_Diagnosis",
-                    group1="LumA",
-                    group2="LumB",
-                    outname="IDC.scsubtype",
-                    motif_name="ESR1")
+                    group1="ER+/PR+/HER2-",
+                    group2="ER+/PR-/HER2-",
+                    outname="PR.subtype",
+                    motif_name="ESR1",
+                    col=clin_col)
 
 #scsubtype of cancer only IDC
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
 dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
 pairwise_comparison(obj=dat_cancer,
                     group_by="scsubtype",
-                    group1="LumA",
-                    group2="LumB",
+                    group1="SC_Subtype_LumA_SC",
+                    group2="SC_Subtype_LumB_SC",
                     outname="IDC.scsubtype",
-                    motif_name="ESR1")
+                    motif_name="ESR1",
+                    col=scsubtype_col)
 
 
 
