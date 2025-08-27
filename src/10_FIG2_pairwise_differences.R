@@ -31,8 +31,6 @@ library(ggdendro)
 library(circlize)
 library(ggtern)
 library(GeneNMF)
-library(fgsea)
-library(msigdbr)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="8_merged.cnv_clones.SeuratObject.rds", 
@@ -43,7 +41,7 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 dat<-subset(dat,cells=row.names(dat@meta.data)[isNA(dat@meta.data$merged_assay_clones) | dat@meta.data$merged_assay_clones != "contamination"])
-
+dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
 hist_col=c(
   "IDC"="#FF9966",
   "ILC"="#006633")
@@ -65,7 +63,7 @@ dat <- RegionStats(dat, genome = BSgenome.Hsapiens.UCSC.hg38)
 #volcano plot of top DE genes and chromvar TFs
 #gsea of top DE genes
 
-tornado_plot<-function(obj=obj,da_peak_set=markers,i="IDC",peak_count=100,col=col){
+tornado_plot<-function(obj=obj,da_peak_set=markers,i="IDC",peak_count=200,col=col,col_lim=0.03){
     print(i)
     top_peaks <- da_peak_set %>% 
                   filter(group==i) %>%  
@@ -85,7 +83,7 @@ tornado_plot<-function(obj=obj,da_peak_set=markers,i="IDC",peak_count=100,col=co
       window=(10000)/100, normalize=TRUE,
       assay="ATAC", 
       idents=levels(Idents(obj)),
-      cols=col[i],
+      cols=col[i],max.cutoff=col_lim,
       nrow=length(unique(da_peak_set$group)))+ 
     ggtitle(i)
 
@@ -115,9 +113,9 @@ volcano_plot<-function(obj=obj,de_features_set=markers,prefix,feature_count=25,o
                   color=fill_col,
                   label=label))+
         geom_point()+geom_hline(yintercept=-log10(0.05))+
-        scale_color_identity()+ coord_cartesian(clip = "off") +
-        geom_text_repel(max.overlaps=Inf,vjust = "inward")+
-        theme_minimal()+ggtitle(paste(group1,":",as.character(group_1_count),
+        scale_color_identity()+ coord_cartesian(clip = "off") + theme_minimal() +
+        ggrepel::geom_text_repel(size=2,max.overlaps=Inf,min.segment.length = 0,vjust = "inward")+
+        ggtitle(paste(group1,":",as.character(group_1_count),
         "\n",group2,":",as.character(group_2_count)))
 
   ggsave(plt,file=paste0("pairwise.volcano.",assay,".",outname,".pdf"))
@@ -212,51 +210,70 @@ plot_gsea<-function(obj,annot,dmrs,
   ggsave(plt,file=paste0("pairwise.",outname,".",assay,".gsea.NES.pdf"),width=20,height=10)
 }
 
-cov_plot_per_gene<-function(obj,col,i){
+cov_plot_per_gene<-function(obj,col,i,group1,group2,obj_group1,obj_group2){
+  annot_plot<-AnnotationPlot(object=obj,region=i)
+
   cov_plot <- CoveragePlot(
     object = obj,
     region = i,
-    annotation = TRUE,
-    peaks = TRUE,links=FALSE)+ scale_color_manual(values=col)
+    annotation = FALSE,
+    peaks = TRUE,links=FALSE)+
+    scale_fill_manual(values=col)
 
-  link_plot <- LinkPlot(
-    object = obj,
-    region = i)+scale_color_gradient2(limits=c(0,0.3),low="white",high="magenta")
+  link_plot_1 <- LinkPlot(
+    object = obj_group1,
+    region = i)+
+    scale_color_gradient2(limits=c(0,0.3),low="white",high=col[group1])
+
+  link_plot_2 <-LinkPlot(
+    object = obj_group2,
+    region = i)+
+    scale_color_gradient2(limits=c(0,0.3),low="white",high=col[group2])
 
   expr_plot <- ExpressionPlot(
     object = obj,
     features = i,
-    assay = "SCT") + scale_color_manual(values=col)
+    assay = "SCT") + scale_fill_manual(values=col)
 
   plt<-CombineTracks(
-    plotlist = list(cov_plot, link_plot),
+    plotlist = list(cov_plot, annot_plot, link_plot_1,link_plot_2),
     expression.plot = expr_plot,
-    heights = c( 10, 3),
-    widths = c(10, 1))
+    heights = c(10, 2, 3, 3),
+    widths = c(10, 3))
   return(plt)
 }
 
-coverage_plot<-function(obj,marker_rna,marker_ga,col,outname){
+coverage_plot<-function(obj,marker_rna,marker_ga,col,outname,group1,group2,group_by){
   DefaultAssay(obj)<-"ATAC"
 
   #rank by average AUC
   da_combined<-merge(markers_rna,markers_ga,by="feature")
-  da_combined$avg_auc<-rowMeans(da_combined[,c('auc.x', 'auc.y')], na.rm=TRUE)
+  da_combined$avg_logFC<-rowMeans(da_combined[,c('logFC.x', 'logFC.y')], na.rm=TRUE) #dont actually need this
+  da_combined$avg_AUC<-rowMeans(da_combined[,c('auc.x', 'auc.y')], na.rm=TRUE) #dont actually need this
   group1_enriched<-da_combined %>% filter(padj.x<0.05) %>% filter(padj.y<0.05) %>%
-                    filter(logFC.x>0 & logFC.y>0) %>% arrange(desc(avg_auc)) %>% head(n=10)
+                    arrange(desc(avg_AUC)) %>% slice_head(n=10)
 
   group2_enriched<-da_combined %>% filter(padj.x<0.05) %>% filter(padj.y<0.05) %>%
-                    filter(logFC.x<0 & logFC.y<0) %>% arrange(desc(avg_auc)) %>% head(n=10)
+                     arrange(desc(avg_AUC)) %>% slice_tail(n=10)
   genes=c(group1_enriched$feature,group2_enriched$feature)
   
+  obj_group1<-subset(obj,cells=row.names(obj@meta.data)[obj@meta.data[,group_by] %in% c(group1)])
+  obj_group2<-subset(obj,cells=row.names(obj@meta.data)[obj@meta.data[,group_by] %in% c(group2)])
+
   # link peaks to genes
-  obj<- LinkPeaks(
-    object = obj,
+  obj_group1<- LinkPeaks(
+    object = obj_group1,
+    peak.assay = "ATAC",
+    expression.assay = "SCT",
+    genes.use = genes)
+  
+  obj_group2<- LinkPeaks(
+    object = obj_group2,
     peak.assay = "ATAC",
     expression.assay = "SCT",
     genes.use = genes)
 
-  plt_list<-lapply(genes,function(i) {cov_plot_per_gene(i=i,obj=obj,col=col)})
+  plt_list<-lapply(genes,function(i) {cov_plot_per_gene(i=i,obj=obj,col=col,group1,group2,obj_group1,obj_group2)})
   plt<-wrap_plots(plt_list,nrow=2,ncol=10)
   ggsave(plt,file=paste0("pairwise.coverage.",outname,".pdf"),width=50,height=20,limitsize=FALSE)
   
@@ -269,16 +286,22 @@ pairwise_comparison<-function(obj=dat_cancer,
                               outname="diagnosis",
                               motif_name="ESR1",
                               col){
-  #subset to relavent groups
+  #subset to relevent groups
   obj <-subset(obj, cells=row.names(obj@meta.data)[obj@meta.data[,group_by] %in% c(group1,group2)])
-  Idents(obj)<-obj@meta.data[,group_by]
-  #downsample to equal cell counts
+  DefaultAssay(obj)<-"ATAC"
+  annot<-Annotation(obj)
+
+  #downsample to ~ equal cell counts per sample
+  obj_full<-obj
+  Idents(obj)<-obj$sample
   downsample_cell_table=table(Idents(obj))
-  obj <-subset(obj,downsample=min(downsample_cell_table))
+  obj <-subset(obj,downsample=50)
+  Idents(obj)<-obj@meta.data[,group_by]
 
   ##########peaks and tornado plots##############
   print("Generating tornado plots...")
   assay="ATAC"
+
   #all peaks
   markers <- presto:::wilcoxauc.Seurat(
     X = obj, 
@@ -287,6 +310,8 @@ pairwise_comparison<-function(obj=dat_cancer,
     y=c(group1,group2), 
     seurat_assay = assay)
   
+  markers<- markers %>% filter(group==group1) %>% filter(padj<0.05)
+  write.table(markers,col.names=T,row.names=F,file=paste0("pairwise.all_da_peaks.",outname,".tsv"),sep="\t")
   plt_list<-lapply(unique(markers$group),function(j) {
       tornado_plot(obj=obj,da_peak_set=markers,i=j,col=col)})
   plt<-wrap_plots(plt_list,nrow=1,guides='collect')
@@ -305,14 +330,18 @@ pairwise_comparison<-function(obj=dat_cancer,
   ##########SCT plots##############
   print("Running SCT pairwise comparisons...")
   assay="SCT"
-  annot<-Annotation(obj)
-  obj<-PrepSCTFindMarkers(obj)
+  obj<-SCTransform(obj,vars.to.regress = "nCount_RNA")
   markers_rna <- presto:::wilcoxauc.Seurat(X = obj, 
-                                      group_by = group_by,
-                                      groups_use=c(group1,group2),
-                                      seurat_assay = assay,
-                                      y=group1)
+                                     group_by = group_by,
+                                     groups_use=c(group1,group2),
+                                     seurat_assay = assay,
+                                     assay="data",
+                                     y=group1)
+
   markers_rna<- markers_rna %>% filter(group==group1)
+ 
+  write.table(markers_rna,col.names=T,row.names=F,file=paste0("pairwise.",assay,".",outname,".tsv"),sep="\t")
+
   #all genes
   volcano_plot(obj=obj,
               de_features_set=markers_rna,
@@ -349,6 +378,7 @@ pairwise_comparison<-function(obj=dat_cancer,
                                       seurat_assay = assay,
                                       assay="data")
    markers_ga<- markers_ga %>% filter(group==group1)
+  write.table(markers_ga,col.names=T,row.names=F,file=paste0("pairwise.",assay,".",outname,".tsv"),sep="\t")
 
    volcano_plot(obj=obj,
                de_features_set=markers_ga,
@@ -361,11 +391,29 @@ pairwise_comparison<-function(obj=dat_cancer,
              outname=outname,
              assay=assay,group1=group1,group2=group2,col=col,annot=annot)
 
+  print("Running Gene Activity pairwise comparisons (protein coding only)...")
+  markers_ga<-markers_ga[markers_ga$feature %in% annot[annot$gene_biotype=="protein_coding",]$gene_name,]
+
+  volcano_plot(obj=obj,
+              de_features_set=markers_ga,
+              feature_count=25,
+              outname=paste0(outname,".proteincoding"),
+              assay=assay,group1=group1,group2=group2,col=col)
+
+  plot_gsea(obj=obj,
+            dmrs=markers_ga,
+            outname=paste0(outname,".proteincoding"),
+            assay=assay,group1=group1,group2=group2,col=col,annot=annot)
+
+  ########Coverage plots of GA and RNA################
   coverage_plot(obj=obj,
-                marker_rna=marker_rna,
-                marker_ga=marker_ga,
+                marker_rna=markers_rna,
+                marker_ga=markers_ga,
                 col=col,
-                outname=outname)
+                outname=outname,
+                group1=group1,
+                group2=group2,
+                group_by=group_by)
 
   ##########CHROMVAR plots##############
   print("Running CHROMVAR pairwise comparisons...")
@@ -383,10 +431,12 @@ pairwise_comparison<-function(obj=dat_cancer,
   markers_tf$logFC<-markers_tf$avg_diff
   markers_tf$padj<-markers_tf$p_val
   markers_tf$pval<-markers_tf$p_val_adj
-
+  markers_tf$feature<-row.names(markers_tf)
   markers_tf$feature<-ConvertMotifID(object=obj,
                                   assay="ATAC",
                                   id=markers_tf$feature)
+  write.table(markers_tf,col.names=T,row.names=F,file=paste0("pairwise.",assay,".",outname,".tsv"),sep="\t")
+
   volcano_plot(obj=obj,
               de_features_set=markers_tf,
               feature_count=25,
@@ -426,65 +476,6 @@ pairwise_comparison(obj=dat_cancer,
                     outname="IDC.scsubtype",
                     motif_name="ESR1",
                     col=scsubtype_col)
-
-# ####################################################
-# #           SUPP Fig 2 Coverage Plots of Promoters     #
-# ###################################################
-# # first compute the GC content for each peak
-# DefaultAssay(dat)<-"ATAC"
-# dat <- RegionStats(dat, genome = BSgenome.Hsapiens.UCSC.hg38)
-
-# # link peaks to genes
-# dat<- LinkPeaks(
-#   object = dat,
-#   peak.assay = "ATAC",
-#   expression.assay = "SCT",
-#   genes.use = unlist(marker))
-
-# for(i in markers){
-#     x<-i
-#     col<-celltype_col
-#     gene_annot=dat@assays$ATAC@annotation[dat@assays$ATAC@annotation$gene_name==i,]
-#     gene_region<-GetTSSPositions(gene_annot, biotypes = "protein_coding")
-#     promoter_chr<-seqnames(gene_region)
-#     promoter_start=ifelse(strand(gene_region)=="-",start(gene_region)+2000,start(gene_region)-2000)
-#     promoter_end=ifelse(strand(gene_region)=="-",start(gene_region)-10000,start(gene_region)+10000)
-
-#     if(promoter_start<promoter_end){
-#       promoter_region=StringToGRanges(paste(promoter_chr,promoter_start,promoter_end,sep="-"))
-#     } else {
-#       promoter_region=StringToGRanges(paste(promoter_chr,promoter_end,promoter_start,sep="-"))
-#     }
-#     if(x %in% row.names(dat@assays$SCT@data)){
-#       print(paste("Plotting...",x,"promoter."))
-
-#       cov_plot <- CoveragePlot(
-#         object = dat,
-#         region = promoter_region,features = x,
-#         annotation = TRUE,
-#         peaks = TRUE,links=FALSE)+ scale_color_manual(values=col)
-#       ggsave(cov_plot,file=paste0("set_region_coverage.",x,".pdf"),width=3,height=10)
-#     }
-#   }
-
-
-# Idents(dat_epi)<-dat_epi$cellstate
-# markers <- presto:::wilcoxauc.Seurat(X = dat_epi, group_by = "cellstate", 
-#   groups_use=unname(unlist(unique(dat_epi$cellstate))),
-#   y=unname(unlist(unique(dat_epi$cellstate))), 
-#   assay = 'data', seurat_assay = "ATAC")
-
-# da_peaks <- markers %>% filter(padj<0.01) %>% filter(logFC>0.25)
-# #[1] 39525    10
-
-# #add chromvar motif scan of motifs per DA peaks
-# da_peaks<-merge(da_peaks,as.data.frame(dat@assays$ATAC@motifs@data),by.x="feature",by.y= 'row.names')
-
-
-
-
-
-
 
 
 ####################################################
