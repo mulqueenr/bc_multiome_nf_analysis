@@ -393,7 +393,7 @@ average_features<-function(x=out_subset,features=tf_$motif.feature,assay,group_b
     return(sum_motif)
 }
 
-plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by_idents=TRUE){
+plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by_idents=TRUE,outdir="."){
     #define markers
     markers<-list(
         Identify_Marker_TFs(x=x,group_by=group_by,assay="RNA",assay_name="RNA",prefix=prefix),
@@ -439,8 +439,34 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
 
     #Plot motifs alongside chromvar plot, to be added to the side with illustrator later
     motif_list<-markers_out[markers_out$gene %in% markers_list,]$chromvar.feature
-    plt<-MotifPlot(object = x,assay="ATAC",motifs = motif_list[get_order(o_rows,1)],ncol=1)+theme_void()+theme(strip.text = element_blank())
-    ggsave(plt,file=paste0(prefix,".tf.heatmap.motif.pdf"),height=100,width=2,limitsize=F)
+
+
+    #plot into tmp_motif folder
+    #note anno_bar reorders, so just supply in motif list order here
+    system(paste0("rm -rf ",outdir,"/tmp_motifs"))
+    system(paste0("mkdir -p ",outdir,"/tmp_motifs"))
+    lapply(1:length(motif_list),function(i) {
+      plt<-MotifPlot(
+                    object = x,
+                    assay="ATAC",
+                    motifs = motif_list[i],ncol=1)+
+                    theme_void()+
+                    theme(strip.text = element_blank())
+      if(nchar(i)==1){i<-paste0("0",i)}
+      ggsave(plt,
+            file=paste0(i,"_",prefix,".tf.heatmap.motif.png"),
+            path=paste0(outdir,"/tmp_motifs/"),
+            height=3,
+            width=6,
+            limitsize=F)
+        })
+    motif_plots<-list.files(
+                path=paste0(outdir,"/tmp_motifs"),
+                pattern="*motif.png",
+                full.names=TRUE)
+
+    #plt<-MotifPlot(object = x,assay="ATAC",motifs = motif_list[get_order(o_rows,1)],ncol=1)+theme_void()+theme(strip.text = element_blank())
+    #ggsave(plt,file=paste0(prefix,".tf.heatmap.motif.pdf"),height=100,width=2,limitsize=F)
     #ggsave(plt,file=paste0(prefix,".tf.heatmap.motif.svg"),height=100,width=2,limitsize=F)
     #motif_image<-HeatmapAnnotation(motif=anno_image(paste0(prefix,".tf.heatmap.motif.pdf")))
 
@@ -449,7 +475,11 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
     colfun_ga=colorRamp2(c(0,1,2),magma(3))
 
     side_ha_col<-colorRamp2(c(0,1),c("white","black"))
-    gene_ha = rowAnnotation(foo = anno_mark(at = c(1:nrow(tf_rna)), labels =row.names(tf_rna),labels_gp=gpar(fontsize=6)))
+    gene_ha = rowAnnotation(foo = anno_mark(at = c(1:nrow(tf_rna)), 
+                                  labels =row.names(tf_rna),
+                                  labels_gp=gpar(fontsize=6)),
+                            motifs = anno_image(motif_plots,border=FALSE,
+                                   space=unit(0,"mm"),width=unit(6,"mm"),height=unit(3,"mm")))
     o_col<-if(order_by_idents){
         levels(Idents(x))
     }else{
@@ -470,6 +500,12 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
         column_names_gp = gpar(fontsize = 8),
         show_row_names=FALSE,
         column_names_rot=90)
+        #code to make dotplot
+        #rect_gp = gpar(type = "none"),
+        #cell_fun = function(j, i, x, y, width, height, fill) {
+        #  if(tf_rna[i, j]>0){
+        #    grid.circle(x = x, y = y, r = abs(tf_rna[i, j])/2 * min(unit.c(width, height)), 
+        #    gp = gpar(fill = colfun_rna(tf_rna[i, j]), col = NA))}})
 
       ga_auc<-Heatmap(side_ha_ga,
           cluster_rows = o_rows,         
@@ -486,6 +522,12 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
           column_names_gp = gpar(fontsize = 8),
           show_row_names=FALSE,
           column_names_rot=90)
+          #code to make dotplot
+          #rect_gp = gpar(type = "none"),
+          #cell_fun = function(j, i, x, y, width, height, fill) {
+          #if(tf_ga[i, j]>0){
+          #  grid.circle(x = x, y = y, r = abs(tf_ga[i, j])/2 * min(unit.c(width, height)), 
+          #  gp = gpar(fill = colfun_ga(tf_ga[i, j]), col = NA))}})
 
       motif_auc<-Heatmap(side_ha_motif,
           cluster_rows = o_rows,          
@@ -505,6 +547,12 @@ plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by
           show_row_names=FALSE,
           column_names_rot=90,
           right_annotation=gene_ha)
+          #code to make dotplot
+          #rect_gp = gpar(type = "none"),
+          #cell_fun = function(j, i, x, y, width, height, fill) {
+          #if(tf_motif[i, j]>0){
+          #  grid.circle(x = x, y = y, r = abs(tf_motif[i, j])/2 * min(unit.c(width, height)), 
+          #  gp = gpar(fill = colfun_motif(tf_motif[i, j]), col = NA))}})
       
     
     pdf(paste0(prefix,".tf.heatmap.pdf"))
@@ -537,4 +585,6 @@ gsea_enrichment<-function(prefix,dmrs,
  }
 
 #all cells by cell types
-plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=10,order_by_idents=TRUE)
+plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=10,order_by_idents=TRUE,outdir=".")
+
+dat<-readRDS("6_merged.celltyping.SeuratObject.rds")
