@@ -41,6 +41,8 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
+write.table(dat@meta.data,row.names=T,col.names=T,sep="\t",file="cell_metadata.tsv")
+
 dat<-subset(dat,cells=row.names(dat@meta.data)[isNA(dat@meta.data$merged_assay_clones) | dat@meta.data$merged_assay_clones != "contamination"])
 dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
 hist_col=c(
@@ -58,7 +60,6 @@ scsubtype_col=c(
 dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 DefaultAssay(dat)<-"ATAC"
 dat <- RegionStats(dat, genome = BSgenome.Hsapiens.UCSC.hg38)
-
 #### Pairwise comparisons
 system(paste0("mkdir -p ",paste0(dirname(getwd()),"/pairwise_comparisons"))) #paste pairwise comparisons into directory one folder up
 output_directory=paste0(dirname(getwd()),"/pairwise_comparisons")
@@ -260,8 +261,8 @@ coverage_plot<-function(obj,markers_rna,markers_ga,col,outname,group1,group2,gro
   da_combined$avg_logFC<-rowMeans(da_combined[,c('logFC.x', 'logFC.y')], na.rm=TRUE) #dont actually need this
   da_combined$avg_AUC<-rowMeans(da_combined[,c('auc.x', 'auc.y')], na.rm=TRUE) #dont actually need this
 
-  group1_enriched<-da_combined %>% filter(padj.x<0.05) %>% filter(padj.y<0.05) %>% filter(logFC.x>0 & logFC.y>0) %>% slice_max(avg_AUC,n=10)
-  group2_enriched<-da_combined %>% filter(padj.x<0.05) %>% filter(padj.y<0.05) %>% filter(logFC.x<0 & logFC.y<0) %>% slice_max(avg_AUC,n=10)
+  group1_enriched<-da_combined %>% filter(padj.x<0.05) %>% filter(padj.y<0.05) %>% filter(logFC.x>0 & logFC.y>0) %>% slice_max(avg_logFC,n=10)
+  group2_enriched<-da_combined %>% filter(padj.x<0.05) %>% filter(padj.y<0.05) %>% filter(logFC.x<0 & logFC.y<0) %>% slice_min(avg_logFC,n=10)
   genes=c(group1_enriched$feature,group2_enriched$feature)
   
   obj_group1<-subset(obj,cells=row.names(obj@meta.data)[obj@meta.data[,group_by] %in% c(group1)])
@@ -802,41 +803,13 @@ plot_top_tf_markers_tfonly<-function(x=out_subset,group_by,prefix,n_markers=20,o
 }
 
 #######################
-#cancer only idc and ilc
-#######################
-
-dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
-#15 IDC vs 5 ILC, 100 cells each
-pairwise_comparison(obj=dat_cancer,
-                    group_by="Diagnosis",
-                    group1="IDC",
-                    group2="ILC",
-                    outname="diagnosis",
-                    motif_name="ESR1",
-                    col=hist_col,
-                    downsample_cells_per_sample=100,
-                    outdir=paste0(output_directory,"/pairwise_by_diagnosis")
-                    )
-
-dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))        
-dat_cancer<-subset(dat_cancer, Diagnosis %in% c("IDC","ILC"))
-dat_cancer$sample_diag<-paste(dat_cancer$Diagnosis,dat_cancer$sample)
-Idents(dat_cancer)<-dat_cancer$sample_diag
-plot_top_tf_markers_tfonly(x=dat_cancer,
-                    group_by="Diagnosis",
-                    plot_by="sample_diag",
-                    prefix="pairwise_by_diagnosis",
-                    n_markers=20,
-                    order_by_idents=TRUE,
-                    outdir=paste0(output_directory,"/pairwise_by_diagnosis"))
-
-#######################
 #PR+/- of cancer only IDC
 #######################
 
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
 dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
 dat_cancer<-subset(dat_cancer, Mol_Diagnosis %in% c("ER+/PR+/HER2-","ER+/PR-/HER2-"))
+
 #5 IDC ER+/PR-/HER2- vs 8 IDC ER+/PR+/HER2- 95 cells each
 pairwise_comparison(obj=dat_cancer,
                     group_by="Mol_Diagnosis",
@@ -852,10 +825,50 @@ rna<-read.table(paste0(output_directory,"/pairwise_by_moleculardiag/","pairwise.
 rna<-rna %>% filter(padj<0.05) %>% filter(feature %in% c("RANKL","TNFRSF11A","CCND1","CDKN1A","DUSP1","EGFR","PGR","PGRMC1","IGF1R","AR","MKI67","FGFR4","LCK","FRK","MST1R"))
 
 atac<-read.table(paste0(output_directory,"/pairwise_by_moleculardiag/","pairwise.PR.subtype.GeneActivity.tsv"),header=T)
-datac<-atac %>% filter(padj<0.05) %>% filter(feature %in% c("RANKL","TNFRSF11A","CCND1","CDKN1A","DUSP1","EGFR","PGR","PGRMC1","IGF1R","AR","MKI67","FGFR4","LCK","FRK","MST1R"))
+datac<-atac %>% filter(padj<0.05) %>% filter(feature %in% c("GRHL2","NRIP1","TRPS1","CO4A","TLE3","GATA3","FKBP4","FKBP5","HS90A","HS90B","RANKL","TNFRSF11A","CCND1","CDKN1A","DUSP1","EGFR","PGR","PGRMC1","IGF1R","AR","MKI67","FGFR4","LCK","FRK","MST1R"))
 
 Idents(dat_cancer)<-paste(dat_cancer$sample,dat_cancer$Mol_Diagnosis)
+
+
+
 coverage_plot(obj=dat_cancer,markers_rna=rna,markers_ga=atac,col=clin_col,outname="apriori_genes",group1="ER+/PR+/HER2-",group2="ER+/PR-/HER2-",group_by="Mol_Diagnosis",outdir=paste0(output_directory,"/pairwise_by_moleculardiag"))
+
+col=clin_col
+region_i="chr11-101120114-101134860"
+  annot_plot<-AnnotationPlot(object=dat_cancer,region=region_i)
+  cov_plot <- CoveragePlot(
+    object = dat_cancer,
+    region = region_i,
+    group.by = "Mol_Diagnosis",
+    split.by = "merged_assay_clones",
+    annotation = FALSE,
+    peaks = TRUE,links=FALSE)+
+    scale_fill_manual(values=col)
+
+  expr_plot <- ExpressionPlot(
+    object = dat_cancer,
+    group.by = "merged_assay_clones",
+    features = "PGR",
+    assay = "SCT") + scale_fill_manual(values=col)
+
+ # link_plot_1 <- LinkPlot(
+ #   object = "ER+/PR+/HER2-",
+ #   region = region_i)+
+ #   scale_color_gradient2(limits=c(0,0.3),low="white",high=col[group1])
+
+  #link_plot_2 <-LinkPlot(
+  #  object = "ER+/PR-/HER2-",
+  #  region = region_i)+
+  #  scale_color_gradient2(limits=c(0,0.3),low="white",high=col[group2])
+
+  plt<-CombineTracks(
+    plotlist = list(cov_plot, annot_plot ),#link_plot_1,link_plot_2
+    expression.plot = expr_plot,
+    heights = c(10, 2), #3, 3
+    widths = c(10, 3))
+ggsave(plt,file="PGR_promoter.clones.coverage.pdf")
+
+
 
 dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
 dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
@@ -870,35 +883,68 @@ plot_top_tf_markers_tfonly(x=dat_cancer,
                     order_by_idents=FALSE,
                     outdir=paste0(output_directory,"/pairwise_by_moleculardiag"))
 
-#######################
-#scsubtype of cancer only IDC
-#######################
 
-dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
-dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
-#9 IDC SC_Subtype_LumA_SC vs 13 SC_Subtype_LumB_SC 50 cells each
-pairwise_comparison(obj=dat_cancer,
-                    group_by="scsubtype",
-                    group1="SC_Subtype_LumA_SC",
-                    group2="SC_Subtype_LumB_SC",
-                    outname="IDC.scsubtype",
-                    motif_name="ESR1",
-                    col=scsubtype_col,
-                    downsample_cells_per_sample=50,
-                    outdir=paste0(output_directory,"/pairwise_by_scsubtype"))
 
-dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
-dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
-dat_cancer<-subset(dat_cancer, scsubtype %in% c("SC_Subtype_LumA_SC","SC_Subtype_LumB_SC"))
-dat_cancer$sample_scsubtype<-paste(dat_cancer$scsubtype,dat_cancer$sample)
-Idents(dat_cancer)<-dat_cancer$sample_scsubtype
-plot_top_tf_markers_tfonly(x=dat_cancer,
-                    group_by="scsubtype",
-                    plot_by="sample_scsubtype",
-                    prefix="pairwise_scsubtype_by_sample",
-                    n_markers=20,
-                    order_by_idents=FALSE,
-                    outdir=paste0(output_directory,"/pairwise_by_scsubtype"))
+
+# #######################
+# #cancer only idc and ilc
+# #######################
+
+# dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
+# #15 IDC vs 5 ILC, 100 cells each
+# pairwise_comparison(obj=dat_cancer,
+#                     group_by="Diagnosis",
+#                     group1="IDC",
+#                     group2="ILC",
+#                     outname="diagnosis",
+#                     motif_name="ESR1",
+#                     col=hist_col,
+#                     downsample_cells_per_sample=100,
+#                     outdir=paste0(output_directory,"/pairwise_by_diagnosis")
+#                     )
+
+# dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))        
+# dat_cancer<-subset(dat_cancer, Diagnosis %in% c("IDC","ILC"))
+# dat_cancer$sample_diag<-paste(dat_cancer$Diagnosis,dat_cancer$sample)
+# Idents(dat_cancer)<-dat_cancer$sample_diag
+# plot_top_tf_markers_tfonly(x=dat_cancer,
+#                     group_by="Diagnosis",
+#                     plot_by="sample_diag",
+#                     prefix="pairwise_by_diagnosis",
+#                     n_markers=20,
+#                     order_by_idents=TRUE,
+#                     outdir=paste0(output_directory,"/pairwise_by_diagnosis"))
+
+
+# #######################
+# #scsubtype of cancer only IDC
+# #######################
+
+# dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
+# dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
+# #9 IDC SC_Subtype_LumA_SC vs 13 SC_Subtype_LumB_SC 50 cells each
+# pairwise_comparison(obj=dat_cancer,
+#                     group_by="scsubtype",
+#                     group1="SC_Subtype_LumA_SC",
+#                     group2="SC_Subtype_LumB_SC",
+#                     outname="IDC.scsubtype",
+#                     motif_name="ESR1",
+#                     col=scsubtype_col,
+#                     downsample_cells_per_sample=50,
+#                     outdir=paste0(output_directory,"/pairwise_by_scsubtype"))
+
+# dat_cancer<-subset(dat,assigned_celltype %in% c("cancer"))
+# dat_cancer<-subset(dat_cancer,Diagnosis %in% c("IDC"))
+# dat_cancer<-subset(dat_cancer, scsubtype %in% c("SC_Subtype_LumA_SC","SC_Subtype_LumB_SC"))
+# dat_cancer$sample_scsubtype<-paste(dat_cancer$scsubtype,dat_cancer$sample)
+# Idents(dat_cancer)<-dat_cancer$sample_scsubtype
+# plot_top_tf_markers_tfonly(x=dat_cancer,
+#                     group_by="scsubtype",
+#                     plot_by="sample_scsubtype",
+#                     prefix="pairwise_scsubtype_by_sample",
+#                     n_markers=20,
+#                     order_by_idents=FALSE,
+#                     outdir=paste0(output_directory,"/pairwise_by_scsubtype"))
 
 # ####################################################
 # #           Fig 3 Heatmap By Clones                #

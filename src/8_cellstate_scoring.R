@@ -14,7 +14,7 @@ library(dendextend)
 library(ggdendro)
 library(circlize)
 library(ggtern)
-setseed(123)
+set.seed(1234)
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
