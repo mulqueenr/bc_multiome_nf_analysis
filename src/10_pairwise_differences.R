@@ -191,6 +191,8 @@ plot_gsea<-function(obj,annot,dmrs,
                     assay=assay,col=col,group1,group2,outdir){
 
   #run gsea enrichment on different sets
+  #https://www.gsea-msigdb.org/gsea/msigdb/human/collections.jsp
+  
   tft_plt<-gsea_enrichment(species="human",
               category="C3",
               subcategory="TFT:GTRD",

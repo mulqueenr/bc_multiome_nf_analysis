@@ -15,42 +15,72 @@ library(patchwork)
 library(reshape2)
 library(dplyr)
 library(ComplexHeatmap)
+library(harmony) #local
 set.seed(1234)
+setwd("/home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects")
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="5_merged.geneactivity.SeuratObject.rds", 
               help="Input seurat object", metavar="character")
 ); 
  
+
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat<-readRDS(file=opt$object_input)
 
+if (!dir.exists("7_celltyping")) {
+  dir.create("7_celltyping")
+}
+
 #clustering function for RNA/ATAC/RNA+ATAC
-multimodal_cluster<-function(dat=dat,res=0.5,prefix="allcells"){
+multimodal_cluster<-function(dat=dat,res=0.5,prefix="allcells",rna_pcs=1:50,atac_pcs=50,harmony_integrate=FALSE){
   # Perform standard analysis of each modality independently 
+  # if harmony_integrate is set to TRUE run harmony on each modality then merge via multimodal neighbors
+    #https://github.com/satijalab/seurat/issues/6094
+
   #RNA analysis
   DefaultAssay(dat) <- 'RNA'
-  dat<-NormalizeData(dat) %>%  FindVariableFeatures() %>% ScaleData() %>% RunPCA()
+
+  dat<-NormalizeData(dat) %>%  FindVariableFeatures() %>% ScaleData() %>% RunPCA(npcs=max(rna_pcs))
+  
+  if(harmony_integrate){
+    #integrate PCA over layers (samples)
+    dat <- IntegrateLayers(object = dat, assay="RNA", method = HarmonyIntegration, 
+                            orig.reduction = "pca",
+                            new.reduction = 'pca', verbose = TRUE)
+    }
+
   dat <- RunUMAP(dat, 
     reduction="pca", 
-    dims = 1:30, 
+    dims = rna_pcs, 
     reduction.name = paste(prefix,"umap","rna",sep="."),
     reduction.key = "rnaUMAP_")
 
   #ATAC analysis
   DefaultAssay(dat)<- 'ATAC'
-  dat<-RunTFIDF(dat) %>%  FindTopFeatures() %>% RunSVD()
+  dat <- RunTFIDF(dat) %>%  FindTopFeatures() %>% RunSVD(n=atac_pcs)
+
+  if(harmony_integrate){
+      dat<-RunHarmony(
+            object = dat,
+            group.by.vars = 'sample',
+            reduction = 'lsi',
+            assay.use = 'ATAC',
+            project.dim = FALSE,
+            reduction.save = "lsi")
+    }
+
   dat <- RunUMAP(dat, 
     reduction = "lsi", 
-    dims = 2:30, 
+    dims = c(2:atac_pcs), 
     reduction.name=paste(prefix,"umap","atac",sep="."), 
     reduction.key = "atacUMAP_")
 
   # build a joint neighbor graph using both assays
   dat <- FindMultiModalNeighbors(object = dat,
     reduction.list = list("pca", "lsi"), 
-    dims.list = list(1:50, 2:40),
+    dims.list = list(1:max(rna_pcs), 2:max(atac_pcs)),
     modality.weight.name = "RNA.weight",
     weighted.nn.name=paste(prefix,"weighted.nn",sep="."),
     snn.graph.name=paste(prefix,"wsnn",sep="."),
@@ -63,12 +93,13 @@ multimodal_cluster<-function(dat=dat,res=0.5,prefix="allcells"){
     n.epochs=200,
     min.dist=0.1,
     reduction.key = "wnnUMAP_")
-
+  
   dat <- FindClusters(dat, 
     graph.name = paste(prefix,"wsnn",sep="."), 
     algorithm = 3, 
     resolution = res, 
     verbose = FALSE)
+
 
  return(dat)
 }
@@ -80,7 +111,7 @@ umap_plotting<-function(dat,metadat_column,prefix="allcells",dotsize=1){
 return(p1|p2|p3)
 }
 
-dat<-multimodal_cluster(dat)
+dat<-multimodal_cluster(dat,rna_pcs=1:30,atac_pcs=30,res=0.8)
 
 predicted_id_list<-colnames(dat@meta.data)[endsWith(colnames(dat@meta.data),suffix="predicted.id")]
 predicted_id_list<-c("seurat_clusters","Diagnosis","Manuscript_Name","Mol_Diagnosis",predicted_id_list)
@@ -89,7 +120,8 @@ umap_plot<-lapply(predicted_id_list,function(x) umap_plotting(dat,metadat_column
 plt_out<-patchwork::wrap_plots(umap_plot, ncol = 1)
 plt_qc<-FeaturePlot(dat,features=c("scrublet_Scores","nCount_SCT","nCount_ATAC"),reduction = "allcells.wnn.umap",ncol=3)
 
-ggsave(plt_out+plt_qc,file="allcells.umap.pdf",width=40,height=length(predicted_id_list)*10,limitsize=F)
+ggsave(plt_out+plt_qc,file=paste0("./7_celltyping/","allcells.umap.pdf"),width=40,height=length(predicted_id_list)*10,limitsize=F)
+
 
 #snRNA markers
 #from Kumar et al.
@@ -116,7 +148,9 @@ plt<-DotPlot(subset(dat,cells=names(Idents(dat))),features=features,cluster.iden
   scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))+
   theme(axis.text.x = element_text(angle=90))
 
-ggsave(plt,file="seuratclusters_celltypes.features.pdf",height=10,width=40,limitsize=F)
+ggsave(plt,file=paste0("./7_celltyping/","seuratclusters_celltypes.features.pdf"),height=10,width=40,limitsize=F)
+plt_cluster<-DimPlot(dat,group.by="seurat_clusters",reduction = "allcells.wnn.umap",label=TRUE)
+ggsave(plt_cluster,file=paste0("./7_celltyping/","seuratclusters_celltypes.dimplot.pdf"),height=10,width=10,limitsize=F)
 
 #just top level of HBCA cell types
 #https://navinlabcode.github.io/HumanBreastCellAtlas.github.io/assets/svg/celltype_tree.svg
@@ -151,7 +185,7 @@ plt<-DotPlot(subset(dat,cells=names(Idents(dat))),features=features,cluster.iden
   scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))+
   theme(axis.text.x = element_text(angle=90))
 
-ggsave(plt,file="FIG1_assigned_celltypes.features.pdf",height=10,width=40,limitsize=F)
+ggsave(plt,file=paste0("./fig1/","fig1_assigned_celltypes.features.pdf"),height=10,width=40,limitsize=F)
 
 
 ####################################################
@@ -171,14 +205,15 @@ celltype_col=c("cancer"="#9e889e",
 "bcell"="#243d97",
 "plasma"="#742b8c",
 "tcell"="#003147")
+
 Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
 "adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
 "myeloid","bcell","plasma","tcell"))
 
 hist_col=c("NAT"="#99CCFF",
 "DCIS"="#CCCCCC",
-"IDC"="#FF9966",
-"ILC"="#006633")
+"ILC"="#FF9966",
+"IDC"="#006633")
 
 clin_col=c("IDC ER+/PR-/HER2+"="#f37872", 
 "DCIS"="#cccccb", 
@@ -206,50 +241,85 @@ p5<-DimPlot(dat,group.by="sample",reduction = "allcells.wnn.umap")
 
 ggsave(p1/p2/p3/p4/p5,file="FIG1_umap_assigned_celltype.pdf",width=10,height=50,limitsize=F)
 
+
+# #~~~~~~~rerun umap by cancer and noncancer split~~~~~~~ 260120 #
+# #~~~~~~~added harmony integration for noncancer, decided against it in main figure
+# dat_noncancer<-subset(dat,assigned_celltype!="cancer")
+# dat_noncancer<-multimodal_cluster(dat_noncancer,harmony_integrate=TRUE)
+
+# p1<-DimPlot(dat_noncancer,group.by="seurat_clusters",reduction = "allcells.wnn.umap")
+# p2<-DimPlot(dat_noncancer,cols=celltype_col,group.by="assigned_celltype",reduction = "allcells.wnn.umap",col=celltype_col)
+# p3<-DimPlot(dat_noncancer,cols=hist_col,group.by="Diagnosis",reduction = "allcells.wnn.umap")
+# p4<-DimPlot(dat_noncancer,cols=clin_col,group.by="Diag_MolDiag",reduction = "allcells.wnn.umap")
+# p5<-DimPlot(dat_noncancer,group.by="sample",reduction = "allcells.wnn.umap")
+# ggsave(p1/p2/p3/p4/p5,file="FIG1_umap_assigned_celltype.noncancer.pdf",width=10,height=50,limitsize=F)
+
+
+# dat_cancer<-subset(dat,assigned_celltype=="cancer")
+# dat_cancer[["RNA"]] <- JoinLayers(dat_cancer[["RNA"]]) #rejoining layers removes any empty layers (samples without cancer cells)
+# dat_cancer<-multimodal_cluster(dat_cancer)
+
+
+# p1<-DimPlot(dat_cancer,group.by="seurat_clusters",reduction = "allcells.wnn.umap")
+# p2<-DimPlot(dat_cancer,cols=celltype_col,group.by="assigned_celltype",reduction = "allcells.wnn.umap",col=celltype_col)
+# p3<-DimPlot(dat_cancer,cols=hist_col,group.by="Diagnosis",reduction = "allcells.wnn.umap")
+# p4<-DimPlot(dat_cancer,cols=clin_col,group.by="Diag_MolDiag",reduction = "allcells.wnn.umap")
+# p5<-DimPlot(dat_cancer,group.by="sample",reduction = "allcells.wnn.umap")
+# ggsave(p1/p2/p3/p4/p5,file="FIG1_umap_assigned_celltype.cancer.pdf",width=10,height=50,limitsize=F)
+
 ####################################################
 #           Fig 1 Sample Heatmap                  #
 ###################################################
+
+#~~~~~~~corrected by removing age mass and reordering for paired samples~~~~~~~ 260120 #
 met<-dat@meta.data
 met<-met[!duplicated(met$sample),]
-age=c('DCIS_01'='31', 'DCIS_02'='49', 'DCIS_03'='61', 'IDC_01'='75', 'IDC_10'='68', 'IDC_11'='37', 'IDC_12'='67', 'IDC_02'='51', 'IDC_03'='74', 'IDC_04'='67', 'IDC_05'='34', 'IDC_06'='76', 'IDC_07'='44', 'IDC_08'='63', 'IDC_09'='63', 'ILC_01'='57', 'ILC_02'='64','NAT_11'='37', 'NAT_14'='50', 'NAT_04'='67', 'IDC_13'='68', 'IDC_14'='40', 'IDC_15'='43', 'IDC_16'='75', 'ILC_03'='71', 'ILC_04'='65', 'ILC_05'='34')
-mass=c('DCIS_01'='0.24', 'DCIS_02'='0.45', 'DCIS_03'='0.19', 'IDC_01'='0.9', 'IDC_02'='0.7', 'IDC_03'='0.27', 'IDC_04'='0.18', 'IDC_05'='0.27', 'IDC_06'='0.16', 'IDC_07'='0.19', 'IDC_08'='0.18', 'IDC_09'='0.21', 'IDC_10'='0.93', 'IDC_11'='0.08', 'IDC_12'='0.11', 'IDC_13'='0.98', 'IDC_14'='0.89', 'IDC_15'='1.38', 'IDC_16'='1.06', 'ILC_01'='0.23', 'ILC_02'='1.76', 'ILC_03'='1.08', 'ILC_04'='0.92', 'ILC_05'='0.77', 'NAT_04'='0.39', 'NAT_11'='0.31', 'NAT_14'='0.67')
+#age=c('DCIS_01'='31', 'DCIS_02'='49', 'DCIS_03'='61', 'IDC_01'='75', 'IDC_10'='68', 'IDC_11'='37', 'IDC_12'='67', 'IDC_02'='51', 'IDC_03'='74', 'IDC_04'='67', 'IDC_05'='34', 'IDC_06'='76', 'IDC_07'='44', 'IDC_08'='63', 'IDC_09'='63', 'ILC_01'='57', 'ILC_02'='64','NAT_11'='37', 'NAT_14'='50', 'NAT_04'='67', 'IDC_13'='68', 'IDC_14'='40', 'IDC_15'='43', 'IDC_16'='75', 'ILC_03'='71', 'ILC_04'='65', 'ILC_05'='34')
+#mass=c('DCIS_01'='0.24', 'DCIS_02'='0.45', 'DCIS_03'='0.19', 'IDC_01'='0.9', 'IDC_02'='0.7', 'IDC_03'='0.27', 'IDC_04'='0.18', 'IDC_05'='0.27', 'IDC_06'='0.16', 'IDC_07'='0.19', 'IDC_08'='0.18', 'IDC_09'='0.21', 'IDC_10'='0.93', 'IDC_11'='0.08', 'IDC_12'='0.11', 'IDC_13'='0.98', 'IDC_14'='0.89', 'IDC_15'='1.38', 'IDC_16'='1.06', 'ILC_01'='0.23', 'ILC_02'='1.76', 'ILC_03'='1.08', 'ILC_04'='0.92', 'ILC_05'='0.77', 'NAT_04'='0.39', 'NAT_11'='0.31', 'NAT_14'='0.67')
 multiome=c('DCIS_01'='1', 'DCIS_02'='1', 'DCIS_03'='1', 'IDC_01'='1', 'IDC_02'='1', 'IDC_03'='1', 'IDC_04'='1', 'IDC_05'='1', 'IDC_06'='1', 'IDC_07'='1', 'IDC_08'='1', 'IDC_09'='1', 'IDC_10'='1', 'IDC_11'='1', 'IDC_12'='1', 'IDC_13'='1', 'IDC_14'='1', 'IDC_15'='1', 'IDC_16'='1', 'ILC_01'='1', 'ILC_02'='1', 'ILC_03'='1', 'ILC_04'='1', 'ILC_05'='1', 'NAT_04'='1', 'NAT_11'='1', 'NAT_14'='1')
-plot_order=c('DCIS_01'='1', 'DCIS_02'='2', 'DCIS_03'='3', 'IDC_01'='4', 'IDC_02'='5', 'IDC_03'='6', 'IDC_04'='7', 'IDC_16'='9', 'ILC_04'='10', 'IDC_05'='11', 'IDC_06'='12', 'IDC_07'='13', 'IDC_08'='14', 'IDC_09'='15', 'IDC_10'='16', 'IDC_11'='17', 'IDC_12'='18', 'IDC_13'='19', 'IDC_15'='20', 'ILC_01'='21', 'ILC_02'='22', 'ILC_03'='23', 'ILC_05'='24', 'NAT_04'='25', 'NAT_11'='26', 'NAT_14'='27') 
-bulk_wgs=c('DCIS_01'='1', 'DCIS_02'='1', 'DCIS_03'='1', 'IDC_01'='1', 'IDC_02'='1', 'IDC_03'='1', 'IDC_04'='1', 'IDC_05'='0', 'IDC_06'='1', 'IDC_07'='1', 'IDC_08'='1', 'IDC_09'='1', 'IDC_10'='1', 'IDC_11'='1', 'IDC_12'='0', 'IDC_13'='1', 'IDC_14'='1', 'IDC_15'='1', 'IDC_16'='1', 'ILC_01'='0', 'ILC_02'='1', 'ILC_03'='1', 'ILC_04'='1', 'ILC_05'='1', 'NAT_04'='0', 'NAT_11'='1', 'NAT_14'='1')
-spatial_atac=c('DCIS_01'='0', 'DCIS_02'='0', 'DCIS_03'='0', 'IDC_01'='1', 'IDC_02'='1', 'IDC_03'='0', 'IDC_04'='0', 'IDC_05'='0', 'IDC_06'='1', 'IDC_07'='1', 'IDC_08'='1', 'IDC_09'='1', 'IDC_10'='0', 'IDC_11'='0', 'IDC_12'='0', 'IDC_13'='0', 'IDC_14'='0', 'IDC_15'='0', 'IDC_16'='0', 'ILC_01'='0', 'ILC_02'='0', 'ILC_03'='0', 'ILC_04'='1', 'ILC_05'='0', 'NAT_04'='0', 'NAT_11'='0', 'NAT_14'='0' )
-cosmx=c('DCIS_01'='0', 'DCIS_02'='0', 'DCIS_03'='0', 'IDC_01'='1', 'IDC_02'='0', 'IDC_03'='0', 'IDC_04'='0', 'IDC_05'='0', 'IDC_06'='0', 'IDC_07'='0', 'IDC_08'='0', 'IDC_09'='0', 'IDC_10'='0', 'IDC_11'='0', 'IDC_12'='0', 'IDC_13'='0', 'IDC_14'='0', 'IDC_15'='0', 'IDC_16'='0', 'ILC_01'='0', 'ILC_02'='1', 'ILC_03'='0', 'ILC_04'='0', 'ILC_05'='0', 'NAT_04'='0', 'NAT_11'='0', 'NAT_14'='0')
+plot_order=c('DCIS_01'=1,'DCIS_02'=2,'DCIS_03'=3,'IDC_02'=4,'IDC_14'=5,'IDC_01'=6,'IDC_16'=7,'IDC_03'=8,'IDC_04'=9,'IDC_12'=10,'NAT_04'=11,'IDC_05'=12,'IDC_10'=13,'IDC_13'=14,'IDC_11'=15,'NAT_11'=16,'IDC_15'=17,'IDC_08'=18,'IDC_09'=19,'IDC_06'=20,'IDC_07'=21,'ILC_04'=22,'ILC_02'=23,'ILC_03'=24,'ILC_01'=25,'ILC_05'=26,'NAT_14'=27)
+
+paired_bulk_wgs=c('DCIS_01','DCIS_02', 'DCIS_03', 'IDC_01', 'IDC_02', 'IDC_03', 'IDC_04', 'IDC_06', 'IDC_07', 'IDC_08', 'IDC_09', 'IDC_10', 'IDC_11',  'IDC_13', 'IDC_14', 'IDC_15', 'IDC_16', 'ILC_02', 'ILC_03', 'ILC_04', 'ILC_05', 'NAT_11', 'NAT_14')
+bulk_wgs<-setNames(nm=names(plot_order),rep("0",length(names(plot_order))))
+bulk_wgs[paired_bulk_wgs]<-"1"
+
+#paired_spatial_atac=c('IDC_01','IDC_16', 'IDC_02', 'ILC_04' ,'IDC_06' ,'IDC_07' ,'IDC_08' ,'IDC_09', 'ILC_02', 'ILC_05')
+#spatial_atac<-setNames(nm=names(plot_order),rep("0",length(names(plot_order))))
+#spatial_atac[paired_spatial_atac]<-"1"
+
+  #cosmx=c('DCIS_01'='0', 'DCIS_02'='0', 'DCIS_03'='0', 'IDC_01'='1', 'IDC_02'='0', 'IDC_03'='0', 'IDC_04'='0', 'IDC_05'='0', 'IDC_06'='0', 'IDC_07'='0', 'IDC_08'='0', 'IDC_09'='0', 'IDC_10'='0', 'IDC_11'='0', 'IDC_12'='0', 'IDC_13'='0', 'IDC_14'='0', 'IDC_15'='0', 'IDC_16'='0', 'ILC_01'='0', 'ILC_02'='1', 'ILC_03'='0', 'ILC_04'='0', 'ILC_05'='0', 'NAT_04'='0', 'NAT_11'='0', 'NAT_14'='0')
 
 
-met$age<-as.numeric(age[met$sample])
-met$mass<-as.numeric(mass[met$sample])
+#met$age<-as.numeric(age[met$sample])
+#met$mass<-as.numeric(mass[met$sample])
 met$multiome<-as.numeric(multiome[met$sample])
 met$bulk_wgs<-as.numeric(bulk_wgs[met$sample])
-met$spatial_atac<-as.numeric(spatial_atac[met$sample])
-met$cosmx<-as.numeric(cosmx[met$sample])
+#met$spatial_atac<-as.numeric(spatial_atac[met$sample])
+#met$cosmx<-as.numeric(cosmx[met$sample])
 met$plot_order<-as.numeric(plot_order[met$sample])
 
-sample_heatmap<-met[c("Manuscript_Name","age","mass","Diagnosis","Mol_Diagnosis","plot_order","multiome","bulk_wgs","spatial_atac","cosmx")]
+sample_heatmap<-met[c("Manuscript_Name","Diagnosis","Mol_Diagnosis","plot_order","multiome","bulk_wgs")] #"age","mass","cosmx" #spatial_atac
 row.names(sample_heatmap)<-sample_heatmap$Manuscript_Name
 sample_heatmap$Diag_MolDiag<-paste(sample_heatmap$Diagnosis,sample_heatmap$Mol_Diagnosis)
 sample_heatmap<-sample_heatmap[order(sample_heatmap$plot_order),]
-sample_heatmap<-sample_heatmap[c("age","mass","Diagnosis","Diag_MolDiag","multiome","bulk_wgs","spatial_atac","cosmx")]
-age_col=colorRamp2(breaks=c(min(sample_heatmap$age,na.rm=T),max(sample_heatmap$age,na.rm=T)),c("#d789d7","#2a3d66"))
-mass_col=colorRamp2(breaks=c(min(sample_heatmap$mass,na.rm=T),max(sample_heatmap$mass,na.rm=T)),c("#f2fc9f","#b05977"))
+sample_heatmap<-sample_heatmap[c("Diagnosis","Diag_MolDiag","multiome","bulk_wgs")]#"cosmx"#,"spatial_atac"
+#age_col=colorRamp2(breaks=c(min(sample_heatmap$age,na.rm=T),max(sample_heatmap$age,na.rm=T)),c("#d789d7","#2a3d66"))
+#mass_col=colorRamp2(breaks=c(min(sample_heatmap$mass,na.rm=T),max(sample_heatmap$mass,na.rm=T)),c("#f2fc9f","#b05977"))
 
 #plot metadata
-ha = rowAnnotation(age=sample_heatmap$age,
-                      mass=sample_heatmap$mass,
+ha = rowAnnotation(#age=sample_heatmap$age,
+                      #mass=sample_heatmap$mass,
                       histological_type=sample_heatmap$Diagnosis,
                       molecular_type=sample_heatmap$Diag_MolDiag,
                       sampled_site=sample_heatmap$sampled_site,
-                      col = list(age=age_col,
-                                  mass=mass_col,
+                      col = list(#age=age_col,
+                                  #mass=mass_col,
                                     histological_type =hist_col,
                                     clinical_subtype=clin_col,
                                     sampled_site=sampled_col))
 
 pdf("FIG1_sample_metadata.heatmap.pdf")
-plt<-Heatmap(sample_heatmap[c("multiome","bulk_wgs","spatial_atac","cosmx")],
+plt<-Heatmap(sample_heatmap[c("multiome","bulk_wgs")],#"spatial_atac",#"cosmx"
  cluster_columns=F,cluster_rows=F,
  left_annotation=ha,
  col=assay_col)

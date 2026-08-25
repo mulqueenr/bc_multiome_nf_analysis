@@ -1,9 +1,27 @@
-Read in signac object and output files necessary for cistopic/scenic
+Download public data for comparisons
 ```bash
+#also plot metabric and tcga samples
+cd /home/groups/CEDAR/mulqueen/bc_multiome/ref
+mkdir -p metabric_breast; cd metabric_breast
+wget https://datahub.assets.cbioportal.org/brca_metabric.tar.gz 
+tar -xvf brca_metabric.tar.gz
+ls /home/groups/CEDAR/mulqueen/bc_multiome/ref/metabric_breast/brca_metabric
+
+
+cd /home/groups/CEDAR/mulqueen/bc_multiome/ref
+mkdir -p tcga_breast; cd tcga_breast
+wget https://datahub.assets.cbioportal.org/brca_tcga_pan_can_atlas_2018.tar.gz
+tar -xvf brca_tcga_pan_can_atlas_2018.tar.gz
+ls /home/groups/CEDAR/mulqueen/bc_multiome/ref/tcga_breast/brca_tcga_pan_can_atlas_2018
+```
+
+```bash
+
 sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
 singularity shell \
 --bind /home/groups/CEDAR/mulqueen/bc_multiome \
 $sif
+
 
 cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 
@@ -15,7 +33,21 @@ cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 library(Seurat)
 library(Signac)
 library(optparse)
-
+library(rtracklayer)
+library(JASPAR2020)
+library(TFBSTools)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(patchwork)
+set.seed(1234)
+library(BiocParallel)
+library(universalmotif)
+library(GenomicRanges)
+library(patchwork)
+library(optparse)
+library(dplyr)
+library(parallel)
+library(ggplot2)
+library(ggrepel)
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="8_merged.cnv_clones.SeuratObject.rds", 
               help="Sample input seurat object", metavar="character")
@@ -24,8 +56,238 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
-dat<-subset(dat,cells=row.names(dat@meta.data)[isNA(dat@meta.data$merged_assay_clones) | dat@meta.data$merged_assay_clones != "contamination"])
 dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
+dat_sub<-subset(dat,cells=row.names(dat@meta.data[!is.na(dat@meta.data$merged_assay_clones),]))
+
+
+#get CN bins that are variable
+cn <- GetAssayData(dat_sub,assay="cnv",layer="data")
+bin_var<-apply(cn,1,var)
+bin_filter<-names(bin_var>0)
+cn<-cn[bin_filter,]
+bin_filter_granges<-StringToGRanges(bin_filter, sep = c("-", "-"))
+bin_filter_granges$cn_win<-bin_filter
+
+cellid_list<-colnames(cn)
+
+
+#CN vs Motif and RNA
+#motif
+chromvar<-GetAssayData(dat_sub,assay="ATAC",layer="motifs")
+chromvar_names<-chromvar@motif.names
+chromvar_dat<-GetAssayData(dat_sub,assay="chromvar",layer="data")
+row.names(chromvar_dat)<-unlist(chromvar_names[row.names(chromvar_dat)])
+chromvar_dat<-chromvar_dat[,cellid_list]
+
+#rna
+rna_dat<-GetAssayData(dat_sub,layer="data",assay="RNA")
+rna_dat<-rna_dat[,cellid_list]
+rna_dat<-rna_dat[row.names(rna_dat) %in% row.names(chromvar_dat),]
+
+chromvar_dat<-chromvar_dat[row.names(chromvar_dat) %in% row.names(rna_dat),]
+
+#assign genes to cn bins
+rna_ref <- import("/home/groups/CEDAR/mulqueen/bc_multiome/ref/refdata-cellranger-arc-GRCh38-2020-A-2.0.0/genes/genes.gtf.gz")
+rna_ref <- rna_ref %>% as.data.frame() %>% filter(!duplicated(gene_name)) %>% filter(gene_name %in% row.names(chromvar_dat)) %>% GRanges()
+rna_hits <- findOverlaps(rna_ref, bin_filter_granges, select="first")
+rna_ref$cn_bin<-row.names(cn)[rna_hits]
+rna_ref<-rna_ref[!is.na(rna_ref$cn_bin),]
+
+cn_cor<-lapply(rna_ref$gene_name,function(gene){
+  cn_bin<-rna_ref %>% as.data.frame() %>% filter(gene_name==gene) %>% select(cn_bin) %>% unlist()
+  cn_tmp<-unlist(cn[cn_bin,cellid_list])
+  cn_var<-var(cn_tmp,na.rm=T)
+
+  rna_tmp<-unlist(rna_dat[gene,cellid_list])
+  rna_var<-var(rna_tmp,na.rm=T)
+
+  motif_tmp<-unlist(chromvar_dat[gene,cellid_list])
+  motif_var<-var(motif_tmp,na.rm=T)
+
+  cn_rna_cor<-cor.test(cn_tmp,rna_tmp,use="pairwise.complete",method="spearman")
+  cn_motif_cor<-cor.test(cn_tmp,motif_tmp,use="pairwise.complete",method="spearman")
+  motif_rna_cor<-cor.test(motif_tmp,rna_tmp,use="pairwise.complete",method="spearman")
+
+  return(setNames(
+      c(gene,cn_bin,cn_var,rna_var,motif_var,cn_rna_cor$p.value,cn_motif_cor$p.value,motif_rna_cor$p.value,cn_rna_cor$estimate,cn_motif_cor$estimate,motif_rna_cor$estimate),
+      nm=c("gene","cn_bin","cn_var","rna_var","motif_var","cn_rna_cor_pval","cn_motif_cor_pval","motif_rna_cor_pval","cn_rna_cor_rho","cn_motif_cor_rho","motif_rna_cor_rho")))
+})
+
+cn_cor<-as.data.frame(do.call("rbind",cn_cor))
+cn_cor<-cn_cor[complete.cases(cn_cor),] %>% mutate(across(c(cn_rna_cor_pval, cn_motif_cor_pval, motif_rna_cor_pval,
+                                                            cn_rna_cor_rho, cn_motif_cor_rho,motif_rna_cor_rho,
+                                                            cn_var,rna_var,motif_var), as.numeric))
+
+cn_cor$cn_rna_cor_qval<-p.adjust(cn_cor$cn_rna_cor_pval,method="bonferroni")
+cn_cor$cn_motif_cor_qval<-p.adjust(cn_cor$cn_motif_cor_pval,method="bonferroni")
+cn_cor$motif_rna_cor_qval<-p.adjust(cn_cor$motif_rna_cor_pval,method="bonferroni")
+
+cn_cor$label<-NA
+cn_cor$min_qval<-apply(cn_cor %>% select(cn_motif_cor_qval,cn_rna_cor_qval),1,min)
+label_genes<-unname(unlist(cn_cor %>% slice_min(min_qval,n=50) %>% select(gene)))
+cn_cor$label<-ifelse(cn_cor$gene %in% label_genes, cn_cor$gene, NA) 
+
+cn_cor$col<-"black"
+rna_col<-unname(unlist(cn_cor %>% filter(cn_rna_cor_qval<0.05) %>% select(gene)))
+motif_col<-unname(unlist(cn_cor %>% filter(cn_motif_cor_qval<0.05) %>% select(gene)))
+both_col<-unname(unlist(intersect(rna_sig,motif_sig)))
+cn_cor$col<-unlist(lapply(1:nrow(cn_cor), function(x){ifelse(cn_cor$gene[x] %in% rna_col,"red",cn_cor$col[x])}))
+cn_cor$col<-unlist(lapply(1:nrow(cn_cor), function(x){ifelse(cn_cor$gene[x] %in% motif_col,"blue",cn_cor$col[x])}))
+cn_cor$col<-unlist(lapply(1:nrow(cn_cor), function(x){ifelse(cn_cor$gene[x] %in% both_col,"purple",cn_cor$col[x])}))
+
+plt1<-ggplot(cn_cor,aes(x=cn_rna_cor_rho,y=rna_var,size=abs(cn_var),label=label,color=col))+geom_point()+theme_minimal()+geom_text_repel(max.overlaps=Inf)+scale_color_identity()
+plt2<-ggplot(cn_cor,aes(x=cn_rna_cor_rho,y=cn_motif_cor_rho,size=abs(motif_rna_cor_rho),label=label,color=col))+geom_point()+theme_minimal()+geom_text_repel(max.overlaps=Inf)+scale_color_identity()
+plt3<-ggplot(cn_cor,aes(x=motif_var,y=cn_motif_cor_rho,size=abs(cn_var),label=label,color=col))+geom_point()+theme_minimal()+geom_text_repel(max.overlaps=Inf)+scale_color_identity()
+ggsave(plt1+plot_spacer()+plt2+plt3+plot_layout(ncol=2,guide="collect"),file="test.pdf",width=30,height=30)
+#run per bin, correlate bin to chromvar and rna data
+```
+
+```R
+#and run metabric and tcga as validation
+#metabric
+  metabric_cnv<-read.table(sep="\t",file="/home/groups/CEDAR/mulqueen/bc_multiome/ref/metabric_breast/brca_metabric/data_cna.txt",header=T)
+  metabric_rna<-read.table(sep="\t",file="/home/groups/CEDAR/mulqueen/bc_multiome/ref/metabric_breast/brca_metabric/data_mrna_illumina_microarray_zscores_ref_diploid_samples.txt",header=T)
+  metabric_meta<-read.table(sep="\t",file="/home/groups/CEDAR/mulqueen/bc_multiome/ref/metabric_breast/brca_metabric/data_clinical_sample.txt",header=T)
+
+#filter to match cancer types (ER+ IDC/ILC)
+  metabric_meta<-metabric_meta %>% 
+    filter(CANCER_TYPE_DETAILED %in% c("Breast Invasive Ductal Carcinoma","Breast Invasive Lobular Carcinoma","Breast Mixed Ductal and Lobular Carcinoma")) %>% 
+    filter(ER_STATUS %in% c("Positive"))
+  metabric_meta$sample<-gsub(metabric_meta$SAMPLE_ID,pattern="-",replacement=".")
+  metabric_cnv<-metabric_cnv[,colnames(metabric_cnv) %in% c("Hugo_Symbol",unique(metabric_meta$sample))]
+  metabric_rna<-metabric_rna[,colnames(metabric_rna) %in% c("Hugo_Symbol",unique(metabric_meta$sample))]
+  metabric_rna<-metabric_rna[!duplicated(metabric_rna$Hugo_Symbol),]
+  metabric_cnv<-metabric_cnv[!duplicated(metabric_cnv$Hugo_Symbol),]
+
+  metabric_columns_to_keep<-intersect(colnames(metabric_cnv),colnames(metabric_rna))
+  metabric_rows_to_keep<-intersect(metabric_cnv$Hugo_Symbol,metabric_rna$Hugo_Symbol)
+  metabric_cnv<-metabric_cnv[metabric_cnv$Hugo_Symbol %in% metabric_rows_to_keep,colnames(metabric_cnv) %in% metabric_columns_to_keep]
+  metabric_rna<-metabric_rna[metabric_rna$Hugo_Symbol %in% metabric_rows_to_keep,colnames(metabric_rna) %in% metabric_columns_to_keep]
+
+dim(metabric_cnv)
+dim(metabric_rna)
+
+
+#tcga
+  tcga_cnv<-read.table(sep="\t",file="/home/groups/CEDAR/mulqueen/bc_multiome/ref/tcga_breast/brca_tcga_pan_can_atlas_2018/data_cna.txt",header=T)
+  tcga_rna<-read.table(sep="\t",file="/home/groups/CEDAR/mulqueen/bc_multiome/ref/tcga_breast/brca_tcga_pan_can_atlas_2018/data_mrna_seq_v2_rsem.txt",header=T)
+  tcga_meta<-read.table(sep="\t",file="/home/groups/CEDAR/mulqueen/bc_multiome/ref/tcga_breast/brca_tcga_pan_can_atlas_2018/data_clinical_sample.txt",header=T)
+
+#filter to match cancer types (IDC/ILC)
+#tcga doesnt report ER STATUS
+  tcga_meta<-tcga_meta %>% 
+    filter(CANCER_TYPE_DETAILED %in% c("Breast Invasive Ductal Carcinoma","Breast Invasive Lobular Carcinoma","Breast Mixed Ductal and Lobular Carcinoma")) 
+  tcga_meta$sample<-gsub(tcga_meta$SAMPLE_ID,pattern="-",replacement=".")
+  tcga_cnv<-tcga_cnv[,colnames(tcga_cnv) %in% c("Hugo_Symbol",unique(tcga_meta$sample))]
+  tcga_rna<-tcga_rna[,colnames(tcga_rna) %in% c("Hugo_Symbol",unique(tcga_meta$sample))]
+  tcga_rna<-tcga_rna[!duplicated(tcga_rna$Hugo_Symbol),]
+  tcga_cnv<-tcga_cnv[!duplicated(tcga_cnv$Hugo_Symbol),]
+
+  tcga_columns_to_keep<-intersect(colnames(tcga_cnv),colnames(tcga_rna))
+  tcga_rows_to_keep<-intersect(tcga_cnv$Hugo_Symbol,tcga_rna$Hugo_Symbol)
+  tcga_cnv<-tcga_cnv[tcga_cnv$Hugo_Symbol %in% tcga_rows_to_keep,colnames(tcga_cnv) %in% tcga_columns_to_keep]
+  tcga_rna<-tcga_rna[tcga_rna$Hugo_Symbol %in% tcga_rows_to_keep,colnames(tcga_rna) %in% tcga_columns_to_keep]
+
+#filter to shared genes across tcga and metabric
+rows_to_keep<-row.names(chromvar_dat)
+rows_to_keep<-rows_to_keep[rows_to_keep %in% tcga_rna$Hugo_Symbol]
+rows_to_keep<-rows_to_keep[rows_to_keep %in% metabric_rna$Hugo_Symbol]
+
+
+
+  tcga_cnv<-tcga_cnv[tcga_cnv$Hugo_Symbol %in% rows_to_keep,]
+  tcga_rna<-tcga_rna[tcga_rna$Hugo_Symbol %in% rows_to_keep,]
+  row.names(tcga_cnv)<-tcga_cnv$Hugo_Symbol; tcga_cnv<-tcga_cnv[,2:ncol(tcga_cnv)]
+  row.names(tcga_rna)<-tcga_rna$Hugo_Symbol; tcga_rna<-tcga_rna[,2:ncol(tcga_rna)]
+
+  metabric_cnv<-metabric_cnv[metabric_cnv$Hugo_Symbol %in% rows_to_keep,]
+  metabric_rna<-metabric_rna[metabric_rna$Hugo_Symbol %in% rows_to_keep,]
+  row.names(metabric_cnv)<-metabric_cnv$Hugo_Symbol; metabric_cnv<-metabric_cnv[,2:ncol(metabric_cnv)]
+  row.names(metabric_rna)<-metabric_rna$Hugo_Symbol; metabric_rna<-metabric_rna[,2:ncol(metabric_rna)]
+  
+
+#note that for bulk public data CN is reported by gene level already
+#also note CN is reported with 0 being diploid, which is a different center than our single cell data
+#also also note RNA data is much different in bulk
+
+cn_cor_tcga<-lapply(rows_to_keep,function(gene){
+  if(gene %in% rna_ref$gene_name){
+  cn_bin<-rna_ref %>% as.data.frame() %>% filter(gene_name==gene) %>% select(cn_bin) %>% unlist()
+  cn_tmp<-unlist(tcga_cnv[gene,])
+  cn_var<-var(cn_tmp,na.rm=T)
+
+  rna_tmp<-unlist(tcga_rna[gene,colnames(tcga_rna) %in% names(cn_tmp)])
+  rna_var<-var(rna_tmp,na.rm=T)
+
+  cn_rna_cor<-cor.test(cn_tmp,rna_tmp,use="pairwise.complete",method="spearman")
+
+  return(setNames(c(gene,cn_bin,cn_var,rna_var,cn_rna_cor$p.value,cn_rna_cor$estimate),
+      nm=c("gene","cn_bin","cn_var","rna_var","cn_rna_cor_pval","cn_rna_cor_rho")))
+}})
+cn_cor_tcga<-as.data.frame(do.call("rbind",cn_cor_tcga))
+colnames(cn_cor_tcga)<-paste0("tcga_",colnames(cn_cor_tcga))
+
+
+cn_cor_metabric<-lapply(rows_to_keep,function(gene){
+  if(gene %in% rna_ref$gene_name){
+  cn_bin<-rna_ref %>% as.data.frame() %>% filter(gene_name==gene) %>% select(cn_bin) %>% unlist()
+  cn_tmp<-unlist(metabric_cnv[gene,])
+  cn_var<-var(cn_tmp,na.rm=T)
+
+  rna_tmp<-log10(unlist(metabric_rna[gene,]))
+  rna_var<-var(rna_tmp,na.rm=T)
+
+  cn_rna_cor<-cor.test(cn_tmp,rna_tmp,use="pairwise.complete",method="spearman")
+
+  return(setNames(
+      c(gene, cn_bin, cn_var, rna_var, cn_rna_cor$p.value, cn_rna_cor$estimate),
+      nm=c("gene","cn_bin","cn_var","rna_var","cn_rna_cor_pval","cn_rna_cor_rho")))
+}})
+
+cn_cor_metabric<-as.data.frame(do.call("rbind",cn_cor_metabric))
+colnames(cn_cor_metabric)<-paste0("metabric_",colnames(cn_cor_metabric))
+
+bulk_dat<-merge(cn_cor_tcga,cn_cor_metabric,by.x="tcga_gene",by.y="metabric_gene")
+bulk_dat<-bulk_dat[complete.cases(bulk_dat),] %>% mutate(across(c(metabric_cn_rna_cor_pval, tcga_cn_rna_cor_pval,
+                                                            metabric_cn_rna_cor_rho, tcga_cn_rna_cor_rho,
+                                                            metabric_cn_var,metabric_rna_var,
+                                                            tcga_cn_var,tcga_rna_var), as.numeric))
+
+#labelling same genes as single cell data
+bulk_dat$label<-NA
+bulk_dat$label<-ifelse(bulk_dat$tcga_gene %in% label_genes, bulk_dat$tcga_gene, NA) 
+
+#save into empty slot of previous plot
+plt4<-ggplot(dat=bulk_dat,aes(x=metabric_cn_rna_cor_rho,y=tcga_cn_rna_cor_rho,label=label))+geom_point()+theme_minimal()+geom_text_repel()
+ggsave(plt1+plt4+plt2+plt3+plot_layout(ncol=2,guide="collect"),file="test.pdf",width=30,height=30)
+
+```
+
+Additional plots of specific genes
+
+```R
+gene_list=c("GATA3", "GRHL1", "FOXA1", "SNAI2", "ZEB1","FOXO3","MEF2A","LMX1B","ESR1","SOX10","HNF4A","SREBF2")
+
+meta_dat<-dat_sub@meta.data
+meta_dat<-setNames(nm=row.names(dat_sub@meta.data),paste(dat_sub@meta.data$Diagnosis,dat_sub@meta.data$Mol_Diagnosis))
+
+plt_list<-lapply(gene_list, function(gene) {
+gene_rna<-rna_dat[gene,]
+gene_motif<-chromvar_dat[gene,]
+gene_cn<-cn[rna_ref[rna_ref$gene_name==gene,]$cn_bin,]
+gene_dat<-data.frame(rna=gene_rna,motif=gene_motif[names(gene_rna)],cn=gene_cn[names(gene_rna)],meta=meta_dat[names(gene_rna)])
+
+plt1<-ggplot(gene_dat,aes(x=paste(factor(cn),meta),y=rna,color=meta))+geom_jitter(alpha=0.2,size=0.2)+geom_violin(fill=NA)+geom_boxplot(fill=NA,outlier.shape = NA)+ggtitle(paste(gene,"RNA"))+facet_grid(.~cn,scales="free_x",space = "free_x")
+plt2<-ggplot(gene_dat,aes(x=paste(factor(cn),meta),y=motif,color=meta))+geom_jitter(alpha=0.2,size=0.2)+geom_violin(fill=NA)+geom_boxplot(fill=NA,outlier.shape = NA)+ggtitle(paste(gene,"motif"))+facet_grid(.~cn,scales="free_x",space = "free_x")
+return(plt1+plt2)
+})
+
+ggsave(wrap_plots(plt_list,ncol=1,guide="collect")*theme_minimal(),file="test2.pdf",height=length(gene_list)*3,width=30)
+
+
+```
+
+
 
 #run cistopic on cells with cnv clone assignment
 cistopic_outdir=paste0(getwd(),"/cistopic_clones")
