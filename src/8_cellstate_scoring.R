@@ -15,6 +15,7 @@ library(ggdendro)
 library(circlize)
 library(ggtern)
 set.seed(1234)
+setwd("/home/groups/MohammedLab/bc_multiome/seurat_object")
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="6_merged.celltyping.SeuratObject.rds", 
@@ -25,10 +26,12 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 dat=readRDS(opt$object_input)
 
-outdir="~/supp_fig"
+outdir="/home/groups/MohammedLab/bc_multiome/suppfig2"
+
 if (!dir.exists(outdir)) {
   dir.create(outdir)
 }
+
 dat_epi<-subset(dat,assigned_celltype %in% c("cancer","basal_myoepithelial","luminal_asp","luminal_hs"))
 dat_epi[["RNA"]]<-JoinLayers(dat_epi[["RNA"]])
 dat_epi<-SCTransform(dat_epi)
@@ -102,4 +105,34 @@ dat<-AddMetaData(dat,scsubtype_scores)
 #  name = paste0("SC_Subtype_",c("Basal_SC","Her2E_SC","LumA_SC","LumB_SC")),
 #  search = TRUE)
 
+#i think this assignment is pretty in line with the regner paper
+cc.genes.updated.2019$s.genes %in% unlist(module_feats)
+cc.genes.updated.2019$g2m.genes %in% unlist(module_feats)
+#neither cell cycle scoring gene sets are listed in module genes
+#which is what we want so the metrics arent conflated
+
+
+#Add cell cycle scoring
+DefaultAssay(dat)<-"SCT"
+dat<-CellCycleScoring(dat,
+  s.features=cc.genes.updated.2019$s.genes,
+  g2m.features=cc.genes.updated.2019$g2m.genes)
+
+#wu et al.
+#Add "D score" for differentiation, expecting basal-like to be less differentiated
+#Expression of selected genes associated with luminal differentiation (KRT8, KRT5, KRT14, KRT19, ESR1, ERBB2)
+d_score_genelist<-c("KRT8", "KRT5", "KRT14", "KRT19", "ESR1", "ERBB2") 
+d_score_genelist %in% Features(dat_epi@assays$SCT)
+d_scores<-base::colMeans(as.data.frame(rna_dat[row.names(rna_dat) %in% d_score_genelist,]),na.rm=TRUE)
+
+#Add EMT score for EMT
+#EMT (CDH1, CLDN3, CLDN4, CLDN7, VIM, TWIST1, SNAI1, SNAI2, ZEB1, ZEB2) 
+emt_score_genelist<-c("CDH1", "CLDN3", "CLDN4", "CLDN7", "VIM", "TWIST1", "SNAI1", "SNAI2", "ZEB1", "ZEB2") 
+emt_score_genelist %in% Features(dat_epi@assays$RNA)
+emt_scores<-base::colMeans(as.data.frame(rna_dat[row.names(rna_dat) %in% emt_score_genelist,]),na.rm=TRUE)
+
+dat<-AddMetaData(dat,d_scores,col.name="Wu_DScores")
+dat<-AddMetaData(dat,emt_scores,col.name="Wu_EMTScores")
+
 saveRDS(dat,file="7_merged.scsubtype.SeuratObject.rds")
+

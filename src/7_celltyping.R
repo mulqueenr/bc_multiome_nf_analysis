@@ -157,7 +157,8 @@ paste0(getwd(),"/7_celltyping/","seuratclusters_celltypes.dimplot.pdf")
 
 #hard coded because of seed setting
 dat$assigned_celltype<-"cancer"
-dat@meta.data[dat$seurat_clusters %in% c("39","12","18","21"),]$assigned_celltype<-"luminal_hs"
+
+dat@meta.data[dat$seurat_clusters %in% c("39","12","18","21","30"),]$assigned_celltype<-"luminal_hs"
 dat@meta.data[dat$seurat_clusters %in% c("22","20"),]$assigned_celltype<-"luminal_asp"
 dat@meta.data[dat$seurat_clusters %in% c("29","16","28"),]$assigned_celltype<-"basal_myoepithelial"
 
@@ -175,3 +176,18 @@ dat$seurat_clusters_cellassignment<-dat$seurat_clusters
 dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
 
 saveRDS(dat,file="6_merged.celltyping.SeuratObject.rds")
+
+
+
+####################################################
+#           Supp Fig 1 Feature Plot                  #
+###################################################
+
+Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
+"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
+"myeloid","bcell","plasma","tcell"))
+plt<-DotPlot(subset(dat,cells=names(Idents(dat))),features=features,cluster.idents=FALSE,dot.scale=8)+
+  scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))+
+  theme(axis.text.x = element_text(angle=90))
+
+ggsave(plt,file=paste0("/home/groups/MohammedLab/bc_multiome/suppfig1/suppfig1_assigned_celltypes.features.pdf"),height=10,width=40,limitsize=F)

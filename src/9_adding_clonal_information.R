@@ -1,9 +1,3 @@
-sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_nmf.sif"
-singularity shell \
---bind /home/groups/CEDAR/mulqueen/bc_multiome \
---bind /home/groups/CEDAR/scATACcnv/Hisham_data \
-$sif
-cd /home/groups/CEDAR/mulqueen/bc_multiome/nf_analysis_round4/seurat_objects
 
 library(Seurat)
 library(Signac)
@@ -26,12 +20,11 @@ library(rGREAT)
 library(msigdbr,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
 library(fgsea,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
 library(presto,lib.loc = "/home/users/mulqueen/R/x86_64-conda-linux-gnu-library/4.3/") #local
+setwd("/home/groups/MohammedLab/bc_multiome/seurat_object")
 
 option_list = list(
   make_option(c("-i", "--object_input"), type="character", default="7_merged.scsubtype.SeuratObject.rds", 
-              help="Sample input seurat object", metavar="character"),
-  make_option(c("-r", "--ref_object"), type="character", default="/home/groups/CEDAR/mulqueen/bc_multiome/ref/nakshatri/nakshatri_multiome.geneactivity.rds", 
-              help="Nakshatri reference object for epithelial comparisons", metavar="character")
+              help="Sample input seurat object", metavar="character")
 );
 
 opt_parser = OptionParser(option_list=option_list);

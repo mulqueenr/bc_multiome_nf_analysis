@@ -1,5 +1,4 @@
-#sif="/home/groups/CEDAR/mulqueen/bc_multiome/multiome_bc.sif"
-#singularity shell --bind /home/groups/CEDAR/mulqueen/bc_multiome $sif
+
 
 library(Signac)
 library(Seurat)
@@ -27,27 +26,9 @@ option_list = list(
  
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
-dat<-readRDS(file=opt$object_input)
-
-if (!dir.exists("~/fig1")) {
-  dir.create("~/fig1")
-}
-
-dat<-readRDS(file="6_merged.celltyping.SeuratObject.rds")
-
-
-####################################################
-#           Fig 1 Feature Plot                  #
-###################################################
-
-Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
-"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
-"myeloid","bcell","plasma","tcell"))
-plt<-DotPlot(subset(dat,cells=names(Idents(dat))),features=features,cluster.idents=FALSE,dot.scale=8)+
-  scale_color_gradient2(low="#313695",mid="#ffffbf",high="#a50026",limits=c(-1,3))+
-  theme(axis.text.x = element_text(angle=90))
-
-ggsave(plt,file=paste0("~/fig1/","fig1_assigned_celltypes.features.pdf"),height=10,width=40,limitsize=F)
+dat <- readRDS(file=opt$object_input)
+dir.create("/home/groups/MohammedLab/bc_multiome/fig1")
+dir.create("/home/groups/MohammedLab/bc_multiome/seurat_object")
 
 
 ####################################################
@@ -68,36 +49,139 @@ celltype_col=c("cancer"="#c93c96",
 "plasma"="#8fd1bf",
 "tcell"="#0e5169")
 
-Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
-"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
-"myeloid","bcell","plasma","tcell"))
-
 hist_col=c("NAT"="#c2d9ea",
 "DCIS"="#cccccb",
 "ILC"="#f99c1c",
 "IDC"="#c79ec9")
 
 clin_col=c("IDC ER+/PR-/HER2+"="#f37872", 
-"DCIS"="#cccccb", 
+"DCIS DCIS"="#cccccb", 
 "IDC ER+/PR-/HER2-"="#7fd0df", 
 "IDC ER+/PR+/HER2-"="#8d86c0", 
 "ILC ER+/PR-/HER2-"="#b9db98", 
 "ILC ER+/PR+/HER2-"="#f6bea1", 
 "NAT NA"="#c2d9ea")
 
-assay_col=c("0"="white","1"="black")
+#both dcis and bloom-richardson grading
+grade_col=c("3"="#540b0e","2"="#9e2a2b","1"="#e09f3e","Intermediate"="#89a59e","High"="#52796f","NA"="#cccccb")
+
+ethnicity_col=c('NOT HISPANIC OR LATINO'="blue", "HISPANIC OR LATINO"="green","UNKNOWN"="#cccccb")
+race_col=c('ASIAN'="#c98ea6", "BLACK"="#7a3394","WHITE"="#c3a5cf")
+
+assay_col=c("0"="white","1"="black","Negative"="white","Positive"="black","NA"="#cccccb")
+
+
+Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
+"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
+"myeloid","bcell","plasma","tcell"))
+
 
 ####################################################
-#           Fig 1 UMAP                            #
+#           Fig 1 Sample Heatmap                  #
+###################################################
+#updating metadata with finalized clinical notes 260924
+
+age=c('DCIS_01'=31, 'DCIS_02'=49, 'DCIS_03'=61, 'IDC_01'=75, 'IDC_02'=51, 'IDC_03'=74, 'IDC_04'=67, 'IDC_05'=34, 'IDC_06'=76, 'IDC_07'=44, 'IDC_08'=63, 'IDC_09'=63, 'IDC_10'=68, 'IDC_11'=37, 'IDC_12'=67, 'IDC_13'=68, 'IDC_14'=40, 'IDC_15'=43, 'IDC_16'=75, 'ILC_01'=57, 'ILC_02'=64, 'ILC_03'=71, 'ILC_04'=65, 'ILC_05'=83, 'NAT_04'=67, 'NAT_11'=37, 'NAT_14'=50)
+ethnicity=c('DCIS_01'='NOT HISPANIC OR LATINO', 'DCIS_02'='NOT HISPANIC OR LATINO', 'DCIS_03'='NOT HISPANIC OR LATINO', 'IDC_01'='NOT HISPANIC OR LATINO', 'IDC_02'='NOT HISPANIC OR LATINO', 'IDC_03'='UNKNOWN', 'IDC_04'='NOT HISPANIC OR LATINO', 'IDC_05'='NOT HISPANIC OR LATINO', 'IDC_06'='NOT HISPANIC OR LATINO', 'IDC_07'='NOT HISPANIC OR LATINO', 'IDC_08'='NOT HISPANIC OR LATINO', 'IDC_09'='NOT HISPANIC OR LATINO', 'IDC_10'='NOT HISPANIC OR LATINO', 'IDC_11'='NOT HISPANIC OR LATINO', 'IDC_12'='NOT HISPANIC OR LATINO', 'IDC_13'='NOT HISPANIC OR LATINO', 'IDC_14'='NOT HISPANIC OR LATINO', 'IDC_15'='NOT HISPANIC OR LATINO', 'IDC_16'='NOT HISPANIC OR LATINO', 'ILC_01'='NOT HISPANIC OR LATINO', 'ILC_02'='NOT HISPANIC OR LATINO', 'ILC_03'='HISPANIC OR LATINO', 'ILC_04'='NOT HISPANIC OR LATINO', 'ILC_05'='NOT HISPANIC OR LATINO', 'NAT_04'='NOT HISPANIC OR LATINO', 'NAT_11'='NOT HISPANIC OR LATINO', 'NAT_14'='NOT HISPANIC OR LATINO')
+race=c('DCIS_01'='ASIAN', 'DCIS_02'='WHITE', 'DCIS_03'='WHITE', 'IDC_01'='WHITE', 'IDC_02'='WHITE', 'IDC_03'='WHITE', 'IDC_04'='WHITE', 'IDC_05'='WHITE', 'IDC_06'='WHITE', 'IDC_07'='WHITE', 'IDC_08'='WHITE', 'IDC_09'='WHITE', 'IDC_10'='WHITE', 'IDC_11'='WHITE', 'IDC_12'='WHITE', 'IDC_13'='WHITE', 'IDC_14'='BLACK', 'IDC_15'='WHITE', 'IDC_16'='WHITE', 'ILC_01'='WHITE', 'ILC_02'='WHITE', 'ILC_03'='WHITE', 'ILC_04'='WHITE', 'ILC_05'='WHITE', 'NAT_04'='WHITE', 'NAT_11'='WHITE', 'NAT_14'='WHITE')
+clinical_diagnosis=c( 'DCIS_01'='DCIS', 'DCIS_02'='DCIS', 'DCIS_03'='DCIS', 'IDC_01'='IDC', 'IDC_02'='IDC', 'IDC_03'='IDC', 'IDC_04'='IDC', 'IDC_05'='IDC', 'IDC_06'='IDC', 'IDC_07'='IDC', 'IDC_08'='IDC', 'IDC_09'='IDC', 'IDC_10'='IDC', 'IDC_11'='IDC', 'IDC_12'='IDC', 'IDC_13'='IDC', 'IDC_14'='IDC', 'IDC_15'='IDC', 'IDC_16'='IDC', 'ILC_01'='ILC', 'ILC_02'='ILC', 'ILC_03'='ILC', 'ILC_04'='ILC', 'ILC_05'='ILC', 'NAT_04'='NAT', 'NAT_11'='NAT', 'NAT_14'='NAT' )
+er_status=c('DCIS_01'='NA', 'DCIS_02'='NA', 'DCIS_03'='NA', 'IDC_01'='Positive', 'IDC_02'='Positive', 'IDC_03'='Positive', 'IDC_04'='Positive', 'IDC_05'='Positive', 'IDC_06'='Positive', 'IDC_07'='Positive', 'IDC_08'='Positive', 'IDC_09'='Positive', 'IDC_10'='Positive', 'IDC_11'='Positive', 'IDC_12'='Positive', 'IDC_13'='Positive', 'IDC_14'='Positive', 'IDC_15'='Positive', 'IDC_16'='Positive', 'ILC_01'='Positive', 'ILC_02'='Positive', 'ILC_03'='Positive', 'ILC_04'='Positive', 'ILC_05'='Positive', 'NAT_04'='NA', 'NAT_11'='NA', 'NAT_14'='NA')
+pr_status=c('DCIS_01'='NA', 'DCIS_02'='NA', 'DCIS_03'='NA', 'IDC_01'='Negative', 'IDC_02'='Negative', 'IDC_03'='Negative', 'IDC_04'='NA', 'IDC_05'='Negative', 'IDC_06'='Positive', 'IDC_07'='Positive', 'IDC_08'='Positive', 'IDC_09'='Positive', 'IDC_10'='Positive', 'IDC_11'='Positive', 'IDC_12'='NA', 'IDC_13'='Positive', 'IDC_14'='Negative', 'IDC_15'='Positive', 'IDC_16'='Negative', 'ILC_01'='Positive', 'ILC_02'='Positive', 'ILC_03'='Positive', 'ILC_04'='Negative', 'ILC_05'='Positive', 'NAT_04'='NA', 'NAT_11'='NA', 'NAT_14'='NA')
+her2_status=c('DCIS_01'='NA', 'DCIS_02'='NA', 'DCIS_03'='NA', 'IDC_01'='Negative', 'IDC_02'='Negative', 'IDC_03'='Negative', 'IDC_04'='Negative', 'IDC_05'='Positive', 'IDC_06'='Negative', 'IDC_07'='Negative', 'IDC_08'='Negative', 'IDC_09'='Negative', 'IDC_10'='Negative', 'IDC_11'='Negative', 'IDC_12'='Negative', 'IDC_13'='Negative', 'IDC_14'='Negative', 'IDC_15'='Negative', 'IDC_16'='Negative', 'ILC_01'='Negative', 'ILC_02'='Negative', 'ILC_03'='Negative', 'ILC_04'='Negative', 'ILC_05'='Negative', 'NAT_04'='NA', 'NAT_11'='NA', 'NAT_14'='NA')
+grade=c('DCIS_01'='High', 'DCIS_02'='Intermediate', 'DCIS_03'='NA', 'IDC_01'='3', 'IDC_02'='3', 'IDC_03'='2', 'IDC_04'='2', 'IDC_05'='3', 'IDC_06'='3', 'IDC_07'='1', 'IDC_08'='2', 'IDC_09'='2', 'IDC_10'='2', 'IDC_11'='2', 'IDC_12'='2', 'IDC_13'='2', 'IDC_14'='2', 'IDC_15'='1', 'IDC_16'='3', 'ILC_01'='2', 'ILC_02'='2', 'ILC_03'='2', 'ILC_04'='2', 'ILC_05'='2', 'NAT_04'='NA', 'NAT_11'='NA', 'NAT_14'='NA')
+multiome=c('DCIS_01'='1', 'DCIS_02'='1', 'DCIS_03'='1', 'IDC_01'='1', 'IDC_02'='1', 'IDC_03'='1', 'IDC_04'='1', 'IDC_05'='1', 'IDC_06'='1', 'IDC_07'='1', 'IDC_08'='1', 'IDC_09'='1', 'IDC_10'='1', 'IDC_11'='1', 'IDC_12'='1', 'IDC_13'='1', 'IDC_14'='1', 'IDC_15'='1', 'IDC_16'='1', 'ILC_01'='1', 'ILC_02'='1', 'ILC_03'='1', 'ILC_04'='1', 'ILC_05'='1', 'NAT_04'='1', 'NAT_11'='1', 'NAT_14'='1')
+plot_order=c('DCIS_01'=1, 'DCIS_02'=2, 'DCIS_03'=3, 'IDC_01'=4, 'IDC_02'=5, 'IDC_03'=6, 'IDC_04'=7, 'IDC_05'=8, 'IDC_06'=9, 'IDC_07'=10, 'IDC_08'=11, 'IDC_09'=12, 'IDC_10'=13, 'IDC_11'=14, 'IDC_12'=15, 'IDC_13'=16, 'IDC_14'=17, 'IDC_15'=18, 'IDC_16'=19, 'ILC_01'=20, 'ILC_02'=21, 'ILC_03'=22, 'ILC_04'=23, 'ILC_05'=24, 'NAT_04'=25, 'NAT_11'=26, 'NAT_14'=27)
+paired_bulk_wgs=c('DCIS_01','DCIS_02', 'DCIS_03', 'IDC_01', 'IDC_02', 'IDC_03', 'IDC_04', 'IDC_06', 'IDC_07', 'IDC_08', 'IDC_09', 'IDC_10', 'IDC_11',  'IDC_13', 'IDC_14', 'IDC_15', 'IDC_16', 'ILC_02', 'ILC_03', 'ILC_04', 'ILC_05', 'NAT_11', 'NAT_14')
+bulk_wgs<-setNames(nm=names(plot_order),rep("0",length(names(plot_order))))
+bulk_wgs[paired_bulk_wgs]<-"1"
+
+
+dat@meta.data$age<-age[dat@meta.data$sample]
+dat@meta.data$ethnicity<-ethnicity[dat@meta.data$sample]
+dat@meta.data$race<-race[dat@meta.data$sample]
+dat@meta.data$clinical_diagnosis<-clinical_diagnosis[dat@meta.data$sample]
+dat@meta.data$er_status<-er_status[dat@meta.data$sample]
+dat@meta.data$pr_status<-pr_status[dat@meta.data$sample]
+dat@meta.data$her2_status<-her2_status[dat@meta.data$sample]
+dat@meta.data$grade<-grade[dat@meta.data$sample]
+dat@meta.data$plot_order<-plot_order[dat@meta.data$sample]
+
+
+met<-dat@meta.data
+met<-met[!duplicated(met$sample),]
+row.names(met)<-met$sample
+met$age<-as.numeric(age[met$sample])
+met$multiome<-as.numeric(multiome[met$sample])
+met$bulk_wgs<-as.numeric(bulk_wgs[met$sample])
+met$plot_order<-as.numeric(plot_order[met$sample])
+
+sample_heatmap<-met[c("plot_order","Manuscript_Name",
+                    "age","Diagnosis",
+                    "Mol_Diagnosis",
+                    "ethnicity",
+                    "race",
+                    "clinical_diagnosis",
+                    "er_status",
+                    "pr_status",
+                    "her2_status",
+                    "grade",
+                    "multiome",
+                    "bulk_wgs")]
+row.names(sample_heatmap)<-sample_heatmap$Manuscript_Name
+sample_heatmap$Diag_MolDiag<-paste(sample_heatmap$Diagnosis,sample_heatmap$Mol_Diagnosis)
+sample_heatmap<-sample_heatmap[order(sample_heatmap$plot_order),]
+age_col=colorRamp2(breaks=c(min(sample_heatmap$age,na.rm=T),max(sample_heatmap$age,na.rm=T)),c("#f0f0f0","#252525"))
+
+#plot metadata
+sample_heatmap<-met[c("Manuscript_Name","Diagnosis","Mol_Diagnosis",
+                      "age","ethnicity","race","clinical_diagnosis",
+                      "er_status","pr_status","her2_status",
+                      "grade","multiome","bulk_wgs","plot_order")]
+
+sample_heatmap<-sample_heatmap[order(sample_heatmap$plot_order),]
+ha = rowAnnotation(age=sample_heatmap$age,
+                  ethnicity=sample_heatmap$ethnicity,
+                  race=sample_heatmap$race,
+                  clinical_diagnosis_updated=sample_heatmap$clinical_diagnosis,
+                  er_status=sample_heatmap$er_status,
+                  pr_status=sample_heatmap$pr_status,
+                  her2_status=sample_heatmap$her2_status,
+                  grade_status=sample_heatmap$grade,
+                  col = list(age=age_col,
+                                  ethnicity=ethnicity_col,
+                                  race=race_col,
+                                  clinical_diagnosis_updated=hist_col,
+                                  grade_status=grade_col,
+                                  er_status=assay_col,
+                                  pr_status=assay_col,
+                                  her2_status=assay_col,
+                                  histological_type =hist_col,
+                                  molecular_type=clin_col))
+
+plt<-Heatmap(sample_heatmap[c("multiome","bulk_wgs")],
+ cluster_columns=F,cluster_rows=F,
+ left_annotation=ha,
+ col=assay_col)
+
+pdf(file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_sample_metadata.heatmap.pdf")
+print(plt)
+dev.off()
+
+
+####################################################
+#           Fig 1 All Cell UMAPS                   #
 ###################################################
 
 p1<-DimPlot(dat,group.by="seurat_clusters",reduction = "allcells.wnn.umap")
-p2<-DimPlot(dat,cols=celltype_col,group.by="assigned_celltype",reduction = "allcells.wnn.umap",col=celltype_col)
-p3<-DimPlot(dat,cols=hist_col,group.by="Diagnosis",reduction = "allcells.wnn.umap")
-p4<-DimPlot(dat,cols=clin_col,group.by="Diag_MolDiag",reduction = "allcells.wnn.umap")
-p5<-DimPlot(dat,group.by="sample",reduction = "allcells.wnn.umap")
-
-ggsave(p1/p2/p3/p4/p5,file=paste0("~/fig1/","FIG1_umap_assigned_celltype.pdf"),width=10,height=50,limitsize=F)
+ggsave(p1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_umap_assigned_celltype.seurat_clusters.pdf",width=10,height=10,limitsize=F)
+p1<-DimPlot(dat,cols=celltype_col,group.by="assigned_celltype",reduction = "allcells.wnn.umap",col=celltype_col)
+ggsave(p1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_umap_assigned_celltype.celltype.pdf",width=10,height=10,limitsize=F)
+p1<-DimPlot(dat,cols=hist_col,group.by="Diagnosis",reduction = "allcells.wnn.umap")
+ggsave(p1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_umap_assigned_celltype.diagnosis.pdf",width=10,height=10,limitsize=F)
+p1<-DimPlot(dat,cols=clin_col,group.by="Diag_MolDiag",reduction = "allcells.wnn.umap")
+ggsave(p1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_umap_assigned_celltype.diag_moldiag.pdf",width=10,height=10,limitsize=F)
+p1<-DimPlot(dat,group.by="sample",reduction = "allcells.wnn.umap")
+ggsave(p1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_umap_assigned_celltype.sample.pdf",width=10,height=10,limitsize=F)
 
 
 # #~~~~~~~rerun umap by cancer and noncancer split~~~~~~~ 260120 #
@@ -122,64 +206,6 @@ ggsave(p1/p2/p3/p4/p5,file=paste0("~/fig1/","FIG1_umap_assigned_celltype.pdf"),w
 # ggsave(p1/p2/p3/p4/p5,file="FIG1_umap_assigned_celltype.cancer.pdf",width=10,height=50,limitsize=F)
 
 ####################################################
-#           Fig 1 Sample Heatmap                  #
-###################################################
-
-#~~~~~~~corrected by removing age mass and reordering for paired samples~~~~~~~ 260120 #
-met<-dat@meta.data
-met<-met[!duplicated(met$sample),]
-
-table(met$sample,met$assigned_celltype)
-age=c('DCIS_01'='31', 'DCIS_02'='49', 'DCIS_03'='61', 'IDC_01'='75', 'IDC_10'='68', 'IDC_11'='37', 'IDC_12'='67', 'IDC_02'='51', 'IDC_03'='74', 'IDC_04'='67', 'IDC_05'='34', 'IDC_06'='76', 'IDC_07'='44', 'IDC_08'='63', 'IDC_09'='63', 'ILC_01'='57', 'ILC_02'='64','NAT_11'='37', 'NAT_14'='50', 'NAT_04'='67', 'IDC_13'='68', 'IDC_14'='40', 'IDC_15'='43', 'IDC_16'='75', 'ILC_03'='71', 'ILC_04'='65', 'ILC_05'='83')
-#mass=c('DCIS_01'='0.24', 'DCIS_02'='0.45', 'DCIS_03'='0.19', 'IDC_01'='0.9', 'IDC_02'='0.7', 'IDC_03'='0.27', 'IDC_04'='0.18', 'IDC_05'='0.27', 'IDC_06'='0.16', 'IDC_07'='0.19', 'IDC_08'='0.18', 'IDC_09'='0.21', 'IDC_10'='0.93', 'IDC_11'='0.08', 'IDC_12'='0.11', 'IDC_13'='0.98', 'IDC_14'='0.89', 'IDC_15'='1.38', 'IDC_16'='1.06', 'ILC_01'='0.23', 'ILC_02'='1.76', 'ILC_03'='1.08', 'ILC_04'='0.92', 'ILC_05'='0.77', 'NAT_04'='0.39', 'NAT_11'='0.31', 'NAT_14'='0.67')
-multiome=c('DCIS_01'='1', 'DCIS_02'='1', 'DCIS_03'='1', 'IDC_01'='1', 'IDC_02'='1', 'IDC_03'='1', 'IDC_04'='1', 'IDC_05'='1', 'IDC_06'='1', 'IDC_07'='1', 'IDC_08'='1', 'IDC_09'='1', 'IDC_10'='1', 'IDC_11'='1', 'IDC_12'='1', 'IDC_13'='1', 'IDC_14'='1', 'IDC_15'='1', 'IDC_16'='1', 'ILC_01'='1', 'ILC_02'='1', 'ILC_03'='1', 'ILC_04'='1', 'ILC_05'='1', 'NAT_04'='1', 'NAT_11'='1', 'NAT_14'='1')
-plot_order=c('DCIS_01'=1,'DCIS_02'=2,'DCIS_03'=3,'IDC_02'=4,'IDC_14'=5,'IDC_01'=6,'IDC_16'=7,'IDC_03'=8,'IDC_04'=9,'IDC_12'=10,'NAT_04'=11,'IDC_05'=12,'IDC_10'=13,'IDC_13'=14,'IDC_11'=15,'NAT_11'=16,'IDC_15'=17,'IDC_08'=18,'IDC_09'=19,'IDC_06'=20,'IDC_07'=21,'ILC_04'=22,'ILC_02'=23,'ILC_03'=24,'ILC_01'=25,'ILC_05'=26,'NAT_14'=27)
-
-paired_bulk_wgs=c('DCIS_01','DCIS_02', 'DCIS_03', 'IDC_01', 'IDC_02', 'IDC_03', 'IDC_04', 'IDC_06', 'IDC_07', 'IDC_08', 'IDC_09', 'IDC_10', 'IDC_11',  'IDC_13', 'IDC_14', 'IDC_15', 'IDC_16', 'ILC_02', 'ILC_03', 'ILC_04', 'ILC_05', 'NAT_11', 'NAT_14')
-bulk_wgs<-setNames(nm=names(plot_order),rep("0",length(names(plot_order))))
-bulk_wgs[paired_bulk_wgs]<-"1"
-
-#paired_spatial_atac=c('IDC_01','IDC_16', 'IDC_02', 'ILC_04' ,'IDC_06' ,'IDC_07' ,'IDC_08' ,'IDC_09', 'ILC_02', 'ILC_05')
-#spatial_atac<-setNames(nm=names(plot_order),rep("0",length(names(plot_order))))
-#spatial_atac[paired_spatial_atac]<-"1"
-#cosmx=c('DCIS_01'='0', 'DCIS_02'='0', 'DCIS_03'='0', 'IDC_01'='1', 'IDC_02'='0', 'IDC_03'='0', 'IDC_04'='0', 'IDC_05'='0', 'IDC_06'='0', 'IDC_07'='0', 'IDC_08'='0', 'IDC_09'='0', 'IDC_10'='0', 'IDC_11'='0', 'IDC_12'='0', 'IDC_13'='0', 'IDC_14'='0', 'IDC_15'='0', 'IDC_16'='0', 'ILC_01'='0', 'ILC_02'='1', 'ILC_03'='0', 'ILC_04'='0', 'ILC_05'='0', 'NAT_04'='0', 'NAT_11'='0', 'NAT_14'='0')
-#met$age<-as.numeric(age[met$sample])
-#met$mass<-as.numeric(mass[met$sample])
-met$multiome<-as.numeric(multiome[met$sample])
-met$bulk_wgs<-as.numeric(bulk_wgs[met$sample])
-#met$spatial_atac<-as.numeric(spatial_atac[met$sample])
-#met$cosmx<-as.numeric(cosmx[met$sample])
-met$plot_order<-as.numeric(plot_order[met$sample])
-
-sample_heatmap<-met[c("Manuscript_Name","Diagnosis","Mol_Diagnosis","plot_order","multiome","bulk_wgs")] #"age","mass","cosmx" #spatial_atac
-row.names(sample_heatmap)<-sample_heatmap$Manuscript_Name
-sample_heatmap$Diag_MolDiag<-paste(sample_heatmap$Diagnosis,sample_heatmap$Mol_Diagnosis)
-sample_heatmap<-sample_heatmap[order(sample_heatmap$plot_order),]
-sample_heatmap<-sample_heatmap[c("Diagnosis","Diag_MolDiag","multiome","bulk_wgs")]#"cosmx"#,"spatial_atac"
-#age_col=colorRamp2(breaks=c(min(sample_heatmap$age,na.rm=T),max(sample_heatmap$age,na.rm=T)),c("#d789d7","#2a3d66"))
-#mass_col=colorRamp2(breaks=c(min(sample_heatmap$mass,na.rm=T),max(sample_heatmap$mass,na.rm=T)),c("#f2fc9f","#b05977"))
-
-#plot metadata
-ha = rowAnnotation(#age=sample_heatmap$age,
-                      #mass=sample_heatmap$mass,
-                      histological_type=sample_heatmap$Diagnosis,
-                      molecular_type=sample_heatmap$Diag_MolDiag,
-                      sampled_site=sample_heatmap$sampled_site,
-                      col = list(#age=age_col,
-                                  #mass=mass_col,
-                                    histological_type =hist_col,
-                                    clinical_subtype=clin_col,
-                                    sampled_site=sampled_col))
-
-pdf(paste0("~/fig1/FIG1_sample_metadata.heatmap.pdf"))
-plt<-Heatmap(sample_heatmap[c("multiome","bulk_wgs")],#"spatial_atac",#"cosmx"
- cluster_columns=F,cluster_rows=F,
- left_annotation=ha,
- col=assay_col)
-print(plt)
-dev.off()
-
-####################################################
 #           Fig 1 Stacked Celltype ID             #
 ###################################################
 #Make stacked barplot on identities per cluster
@@ -187,307 +213,33 @@ DF<-as.data.frame(dat@meta.data %>% group_by(assigned_celltype,sample) %>% tally
 DF$assigned_celltype<-factor(DF$assigned_celltype,levels=names(celltype_col))
 DF$log_count<-log10(DF$n)
 plt1<-ggplot(DF,aes(x=sample,fill=assigned_celltype,y=log_count))+geom_bar(position="stack",stat="identity")+theme_minimal()+scale_fill_manual(values=celltype_col)
-ggsave(plt1,file="~/fig1/FIG1_allcells.assigned_celltype_barplots.pdf",width=50,limitsize=F)
+ggsave(plt1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_allcells.assigned_celltype_barplots.pdf",width=50,limitsize=F)
+
+#plot of cancer cells over total count (to make proportion)
+DF<-as.data.frame(dat@meta.data %>% group_by(sample) %>% tally())
+DF2<-as.data.frame(dat@meta.data %>% filter(assigned_celltype=="cancer") %>% group_by(sample) %>% tally())
+DF$log_count_all<-log10(DF$n)
+DF2$log_count_cancer<-log10(DF2$n)
+row.names(DF)<-DF$sample
+row.names(DF2)<-DF2$sample
+
+DF$log_count_cancer<-0
+DF[row.names(DF2),]$log_count_cancer<-DF2$log_count_cancer
+
+plt1<-ggplot(DF,aes(x=sample))+
+geom_col(aes(y=log_count_all),fill="#666666",stat="identity")+
+geom_col(aes(y=log_count_cancer),fill="#c93c96",stat="identity")+
+theme_minimal()
+
+ggsave(plt1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_allcells.assigned_cancer_barplots.pdf",width=50,limitsize=F)
+
 
 #plot cellcount (no epi distinction)
 DF<-as.data.frame(dat@meta.data %>% group_by(sample) %>% tally())
 DF$sample<-factor(DF$sample,levels=names(plot_order))
 DF$log_count<-log10(DF$n)
 plt1<-ggplot(DF)+geom_bar(aes(x=sample,y=log_count),stat="identity",position="dodge")+theme_minimal()
-ggsave(plt1,file="~/fig1/FIG1_allcells.cellcount_barplots.pdf",width=50,limitsize=F)
+ggsave(plt1,file="/home/groups/MohammedLab/bc_multiome/fig1/FIG1_allcells.cellcount_barplots.pdf",width=50,limitsize=F)
 
-saveRDS(dat,file="6_merged.celltyping.SeuratObject.rds")
-
-
-Idents(dat)<-factor(dat$assigned_celltype,levels=c("cancer","luminal_hs","luminal_asp","basal_myoepithelial",
-"adipocyte","endothelial_vascular","endothelial_lymphatic","pericyte","fibroblast",
-"myeloid","bcell","plasma","tcell"))
-
-dat[["RNA"]]<-JoinLayers(dat[["RNA"]])
-
-dat$Diag_MolDiag<-paste(dat$Diagnosis,dat$Mol_Diagnosis)
-DefaultAssay(dat)<-"ATAC"
-
-####################################################
-#           Fig 1 Heatmap                         #
-###################################################
-
-#Identify top markers
-Identify_Marker_TFs<-function(x,prefix,group_by,assay,pval_filt=1,assay_name,outdir){
-      if (assay != "chromvar") {
-        x[[assay]]<-as(object = x[[assay]], Class = "Assay")
-        }
-    markers <- presto:::wilcoxauc.Seurat(X = x, group_by = group_by, 
-      groups_use=unname(unlist(unique(x@meta.data[group_by]))),
-      y=unname(unlist(unique(x@meta.data[group_by]))), 
-      assay = 'data', seurat_assay = assay)
-    markers<-markers[markers$padj<=pval_filt,]
-    colnames(markers) <- paste(assay_name, colnames(markers),sep=".")
-    if (assay == "chromvar") {
-      motif.names <- markers[,paste0(assay_name,".feature")]
-      markers$gene <- ConvertMotifID(x, id = motif.names,assay="ATAC") #or ATAC as assay
-    } else {
-    markers$gene <- markers[,paste0(assay_name,".feature")]
-    }
-    saveRDS(markers,file=paste0(outdir,"/",prefix,".markers.",assay_name,".df.rds"))
-    return(markers) 
-}
-
-#Grab top overlapping TFs
-topTFs <- function(markers_list,group_by, padj.cutoff = 1e-2,rna=NA,ga=NA,motifs=NA) {
-  ctmarkers_rna <- dplyr::filter(rna, RNA.group == group_by) %>% 
-    arrange(-RNA.auc)
-    if(is.data.frame(motifs)) {
-    ctmarkers_motif <- dplyr::filter(motifs, chromvar.group == group_by) %>% 
-      arrange(-chromvar.auc)
-    }
-    if(is.data.frame(ga)) {
-    ctmarkers_ga<- dplyr::filter(ga, GeneActivity.group == group_by) %>% 
-      arrange(-GeneActivity.auc)
-    }
-
-    if(is.data.frame(motifs) && is.data.frame(ga)){    
-      top_tfs <- inner_join(
-        x = ctmarkers_rna[, c(2, 11, 6, 7)], 
-        y = ctmarkers_motif[, c(2, 1, 11, 6, 7)], by = "gene"
-      )
-      top_tfs <- inner_join(
-        x = top_tfs ,
-        y = ctmarkers_ga [,c(2, 11, 6, 7)], by = "gene"
-      )
-    }else if(is.data.frame(motifs)) {
-      top_tfs <- inner_join(
-        x = ctmarkers_rna[, c(2, 11, 6, 7)], 
-        y = ctmarkers_motif[, c(2, 1, 11, 6, 7)], by = "gene"
-      )
-    } else if (is.data.frame(ga)) {
-      top_tfs <- inner_join(
-        x = ctmarkers_rna[, c(2, 11, 6, 7)], 
-        y = ctmarkers_ga[,c(2, 11, 6, 7)], by = "gene"
-      )
-    } 
-  auc_colnames<-grep(".auc$",colnames(top_tfs))
-  top_tfs$avg_auc <-  rowMeans(top_tfs[auc_colnames])
-  top_tfs <- arrange(top_tfs, -avg_auc)
-  top_tfs$group<-group_by
-  return(top_tfs)
-}
-
-#Average markers across groups
-average_features<-function(x=out_subset,features=tf_$motif.feature,assay,group_by){
-    #Get gene activity scores data frame to summarize over subclusters (limit to handful of marker genes)
-    x[[assay]]<-as(object = x[[assay]], Class = "Assay")
-    dat_motif<-x[[assay]]@data[features,]
-    dat_motif<-as.data.frame(t(as.data.frame(dat_motif)))
-    sum_motif<-split(dat_motif,x@meta.data[,group_by]) #group by rows to seurat clusters
-    sum_motif<-lapply(sum_motif,function(x) apply(x,2,mean,na.rm=T)) #take average across group
-    sum_motif<-do.call("rbind",sum_motif) #condense to smaller data frame
-    sum_motif<-t(scale(sum_motif))
-    sum_motif<-sum_motif[row.names(sum_motif)%in%features,]
-    sum_motif<-sum_motif[complete.cases(sum_motif),]
-    return(sum_motif)
-}
-
-plot_top_tf_markers<-function(x=out_subset,group_by,prefix,n_markers=20,order_by_idents=TRUE,outdir="."){
-    #define markers
-    markers<-list(
-        Identify_Marker_TFs(x=x,group_by=group_by,assay="RNA",assay_name="RNA",prefix=prefix,outdir=outdir),
-        Identify_Marker_TFs(x=x,group_by=group_by,assay="GeneActivity",assay_name="GeneActivity",prefix=prefix,outdir=outdir),
-        Identify_Marker_TFs(x=x,group_by=group_by,assay="chromvar",assay_name="chromvar",prefix=prefix,outdir=outdir))
-    names(markers)<-c("RNA","GeneActivity","chromvar")
-    markers_out<-do.call("rbind",lapply(unique(x@meta.data[,group_by]),
-        function(group) head(topTFs(markers_list=markers,group_by=group,
-                        rna=markers$RNA,ga=markers$GeneActivity,motifs=markers$chromvar),
-                        n=n_markers))) #grab top 5 TF markers per celltype
-    markers_out<-markers_out[!duplicated(markers_out$gene),]
-    dim(markers_out)
-    #summarize markers
-    tf_rna<-average_features(x=x,features=markers_out$gene,assay="RNA",group_by=group_by)
-    tf_rna<-tf_rna[row.names(tf_rna) %in% markers_out$gene,]
-    tf_ga<-average_features(x=x,features=markers_out$gene,assay="GeneActivity",group_by=group_by)
-    tf_ga<-tf_ga[row.names(tf_ga) %in% markers_out$gene,]
-    tf_motif<-average_features(x=x,features=markers_out$chromvar.feature,assay="chromvar",group_by=group_by)
-    tf_motif<-tf_motif[row.names(tf_motif) %in% markers_out$chromvar.feature,]
-    row.names(tf_motif)<-markers_out[markers_out$chromvar.feature %in% row.names(tf_motif),]$gene
-    markers_list<-Reduce(intersect, list(row.names(tf_rna),row.names(tf_rna),row.names(tf_ga)))
-    tf_rna<-tf_rna[markers_list,]
-    tf_motif<-tf_motif[markers_list,]
-    tf_ga<-tf_ga[markers_list,]
-    average_matrix=(tf_rna+tf_motif+tf_ga)/3. #matrix averages for clustering
-    #average_matrix=tf_ga #just cluster by GENE activity expression
-    #set up heatmap seriation and order by GA
-    o_rows =dist(average_matrix) %>%
-                          hclust() %>%
-                          as.dendrogram()  %>%
-                          dendextend::ladderize()
-    o_col =dist(t(average_matrix),method="maximum") %>%
-                      hclust() %>%
-                      as.dendrogram()  %>%
-                      dendextend::ladderize()
-    side_ha_rna<-data.frame(ga_motif=markers_out[seriation::get_order(o_rows,1),]$RNA.auc)
-    #colfun_rna=colorRamp2(quantile(unlist(tf_rna), probs=c(0.5,0.90,0.95)),plasma(3))
-    colfun_rna=colorRamp2(c(0,1,2),viridis::plasma(3))
-
-    side_ha_motif<-data.frame(chromvar_motif=markers_out[get_order(o_rows,1),]$chromvar.auc)
-    #colfun_motif=colorRamp2(quantile(unlist(tf_motif), probs=c(0.5,0.90,0.95)),cividis(3))
-    colfun_motif=colorRamp2(c(0,1,2),viridis::cividis(3))
-
-    #Plot motifs alongside chromvar plot, to be added to the side with illustrator later
-    motif_list<-markers_out[markers_out$gene %in% markers_list,]$chromvar.feature
-
-
-    #plot into tmp_motif folder
-    #note anno_bar reorders, so just supply in motif list order here
-    system(paste0("rm -rf ",outdir,"/tmp_motifs"))
-    system(paste0("mkdir -p ",outdir,"/tmp_motifs"))
-    lapply(1:length(motif_list),function(i) {
-      plt<-MotifPlot(
-                    object = x,
-                    assay="ATAC",
-                    motifs = motif_list[i],ncol=1)+
-                    theme_void()+
-                    theme(strip.text = element_blank())
-      if(nchar(i)==1){i<-paste0("0",i)}
-      ggsave(plt,
-            file=paste0(i,"_",prefix,".tf.heatmap.motif.png"),
-            path=paste0(outdir,"/tmp_motifs/"),
-            height=3,
-            width=6,
-            limitsize=F)
-        })
-    motif_plots<-list.files(
-                path=paste0(outdir,"/tmp_motifs"),
-                pattern="*motif.png",
-                full.names=TRUE)
-
-    #plt<-MotifPlot(object = x,assay="ATAC",motifs = motif_list[get_order(o_rows,1)],ncol=1)+theme_void()+theme(strip.text = element_blank())
-    #ggsave(plt,file=paste0(prefix,".tf.heatmap.motif.pdf"),height=100,width=2,limitsize=F)
-    #ggsave(plt,file=paste0(prefix,".tf.heatmap.motif.svg"),height=100,width=2,limitsize=F)
-    #motif_image<-HeatmapAnnotation(motif=anno_image(paste0(prefix,".tf.heatmap.motif.pdf")))
-
-    side_ha_ga<-data.frame(ga_auc=markers_out[get_order(o_rows,1),]$GeneActivity.auc)
-    #colfun_ga=colorRamp2(quantile(unlist(tf_ga), probs=c(0.5,0.90,0.95)),magma(3))
-    colfun_ga=colorRamp2(c(0,1,2),viridis::magma(3))
-
-    side_ha_col<-colorRamp2(c(0,1),c("white","black"))
-    gene_ha = rowAnnotation(foo = anno_mark(at = c(1:nrow(tf_rna)), 
-                                  labels =row.names(tf_rna),
-                                  labels_gp=gpar(fontsize=6)),
-                            motifs = anno_image(motif_plots,border=FALSE,
-                                   space=unit(0,"mm"),width=unit(6,"mm"),height=unit(3,"mm")))
-    o_col<-if(order_by_idents){
-        levels(Idents(x))
-    }else{
-        as.factor(labels(o_col))}
-
-    rna_auc<-Heatmap(side_ha_rna,
-        cluster_rows = o_rows,
-        col=side_ha_col,
-        show_column_names=FALSE,
-        row_names_gp=gpar(fontsize=7))
-
-    rna_plot<-Heatmap(tf_rna,
-        cluster_rows = o_rows,
-        column_order=o_col,
-        name="RNA",
-        column_title="RNA",
-        col=colfun_rna,
-        column_names_gp = gpar(fontsize = 8),
-        show_row_names=FALSE,
-        column_names_rot=90)
-        #code to make dotplot
-        #rect_gp = gpar(type = "none"),
-        #cell_fun = function(j, i, x, y, width, height, fill) {
-        #  if(tf_rna[i, j]>0){
-        #    grid.circle(x = x, y = y, r = abs(tf_rna[i, j])/2 * min(unit.c(width, height)), 
-        #    gp = gpar(fill = colfun_rna(tf_rna[i, j]), col = NA))}})
-
-      ga_auc<-Heatmap(side_ha_ga,
-          cluster_rows = o_rows,         
-          col=side_ha_col,
-          show_column_names=FALSE,
-          row_names_gp=gpar(fontsize=7))
-
-      ga_plot<-Heatmap(tf_ga,
-          cluster_rows = o_rows,                 
-        column_order=o_col,
-          name="Gene Activity",
-          column_title="Gene Activity",
-          col=colfun_ga,
-          column_names_gp = gpar(fontsize = 8),
-          show_row_names=FALSE,
-          column_names_rot=90)
-          #code to make dotplot
-          #rect_gp = gpar(type = "none"),
-          #cell_fun = function(j, i, x, y, width, height, fill) {
-          #if(tf_ga[i, j]>0){
-          #  grid.circle(x = x, y = y, r = abs(tf_ga[i, j])/2 * min(unit.c(width, height)), 
-          #  gp = gpar(fill = colfun_ga(tf_ga[i, j]), col = NA))}})
-
-      motif_auc<-Heatmap(side_ha_motif,
-          cluster_rows = o_rows,          
-          col=side_ha_col,
-          show_row_names=FALSE,
-          show_column_names=FALSE,
-          row_names_gp=gpar(fontsize=7))
-
-      motif_plot<-Heatmap(tf_motif,
-          cluster_rows = o_rows,                 
-        column_order=o_col,
-          name="TF Motif",
-          column_title="TF Motif",
-          col=colfun_motif,
-          #right_annotation=motif_image, just add manually for now some dependencies missing
-          column_names_gp = gpar(fontsize = 8),
-          show_row_names=FALSE,
-          column_names_rot=90,
-          right_annotation=gene_ha)
-          #code to make dotplot
-          #rect_gp = gpar(type = "none"),
-          #cell_fun = function(j, i, x, y, width, height, fill) {
-          #if(tf_motif[i, j]>0){
-          #  grid.circle(x = x, y = y, r = abs(tf_motif[i, j])/2 * min(unit.c(width, height)), 
-          #  gp = gpar(fill = colfun_motif(tf_motif[i, j]), col = NA))}})
-      
-    
-    pdf(paste0(outdir,"/",prefix,".tf.heatmap.pdf"))
-    print(draw(ga_auc+ga_plot+rna_auc+rna_plot+motif_auc+motif_plot,row_title=prefix))
-    dev.off()
-
-}
-
-# #GSEA 
-gsea_enrichment<-function(prefix,dmrs,
-  gene_universe,
-  category="C3",subcategory="TFT:GTRD",
-  out_setname="TFT"){
-  top_p_gsea <- do.call("rbind",
-    lapply(unique(dmrs$group), 
-    function(i) {
-    #gene set
-    gene_list<-dmrs %>% dplyr::filter(group==i) %>% dplyr::filter(padj<0.05) %>% dplyr::filter(logFC>0) %>% pull(gene_name)
-    out<-runGSEA(gene_list, universe=gene_universe, category = category,subcategory=subcategory)
-    out$celltype<-i
-    return(out)
-    }
-    ))
- pltdat<-top_p_gsea %>% group_by(celltype) %>% slice_max(order_by = -padj, n = 5)
- plt<-ggplot(pltdat,aes(x=celltype,y=pathway))+
- geom_point(aes(size = -log10(padj), fill = overlap/size), shape=21)+
- theme_minimal() +  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
- saveRDS(top_p_gsea,file=paste0(outdir,"/",prefix,"_GSEA","_",out_setname,".rds"))
- return(plt)
- }
-
-#all cells by cell types
-plot_top_tf_markers(x=dat,group_by="assigned_celltype",prefix="celltypes",n_markers=10,order_by_idents=TRUE,outdir="~/fig1")
-
-markers <- presto:::wilcoxauc.Seurat(X = dat, group_by = "assigned_celltype", 
-  groups_use=unname(unlist(unique(dat@meta.data$assigned_celltype))),
-  y=unname(unlist(unique(dat@meta.data$assigned_celltype))), 
-  assay = 'data', seurat_assay = "ATAC")
-
-library(dplyr)
-markers<-markers %>% filter(pval<0.05)
-saveRDS(markers,file="celltypes.markers.peaks.df.rds")
-write.table(markers,file="celltypes.markers.peaks.df.tsv",col.names=T,sep="\t",quote=F,row.names=F)
+#figure 1 also includes cnv profiles (given by TM)
+saveRDS(dat,file="/home/groups/MohammedLab/bc_multiome/seurat_object/6_merged.celltyping.SeuratObject.rds")
